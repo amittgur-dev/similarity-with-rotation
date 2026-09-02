@@ -1,0 +1,146 @@
+:root{
+  --ink:#111;
+  --grey:#999;
+  --faint:#e8e8e8;
+  --sel:#4a90d9;
+  --mono:"SF Mono","Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--mono);color:var(--ink);display:flex;background:#fff}
+
+#canvasWrap{flex:1;position:relative;background:#fff}
+#canvas{width:100%;height:100%;display:block;touch-action:none;cursor:default}
+#canvas.panning{cursor:grabbing}
+#emptyHint{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  color:#ccc;font-size:0.72rem;letter-spacing:0.08em;pointer-events:none;
+  text-align:center;line-height:2;
+}
+#zoomBadge{
+  position:absolute;left:12px;bottom:10px;
+  font-size:0.6rem;color:#bbb;cursor:pointer;user-select:none;
+  padding:3px 7px;border:1px solid var(--faint);background:#fff;
+}
+#zoomBadge:hover{color:var(--ink);border-color:var(--ink)}
+
+#console{
+  width:270px;border-left:1px solid var(--faint);
+  display:flex;flex-direction:column;background:#fff;
+}
+#saveRow{
+  display:flex;align-items:center;gap:6px;
+  padding:10px 16px;border-bottom:1px solid var(--faint);
+}
+#canvasName{
+  flex:1;border:none;font-family:var(--mono);font-size:0.7rem;outline:none;
+  color:var(--ink);background:transparent;min-width:0;
+}
+#canvasName::placeholder{color:#ccc}
+#saveRow button{
+  font-family:var(--mono);font-size:0.6rem;border:1px solid var(--faint);
+  background:#fff;color:var(--grey);padding:4px 8px;cursor:pointer;
+}
+#saveRow button:hover{border-color:var(--ink);color:var(--ink)}
+
+#steps{padding:18px 16px;flex:1;overflow-y:auto}
+.panel{display:none}
+.panel.on{display:block}
+.panel>label{
+  display:block;font-size:0.6rem;letter-spacing:0.14em;color:var(--grey);
+  text-transform:uppercase;margin-bottom:10px;
+}
+.panel input[type=text]{
+  width:100%;border:none;border-bottom:1px solid var(--ink);
+  font-family:var(--mono);font-size:0.85rem;padding:4px 0;outline:none;
+  background:transparent;
+}
+.panel input[type=text]::placeholder{color:#ccc}
+.err{font-size:0.62rem;color:#c0392b;margin-top:6px;min-height:0.9em}
+.note{font-size:0.62rem;color:#bbb;margin-top:8px;line-height:1.6}
+
+.spec{
+  display:flex;align-items:center;gap:10px;
+  margin-top:10px;padding:8px;border:1px solid var(--faint);
+}
+.spec .pv{flex:0 0 44px;height:44px;display:flex;align-items:center;justify-content:center}
+.spec .fields{flex:1;display:flex;flex-direction:column;gap:5px}
+.spec .frow{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.spec .frow span{font-size:0.58rem;letter-spacing:0.1em;color:var(--grey);text-transform:uppercase}
+.spec input[type=number]{
+  width:56px;border:none;border-bottom:1px solid var(--faint);
+  font-family:var(--mono);font-size:0.78rem;text-align:right;outline:none;
+  background:transparent;color:var(--ink);
+}
+.spec input[type=number]:focus{border-bottom-color:var(--ink)}
+.seg{display:flex;border:1px solid var(--faint)}
+.seg button{
+  flex:1;font-family:var(--mono);font-size:0.56rem;padding:4px 2px;
+  border:none;background:#fff;color:var(--grey);cursor:pointer;letter-spacing:0.05em;
+  line-height:1.5;
+}
+.seg button.on{background:var(--ink);color:#fff}
+
+.fn{margin-top:16px;padding-top:12px;border-top:1px dashed var(--faint)}
+.fn .fnlabel{font-size:0.56rem;letter-spacing:0.12em;color:var(--grey);text-transform:uppercase;margin-bottom:8px}
+.fnrow{display:flex;align-items:center;gap:6px}
+.fnrow input[type=number]{
+  width:48px;border:none;border-bottom:1px solid var(--faint);
+  font-family:var(--mono);font-size:0.75rem;text-align:right;outline:none;background:transparent;
+}
+.fnrow button{
+  font-family:var(--mono);font-size:0.6rem;border:1px solid var(--ink);
+  background:#fff;padding:4px 8px;cursor:pointer;
+}
+.fnrow button:hover{background:var(--ink);color:#fff}
+.fn input[type=text]{font-size:0.72rem !important}
+
+.memberHead{
+  font-size:0.68rem;font-weight:700;margin-top:16px;
+  border-bottom:1px solid var(--faint);padding-bottom:4px;
+}
+.memberHead:first-of-type{margin-top:10px}
+
+.steprow{display:flex;gap:8px;margin-top:16px}
+.steprow button{
+  font-family:var(--mono);font-size:0.62rem;letter-spacing:0.08em;
+  border:1px solid var(--ink);background:#fff;color:var(--ink);
+  padding:7px 10px;cursor:pointer;flex:1;
+}
+.steprow button:hover:not(:disabled){background:var(--ink);color:#fff}
+.steprow button:disabled{border-color:var(--faint);color:#ccc;cursor:not-allowed}
+.steprow button.ghost{border-color:var(--faint);color:var(--grey)}
+.steprow button.ghost:hover{background:#fff;color:var(--ink);border-color:var(--ink)}
+
+#tray{
+  border-top:1px solid var(--faint);padding:12px;min-height:96px;max-height:170px;overflow-y:auto;
+  display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;
+}
+#trayLabel{font-size:0.55rem;letter-spacing:0.14em;color:#ccc;text-transform:uppercase;width:100%}
+.trayItem{
+  width:86px;height:86px;border:1px solid var(--faint);
+  display:flex;align-items:center;justify-content:center;
+  cursor:grab;background:#fff;position:relative;
+}
+.trayItem.arriving{opacity:0}
+.trayItem.landed{animation:trayPop .28s ease-out}
+@keyframes trayPop{
+  0%{transform:scale(0.7)}
+  60%{transform:scale(1.08)}
+  100%{transform:scale(1)}
+}
+#flyGhost{
+  position:fixed;z-index:20;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .45s cubic-bezier(.3,.7,.3,1);
+}
+.trayItem:hover{border-color:var(--ink)}
+.trayItem svg{pointer-events:none}
+.trayItem .x{
+  position:absolute;top:-7px;right:-7px;width:14px;height:14px;
+  border:1px solid var(--faint);background:#fff;color:var(--grey);
+  font-size:9px;line-height:12px;text-align:center;cursor:pointer;display:none;
+}
+.trayItem:hover .x{display:block}
+
+#ghost{position:fixed;pointer-events:none;opacity:0.6;z-index:10;display:none}

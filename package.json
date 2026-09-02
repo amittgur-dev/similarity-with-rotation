@@ -1,0 +1,12 @@
+{
+  "name": "stimulus-builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Research tool for building rotation/similarity stimuli — zero-build vanilla ES modules.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:browser": "node tests/browser/compare-with-prototype.mjs",
+    "serve": "python3 -m http.server 8080"
+  }
+}

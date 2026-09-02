@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stimulus Builder</title>
+<style>
+  :root{
+    --ink:#111;
+    --grey:#999;
+    --faint:#e8e8e8;
+    --sel:#4a90d9;
+    --mono:"SF Mono","Cascadia Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:var(--mono);color:var(--ink);display:flex;background:#fff}
+
+  #canvasWrap{flex:1;position:relative;background:#fff}
+  #canvas{width:100%;height:100%;display:block;touch-action:none;cursor:default}
+  #canvas.panning{cursor:grabbing}
+  #emptyHint{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    color:#ccc;font-size:0.72rem;letter-spacing:0.08em;pointer-events:none;
+    text-align:center;line-height:2;
+  }
+  #zoomBadge{
+    position:absolute;left:12px;bottom:10px;
+    font-size:0.6rem;color:#bbb;cursor:pointer;user-select:none;
+    padding:3px 7px;border:1px solid var(--faint);background:#fff;
+  }
+  #zoomBadge:hover{color:var(--ink);border-color:var(--ink)}
+
+  #console{
+    width:270px;border-left:1px solid var(--faint);
+    display:flex;flex-direction:column;background:#fff;
+  }
+  #saveRow{
+    display:flex;align-items:center;gap:6px;
+    padding:10px 16px;border-bottom:1px solid var(--faint);
+  }
+  #canvasName{
+    flex:1;border:none;font-family:var(--mono);font-size:0.7rem;outline:none;
+    color:var(--ink);background:transparent;min-width:0;
+  }
+  #canvasName::placeholder{color:#ccc}
+  #saveRow button{
+    font-family:var(--mono);font-size:0.6rem;border:1px solid var(--faint);
+    background:#fff;color:var(--grey);padding:4px 8px;cursor:pointer;
+  }
+  #saveRow button:hover{border-color:var(--ink);color:var(--ink)}
+
+  #steps{padding:18px 16px;flex:1;overflow-y:auto}
+  .panel{display:none}
+  .panel.on{display:block}
+  .panel>label{
+    display:block;font-size:0.6rem;letter-spacing:0.14em;color:var(--grey);
+    text-transform:uppercase;margin-bottom:10px;
+  }
+  .panel input[type=text]{
+    width:100%;border:none;border-bottom:1px solid var(--ink);
+    font-family:var(--mono);font-size:0.85rem;padding:4px 0;outline:none;
+    background:transparent;
+  }
+  .panel input[type=text]::placeholder{color:#ccc}
+  .err{font-size:0.62rem;color:#c0392b;margin-top:6px;min-height:0.9em}
+  .note{font-size:0.62rem;color:#bbb;margin-top:8px;line-height:1.6}
+
+  .spec{
+    display:flex;align-items:center;gap:10px;
+    margin-top:10px;padding:8px;border:1px solid var(--faint);
+  }
+  .spec .pv{flex:0 0 44px;height:44px;display:flex;align-items:center;justify-content:center}
+  .spec .fields{flex:1;display:flex;flex-direction:column;gap:5px}
+  .spec .frow{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+  .spec .frow span{font-size:0.58rem;letter-spacing:0.1em;color:var(--grey);text-transform:uppercase}
+  .spec input[type=number]{
+    width:56px;border:none;border-bottom:1px solid var(--faint);
+    font-family:var(--mono);font-size:0.78rem;text-align:right;outline:none;
+    background:transparent;color:var(--ink);
+  }
+  .spec input[type=number]:focus{border-bottom-color:var(--ink)}
+  .seg{display:flex;border:1px solid var(--faint)}
+  .seg button{
+    flex:1;font-family:var(--mono);font-size:0.56rem;padding:4px 2px;
+    border:none;background:#fff;color:var(--grey);cursor:pointer;letter-spacing:0.05em;
+    line-height:1.5;
+  }
+  .seg button.on{background:var(--ink);color:#fff}
+
+  .fn{margin-top:16px;padding-top:12px;border-top:1px dashed var(--faint)}
+  .fn .fnlabel{font-size:0.56rem;letter-spacing:0.12em;color:var(--grey);text-transform:uppercase;margin-bottom:8px}
+  .fnrow{display:flex;align-items:center;gap:6px}
+  .fnrow input[type=number]{
+    width:48px;border:none;border-bottom:1px solid var(--faint);
+    font-family:var(--mono);font-size:0.75rem;text-align:right;outline:none;background:transparent;
+  }
+  .fnrow button{
+    font-family:var(--mono);font-size:0.6rem;border:1px solid var(--ink);
+    background:#fff;padding:4px 8px;cursor:pointer;
+  }
+  .fnrow button:hover{background:var(--ink);color:#fff}
+  .fn input[type=text]{font-size:0.72rem !important}
+
+  .memberHead{
+    font-size:0.68rem;font-weight:700;margin-top:16px;
+    border-bottom:1px solid var(--faint);padding-bottom:4px;
+  }
+  .memberHead:first-of-type{margin-top:10px}
+
+  .steprow{display:flex;gap:8px;margin-top:16px}
+  .steprow button{
+    font-family:var(--mono);font-size:0.62rem;letter-spacing:0.08em;
+    border:1px solid var(--ink);background:#fff;color:var(--ink);
+    padding:7px 10px;cursor:pointer;flex:1;
+  }
+  .steprow button:hover:not(:disabled){background:var(--ink);color:#fff}
+  .steprow button:disabled{border-color:var(--faint);color:#ccc;cursor:not-allowed}
+  .steprow button.ghost{border-color:var(--faint);color:var(--grey)}
+  .steprow button.ghost:hover{background:#fff;color:var(--ink);border-color:var(--ink)}
+
+  #tray{
+    border-top:1px solid var(--faint);padding:12px;min-height:96px;max-height:170px;overflow-y:auto;
+    display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;
+  }
+  #trayLabel{font-size:0.55rem;letter-spacing:0.14em;color:#ccc;text-transform:uppercase;width:100%}
+  .trayItem{
+    width:86px;height:86px;border:1px solid var(--faint);
+    display:flex;align-items:center;justify-content:center;
+    cursor:grab;background:#fff;position:relative;
+  }
+  .trayItem.arriving{opacity:0}
+  .trayItem.landed{animation:trayPop .28s ease-out}
+  @keyframes trayPop{
+    0%{transform:scale(0.7)}
+    60%{transform:scale(1.08)}
+    100%{transform:scale(1)}
+  }
+  #flyGhost{
+    position:fixed;z-index:20;pointer-events:none;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .45s cubic-bezier(.3,.7,.3,1);
+  }
+  .trayItem:hover{border-color:var(--ink)}
+  .trayItem svg{pointer-events:none}
+  .trayItem .x{
+    position:absolute;top:-7px;right:-7px;width:14px;height:14px;
+    border:1px solid var(--faint);background:#fff;color:var(--grey);
+    font-size:9px;line-height:12px;text-align:center;cursor:pointer;display:none;
+  }
+  .trayItem:hover .x{display:block}
+
+  #ghost{position:fixed;pointer-events:none;opacity:0.6;z-index:10;display:none}
+</style>
+</head>
+<body>
+
+<div id="canvasWrap">
+  <svg id="canvas"></svg>
+  <div id="emptyHint">drag a shape here<br>· drag empty space to select · scroll to pan · ⌘/ctrl+scroll to zoom ·</div>
+  <div id="zoomBadge" title="reset view">100%</div>
+</div>
+
+<div id="console">
+  <div id="saveRow">
+    <input type="text" id="canvasName" placeholder="untitled canvas" autocomplete="off">
+    <button onclick="saveCanvas()" title="download canvas as .json">save</button>
+    <button onclick="$('loadFile').click()" title="load canvas .json">load</button>
+    <input type="file" id="loadFile" accept=".json" style="display:none">
+  </div>
+
+  <div id="steps">
+
+    <!-- creation -->
+    <div class="panel on" id="createPanel">
+      <label>New shape</label>
+      <input type="text" id="shapeInput" placeholder="shape — e.g. square, square 45" autocomplete="off">
+      <div class="err" id="err1"></div>
+      <div id="shapeSpec"></div>
+      <div id="anchorSection" style="display:none">
+        <input type="text" id="anchorInput" placeholder="sub-shape — e.g. diamond / none" autocomplete="off" style="margin-top:14px">
+        <div class="err" id="err2"></div>
+      </div>
+      <div class="steprow" id="createRow" style="display:none">
+        <button onclick="createShape()">create</button>
+      </div>
+      <p class="note">to build a question: place three objects, drag a box around them, then “make similarity question”.</p>
+    </div>
+
+    <!-- selection: single object -->
+    <div class="panel" id="selPanel">
+      <label>Object</label>
+      <div id="selSpecs"></div>
+
+      <div class="seg" id="labelSeg" style="margin-top:14px">
+        <button data-v="A">A</button>
+        <button data-v="B">B</button>
+        <button data-v="C">C</button>
+        <button data-v="">–</button>
+      </div>
+
+      <div class="fn" id="rvFn">
+        <div class="fnlabel">Rotational variant</div>
+        <div class="seg" id="rvScope" style="margin-bottom:8px">
+          <button data-v="whole" class="on">whole</button>
+          <button data-v="shape">shape</button>
+          <button data-v="anchors">sub-shapes</button>
+        </div>
+        <div class="fnrow">
+          <span style="font-size:0.58rem;color:var(--grey)">Δ</span>
+          <input type="number" id="rvDeg" value="45" step="15">
+          <span style="font-size:0.7rem;color:var(--grey)">°</span>
+          <button onclick="makeVariant()" style="flex:1">make variant</button>
+        </div>
+      </div>
+
+      <div class="fn" id="varyFn">
+        <div class="fnlabel">Vary (grid)</div>
+        <input type="text" id="varyInput" placeholder="shape 0,45,90 · sub 0:30:180" autocomplete="off">
+        <div class="err" id="errVary"></div>
+      </div>
+
+      <p class="note" id="groupedNote" style="display:none">this object belongs to a question — its position, size and sub-shape relative size are set by the group. rotations edited here update the group live.</p>
+
+      <div class="steprow">
+        <button class="ghost" onclick="deselect()">done</button>
+        <button id="dupBtn" onclick="duplicateSelected()">duplicate</button>
+        <button id="delBtn" onclick="deleteSelected()">delete</button>
+      </div>
+    </div>
+
+    <!-- selection: multiple objects -->
+    <div class="panel" id="multiPanel">
+      <label>Selection</label>
+      <div id="multiInfo" style="font-size:0.75rem"></div>
+      <div class="err" id="errMulti"></div>
+      <div class="steprow">
+        <button id="makeQBtn" onclick="makeQuestion()">make similarity question</button>
+      </div>
+      <div class="steprow">
+        <button class="ghost" onclick="deselect()">done</button>
+        <button onclick="deleteMulti()">delete all</button>
+      </div>
+    </div>
+
+    <!-- selection: question group -->
+    <div class="panel" id="qPanel">
+      <label>Similarity question</label>
+      <input type="text" id="qTitle" autocomplete="off">
+      <div class="fnrow" style="margin-top:12px">
+        <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">SIZE</span>
+        <input type="number" id="qSize" step="5" min="20" max="400">
+        <span style="font-size:0.7rem;color:var(--grey)">%</span>
+        <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em;margin-left:10px">SUB-SHAPE RELATIVE SIZE</span>
+        <input type="number" id="qRatio" step="2" min="5" max="60">
+        <span style="font-size:0.7rem;color:var(--grey)">%</span>
+      </div>
+      <div id="qMembers"></div>
+
+      <div class="fn">
+        <div class="fnlabel">New group</div>
+        <div class="note" id="qStruct" style="margin-top:0"></div>
+        <div class="seg" id="gvMode" style="margin:8px 0">
+          <button data-v="relation" class="on">same relation<br>different rotation</button>
+          <button data-v="reference">different reference<br>same relation</button>
+        </div>
+        <div class="fnrow">
+          <span style="font-size:0.58rem;color:var(--grey)" id="gvDegLabel">rotation A↔B,C</span>
+          <input type="number" id="qRelDeg" value="45" step="5">
+          <span style="font-size:0.7rem;color:var(--grey)">°</span>
+          <button onclick="makeGroupVariation()" style="flex:1">make group</button>
+        </div>
+      </div>
+
+      <div class="steprow">
+        <button class="ghost" onclick="deselect()">done</button>
+        <button onclick="ungroupQuestion()">ungroup</button>
+        <button onclick="deleteQuestion()">delete</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="tray">
+    <span id="trayLabel">created shapes</span>
+  </div>
+</div>
+
+<div id="ghost"></div>
+
+<script>
+/* ================= parser ================= */
+const NAMES={
+  triangle:{n:3}, square:{n:4,offset:45}, diamond:{n:4},
+  pentagon:{n:5}, hexagon:{n:6}, heptagon:{n:7}, septagon:{n:7},
+  octagon:{n:8}, nonagon:{n:9}, decagon:{n:10},
+  hendecagon:{n:11}, dodecagon:{n:12},
+  circle:{circle:true}, star:{star:5}
+};
+function parseShape(txt){
+  const t=txt.trim().toLowerCase();
+  if(!t) return null;
+  if(t==="none"||t==="-") return {none:true};
+  if(NAMES[t]) return {...NAMES[t], name:t};
+  const g=t.match(/^(\d+)(?:-?\s*gon)?$/);
+  if(g){const n=parseInt(g[1]); if(n>=3&&n<=24) return {n,name:n+"-gon"};}
+  const s=t.match(/^(\d+)-?\s*(?:point(?:ed)?\s*)?star$/)||t.match(/^star\s*(\d+)$/);
+  if(s){const n=parseInt(s[1]); if(n>=4&&n<=12) return {star:n,name:n+"-star"};}
+  return null;
+}
+function parseShapeWithRot(txt){
+  const m=txt.trim().match(/^(.*?)\s+(-?\d+)\s*°?$/);
+  if(m){
+    const p=parseShape(m[1]);
+    if(p&&!p.none) return {shape:p, rot:norm(parseInt(m[2]))};
+  }
+  const p=parseShape(txt);
+  return p?{shape:p, rot:null}:null;
+}
+
+/* ================= geometry ================= */
+function polyPts(n,r,offset=0){
+  const pts=[];const rot=(offset-90)*Math.PI/180;
+  for(let i=0;i<n;i++){
+    const a=rot+i*2*Math.PI/n;
+    pts.push([r*Math.cos(a),r*Math.sin(a)]);
+  }
+  return pts;
+}
+function starPts(n,r){
+  const pts=[];const rot=-Math.PI/2;const r2=r*0.45;
+  for(let i=0;i<2*n;i++){
+    const a=rot+i*Math.PI/n;
+    const rr=i%2===0?r:r2;
+    pts.push([rr*Math.cos(a),rr*Math.sin(a)]);
+  }
+  return pts;
+}
+function pathD(pts){return "M"+pts.map(p=>p[0].toFixed(2)+","+p[1].toFixed(2)).join("L")+"Z";}
+function rotPt(p,deg){
+  const a=deg*Math.PI/180;
+  return [p[0]*Math.cos(a)-p[1]*Math.sin(a), p[0]*Math.sin(a)+p[1]*Math.cos(a)];
+}
+function baseVerts(def,r,baseRot){
+  if(def.circle) return polyPts(6,r,baseRot);
+  if(def.star) return starPts(def.star,r).filter((_,i)=>i%2===0).map(p=>rotPt(p,baseRot));
+  return polyPts(def.n,r,(def.offset||0)+baseRot);
+}
+function shapeMarkup(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorRatio=0.18){
+  const out=[];
+  const hasAnchors=anchor&&!anchor.none;
+  if(!hasAnchors){
+    if(def.circle){
+      out.push(`<circle cx="0" cy="0" r="${r}" fill="#111"/>`);
+    }else{
+      const pts=def.star?starPts(def.star,r).map(p=>rotPt(p,baseRot))
+                        :polyPts(def.n,r,(def.offset||0)+baseRot);
+      out.push(`<path d="${pathD(pts)}" fill="#111"/>`);
+    }
+    return out.join("");
+  }
+  const sr=r*anchorRatio;
+  const verts=baseVerts(def,r,baseRot);
+  verts.forEach(v=>{
+    let rot=anchorRot;
+    if(frame==="vertex") rot=Math.atan2(v[1],v[0])*180/Math.PI+90+anchorRot;
+    if(anchor.circle){
+      out.push(`<circle cx="${v[0].toFixed(2)}" cy="${v[1].toFixed(2)}" r="${sr}" fill="#111"/>`);
+    }else{
+      const spts=anchor.star?starPts(anchor.star,sr):polyPts(anchor.n,sr,anchor.offset||0);
+      out.push(`<path d="${pathD(spts)}" fill="#111" transform="translate(${v[0].toFixed(2)},${v[1].toFixed(2)}) rotate(${rot.toFixed(1)})"/>`);
+    }
+  });
+  return out.join("");
+}
+
+/* ================= state ================= */
+const draft={shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:0.18};
+const tray=[];        // {id, def, anchor, baseRot, anchorRot, frame}
+const items=[];       // {id, trayRef, x,y, scale, baseRot, anchorRot, frame, label, qId}
+const questions=[];   // {id, title, a,b,c, cx,cy, s}
+let selId=null, selIds=[], selQId=null, uid=1;
+const view={tx:0,ty:0,z:1};
+const $=id=>document.getElementById(id);
+const BASE_R=70;
+const Q_DX=2.7, Q_DY=2.0;   // layout constants (× BASE_R × s)
+
+/* ================= spec rows ================= */
+function buildSpecRows(container, target, cfg){
+  const wrap=document.createElement("div");
+  const hasAnchors=cfg.anchor&&!cfg.anchor.none;
+  const row1=document.createElement("div");
+  row1.className="spec";
+  row1.innerHTML=
+    `<div class="pv">${miniSVG(cfg.def,target.baseRot)}</div>`+
+    `<div class="fields">`+
+      `<div class="frow"><span>${cfg.def.name}</span></div>`+
+      `<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.baseRot)}" data-f="baseRot">°</div>`+
+      (cfg.showSize?`<div class="frow"><span>size</span><input type="number" step="5" min="20" max="400" value="${Math.round(target.scale*100)}" data-f="size">%</div>`:"")+
+    `</div>`;
+  wrap.appendChild(row1);
+  if(hasAnchors){
+    const row2=document.createElement("div");
+    row2.className="spec";
+    const orientable=!cfg.anchor.circle;
+    row2.innerHTML=
+      `<div class="pv">${miniSVG(cfg.anchor,target.anchorRot,true)}</div>`+
+      `<div class="fields">`+
+        `<div class="frow"><span>${cfg.anchor.name} × ${vertCount(cfg.def)}</span></div>`+
+        (orientable?`<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.anchorRot)}" data-f="anchorRot">°</div>`:"")+
+        (cfg.showRatio===false?"":`<div class="frow"><span>relative size</span><input type="number" step="2" min="5" max="60" value="${Math.round((target.anchorRatio||0.18)*100)}" data-f="anchorRatio">%</div>`)+
+        `<div class="seg" data-f="frame">`+
+          `<button data-v="screen" class="${target.frame==="screen"?"on":""}">screen</button>`+
+          `<button data-v="vertex" class="${target.frame==="vertex"?"on":""}">vertex</button>`+
+        `</div>`+
+      `</div>`;
+    wrap.appendChild(row2);
+  }
+  wrap.querySelectorAll("input[data-f]").forEach(inp=>{
+    inp.addEventListener("input",()=>{
+      const f=inp.dataset.f;
+      const v=parseFloat(inp.value);
+      if(isNaN(v))return;
+      if(f==="size"){target.scale=Math.max(0.2,Math.min(4,v/100));}
+      else if(f==="anchorRatio"){target.anchorRatio=Math.max(0.05,Math.min(0.6,v/100));}
+      else{target[f]=norm(v);}
+      cfg.onChange();
+      const pvs=wrap.querySelectorAll(".pv");
+      if(pvs[0])pvs[0].innerHTML=miniSVG(cfg.def,target.baseRot);
+      if(pvs[1])pvs[1].innerHTML=miniSVG(cfg.anchor,target.anchorRot,true);
+    });
+  });
+  wrap.querySelectorAll('.seg[data-f="frame"] button').forEach(b=>{
+    b.onclick=()=>{
+      target.frame=b.dataset.v;
+      b.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+      cfg.onChange();
+    };
+  });
+  container.appendChild(wrap);
+}
+function miniSVG(def,rot,isAnchor){
+  const r=isAnchor?13:16;
+  return `<svg width="40" height="40" viewBox="-22 -22 44 44">${shapeMarkup(def,r,{none:true},"screen",rot,0)}</svg>`;
+}
+function vertCount(def){
+  if(def.circle)return 6;
+  if(def.star)return def.star;
+  return def.n;
+}
+function norm(v){return ((Math.round(v)%360)+360)%360;}
+
+/* ================= creation ================= */
+$("shapeInput").addEventListener("input",()=>{
+  const pr=parseShapeWithRot($("shapeInput").value);
+  const p=pr&&pr.shape;
+  if(pr&&pr.rot!==null)draft.baseRot=pr.rot;
+  if(!p||p.none){
+    $("shapeSpec").innerHTML="";$("anchorSection").style.display="none";$("createRow").style.display="none";
+    $("err1").textContent=$("shapeInput").value.trim()?"unrecognized shape name":"";
+    draft.shape=null;
+    return;
+  }
+  $("err1").textContent="";
+  draft.shape=p;
+  rebuildDraftRows();
+  $("anchorSection").style.display="block";
+  $("createRow").style.display="flex";
+});
+$("anchorInput").addEventListener("input",()=>{
+  const raw=$("anchorInput").value.trim();
+  if(raw===""||raw.toLowerCase()==="none"){
+    draft.anchor={none:true};$("err2").textContent="";rebuildDraftRows();return;
+  }
+  const pr=parseShapeWithRot(raw);
+  if(!pr){$("err2").textContent="unrecognized sub-shape name";draft.anchor={none:true};rebuildDraftRows();return;}
+  $("err2").textContent="";
+  if(pr.rot!==null)draft.anchorRot=pr.rot;
+  draft.anchor=pr.shape;
+  rebuildDraftRows();
+});
+function rebuildDraftRows(){
+  $("shapeSpec").innerHTML="";
+  if(!draft.shape)return;
+  buildSpecRows($("shapeSpec"),draft,{def:draft.shape,anchor:draft.anchor,showSize:false,onChange:()=>{}});
+}
+$("shapeInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("anchorInput").focus();});
+$("anchorInput").addEventListener("keydown",e=>{if(e.key==="Enter")createShape();});
+function createShape(){
+  if(!draft.shape)return;
+  const entry={id:uid++,def:draft.shape,anchor:draft.anchor,
+               baseRot:draft.baseRot,anchorRot:draft.anchorRot,frame:draft.frame,anchorRatio:draft.anchorRatio};
+  tray.push(entry);
+  // where the flight starts: the preview in the creation spec row
+  const srcPv=document.querySelector("#shapeSpec .pv");
+  const srcRect=srcPv?srcPv.getBoundingClientRect():null;
+  addTrayItem(entry);
+  const trayEl=$("tray").lastElementChild;
+  if(srcRect&&trayEl){
+    trayEl.classList.add("arriving");
+    const dstRect=trayEl.getBoundingClientRect();
+    const fly=document.createElement("div");
+    fly.id="flyGhost";
+    fly.innerHTML=trayPreviewSVG(entry,74);
+    Object.assign(fly.style,{left:srcRect.left+"px",top:srcRect.top+"px",
+                             width:srcRect.width+"px",height:srcRect.height+"px"});
+    document.body.appendChild(fly);
+    requestAnimationFrame(()=>{
+      Object.assign(fly.style,{left:dstRect.left+"px",top:dstRect.top+"px",
+                               width:dstRect.width+"px",height:dstRect.height+"px"});
+    });
+    fly.addEventListener("transitionend",()=>{
+      fly.remove();
+      trayEl.classList.remove("arriving");
+      trayEl.classList.add("landed");
+      setTimeout(()=>trayEl.classList.remove("landed"),320);
+    },{once:true});
+  }
+  $("shapeInput").value="";$("anchorInput").value="";
+  $("shapeSpec").innerHTML="";
+  $("anchorSection").style.display="none";$("createRow").style.display="none";
+  Object.assign(draft,{shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:0.18});
+  $("shapeInput").focus();
+}
+
+/* ================= panels ================= */
+function showPanel(id){
+  ["createPanel","selPanel","multiPanel","qPanel"].forEach(p=>$(p).classList.toggle("on",p===id));
+}
+function deselect(){
+  selId=null;selIds=[];selQId=null;
+  renderCanvas();showPanel("createPanel");
+}
+function openSelPanel(){
+  const it=items.find(i=>i.id===selId);
+  if(!it){showPanel("createPanel");return;}
+  const grouped=!!it.qId;
+  const e=it.trayRef;
+  $("selSpecs").innerHTML="";
+  buildSpecRows($("selSpecs"),it,{def:e.def,anchor:e.anchor,showSize:!grouped,showRatio:!grouped,onChange:()=>renderCanvas()});
+  $("labelSeg").style.display=grouped?"none":"flex";
+  $("rvFn").style.display=grouped?"none":"block";
+  $("varyFn").style.display=grouped?"none":"block";
+  $("dupBtn").style.display=grouped?"none":"block";
+  $("delBtn").style.display=grouped?"none":"block";
+  $("groupedNote").style.display=grouped?"block":"none";
+  if(!grouped){
+    document.querySelectorAll("#labelSeg button").forEach(b=>{
+      b.classList.toggle("on",b.dataset.v===(it.label||""));
+      b.onclick=()=>{
+        it.label=b.dataset.v||null;
+        document.querySelectorAll("#labelSeg button").forEach(x=>x.classList.toggle("on",x===b));
+        renderCanvas();
+      };
+    });
+    $("varyInput").value="";$("errVary").textContent="";
+  }
+  showPanel("selPanel");
+}
+function openMultiPanel(){
+  $("multiInfo").textContent=selIds.length+" objects selected";
+  const free=selIds.filter(id=>{const it=items.find(i=>i.id===id);return it&&!it.qId;});
+  const ok=selIds.length===3&&free.length===3;
+  $("makeQBtn").disabled=!ok;
+  $("errMulti").textContent=
+    selIds.length!==3?"a question needs exactly 3 objects":
+    free.length!==3?"some objects already belong to a question":"";
+  showPanel("multiPanel");
+}
+function openQPanel(){
+  const q=questions.find(q=>q.id===selQId);
+  if(!q){showPanel("createPanel");return;}
+  $("qTitle").value=q.title;
+  $("qSize").value=Math.round(q.s*100);
+  $("qRatio").value=Math.round((q.anchorRatio||0.18)*100);
+  const container=$("qMembers");
+  container.innerHTML="";
+  [["A",q.a],["B",q.b],["C",q.c]].forEach(([lab,id])=>{
+    const it=items.find(i=>i.id===id);
+    if(!it)return;
+    const h=document.createElement("div");
+    h.className="memberHead";h.textContent=lab;
+    container.appendChild(h);
+    buildSpecRows(container,it,{def:it.trayRef.def,anchor:it.trayRef.anchor,showSize:false,showRatio:false,onChange:()=>{renderCanvas();renderQStruct(q);}});
+  });
+  renderQStruct(q);
+  showPanel("qPanel");
+}
+$("qTitle").addEventListener("input",()=>{
+  const q=questions.find(q=>q.id===selQId);
+  if(q){q.title=$("qTitle").value;renderCanvas();}
+});
+$("qSize").addEventListener("input",()=>{
+  const q=questions.find(q=>q.id===selQId);
+  const v=parseFloat($("qSize").value);
+  if(!q||isNaN(v))return;
+  q.s=Math.max(0.2,Math.min(4,v/100));
+  layoutQuestion(q);
+  renderCanvas();
+});
+$("qRatio").addEventListener("input",()=>{
+  const q=questions.find(q=>q.id===selQId);
+  const v=parseFloat($("qRatio").value);
+  if(!q||isNaN(v))return;
+  q.anchorRatio=Math.max(0.05,Math.min(0.6,v/100));
+  layoutQuestion(q);
+  renderCanvas();
+  // sync per-member ratio fields in the panel
+  document.querySelectorAll('#qMembers input[data-f="anchorRatio"]').forEach(inp=>{
+    if(document.activeElement!==inp)inp.value=Math.round(q.anchorRatio*100);
+  });
+});
+
+/* ================= single-object ops ================= */
+function deleteSelected(){
+  const i=items.findIndex(x=>x.id===selId);
+  if(i>-1)items.splice(i,1);
+  deselect();
+}
+function deleteMulti(){
+  selIds.forEach(id=>{
+    const it=items.find(i=>i.id===id);
+    if(it&&it.qId)return; // grouped objects are deleted via their question
+    const i=items.findIndex(x=>x.id===id);
+    if(i>-1)items.splice(i,1);
+  });
+  deselect();
+}
+function duplicateSelected(){
+  const it=items.find(i=>i.id===selId);
+  if(!it)return;
+  const copy={...it,id:uid++,x:it.x+30/view.z,y:it.y+30/view.z,label:null,qId:null};
+  items.push(copy);
+  selId=copy.id;
+  renderCanvas();openSelPanel();
+}
+
+/* ================= rotational variant ================= */
+let rvScope="whole";
+document.querySelectorAll("#rvScope button").forEach(b=>{
+  b.onclick=()=>{
+    rvScope=b.dataset.v;
+    document.querySelectorAll("#rvScope button").forEach(x=>x.classList.toggle("on",x===b));
+  };
+});
+function makeVariant(){
+  const it=items.find(i=>i.id===selId);
+  if(!it)return;
+  const d=parseFloat($("rvDeg").value);
+  if(isNaN(d))return;
+  const v={...it,id:uid++,x:it.x+BASE_R*2.6*it.scale,label:null,qId:null};
+  if(rvScope==="whole"){
+    v.baseRot=norm(v.baseRot+d);
+    if(v.frame==="screen")v.anchorRot=norm(v.anchorRot+d);
+  }else if(rvScope==="shape"){
+    v.baseRot=norm(v.baseRot+d);
+    if(v.frame==="vertex")v.anchorRot=norm(v.anchorRot-d);
+  }else{
+    v.anchorRot=norm(v.anchorRot+d);
+  }
+  items.push(v);
+  selId=v.id;
+  renderCanvas();openSelPanel();
+}
+
+/* ================= vary grid ================= */
+function parseValues(tok){
+  if(tok.includes(":")){
+    const p=tok.split(":").map(Number);
+    if(p.length!==3||p.some(isNaN)||p[1]<=0)return null;
+    const out=[];
+    for(let v=p[0];v<=p[2]+1e-9;v+=p[1])out.push(norm(v));
+    return out.length?out:null;
+  }
+  const vals=tok.split(",").map(s=>parseFloat(s.trim()));
+  if(!vals.length||vals.some(isNaN))return null;
+  return vals.map(norm);
+}
+function parseVary(txt){
+  const m=txt.trim().toLowerCase().match(/^(?:shape\s+(\S+))?\s*(?:(?:sub|anchor)\s+(\S+))?$/);
+  if(!m||(!m[1]&&!m[2]))return null;
+  const res={};
+  if(m[1]){res.shape=parseValues(m[1]);if(!res.shape)return null;}
+  if(m[2]){res.anchor=parseValues(m[2]);if(!res.anchor)return null;}
+  return res;
+}
+function applyVary(){
+  const it=items.find(i=>i.id===selId);
+  if(!it)return;
+  const v=parseVary($("varyInput").value);
+  if(!v){$("errVary").textContent="can't parse — e.g. shape 0,45,90 sub 0:30:180";return;}
+  $("errVary").textContent="";
+  const shapes=v.shape||[it.baseRot];
+  const anchors=v.anchor||[it.anchorRot];
+  const gap=BASE_R*2.6*it.scale;
+  shapes.forEach((sr,ci)=>{
+    anchors.forEach((ss,ri)=>{
+      items.push({...it,id:uid++,baseRot:sr,anchorRot:ss,
+                  x:it.x+gap*(ci+1),y:it.y+gap*ri,label:null,qId:null});
+    });
+  });
+  renderCanvas();
+}
+$("varyInput").addEventListener("keydown",e=>{if(e.key==="Enter")applyVary();});
+
+/* ================= questions ================= */
+function assignABC(sel){
+  // labels win if present and unique
+  const byLabel={};
+  sel.forEach(it=>{if(it.label&&!byLabel[it.label])byLabel[it.label]=it;});
+  if(byLabel.A&&byLabel.B&&byLabel.C&&new Set([byLabel.A.id,byLabel.B.id,byLabel.C.id]).size===3){
+    return [byLabel.A,byLabel.B,byLabel.C];
+  }
+  // geometric: topmost = A; of the rest, leftmost = B, rightmost = C
+  const sorted=[...sel].sort((p,q)=>p.y-q.y);
+  const A=sorted[0];
+  const rest=sorted.slice(1).sort((p,q)=>p.x-q.x);
+  return [A,rest[0],rest[1]];
+}
+function qDefaultTitle(A,B,C){
+  const n=questions.length+1;
+  const sig=it=>{
+    const d=it.trayRef.def.name;
+    const s=it.trayRef.anchor&&!it.trayRef.anchor.none?"/"+it.trayRef.anchor.name:"";
+    return d+s;
+  };
+  const f=it=>`(${norm(it.baseRot)},${norm(it.anchorRot)})`;
+  // same construction for all three → name it once; otherwise per member
+  if(sig(A)===sig(B)&&sig(A)===sig(C)){
+    return `Q${n} · ${sig(A)} · A${f(A)} B${f(B)} C${f(C)}`;
+  }
+  return `Q${n} · A ${sig(A)}${f(A)} B ${sig(B)}${f(B)} C ${sig(C)}${f(C)}`;
+}
+function layoutQuestion(q){
+  const A=items.find(i=>i.id===q.a);
+  const B=items.find(i=>i.id===q.b);
+  const C=items.find(i=>i.id===q.c);
+  if(!A||!B||!C)return;
+  const dx=BASE_R*Q_DX*q.s, dy=BASE_R*Q_DY*q.s;
+  A.scale=B.scale=C.scale=q.s;
+  if(q.anchorRatio)A.anchorRatio=B.anchorRatio=C.anchorRatio=q.anchorRatio;
+  A.x=q.cx;      A.y=q.cy-dy;
+  B.x=q.cx-dx;   B.y=q.cy+dy;
+  C.x=q.cx+dx;   C.y=q.cy+dy;
+  A.label="A";B.label="B";C.label="C";
+}
+function makeQuestion(){
+  const sel=selIds.map(id=>items.find(i=>i.id===id)).filter(Boolean);
+  if(sel.length!==3||sel.some(it=>it.qId))return;
+  const [A,B,C]=assignABC(sel);
+  const q={
+    id:uid++,
+    title:qDefaultTitle(A,B,C),
+    a:A.id,b:B.id,c:C.id,
+    cx:(A.x+B.x+C.x)/3,
+    cy:(A.y+B.y+C.y)/3,
+    s:(A.scale+B.scale+C.scale)/3,
+    anchorRatio:((A.anchorRatio||0.18)+(B.anchorRatio||0.18)+(C.anchorRatio||0.18))/3
+  };
+  [A,B,C].forEach(it=>it.qId=q.id);
+  questions.push(q);
+  layoutQuestion(q);
+  selIds=[];selId=null;selQId=q.id;
+  renderCanvas();
+  openQPanel();
+}
+function ungroupQuestion(){
+  const q=questions.find(q=>q.id===selQId);
+  if(q){
+    [q.a,q.b,q.c].forEach(id=>{
+      const it=items.find(i=>i.id===id);
+      if(it)it.qId=null;
+    });
+    questions.splice(questions.indexOf(q),1);
+  }
+  deselect();
+}
+function deleteQuestion(){
+  const q=questions.find(q=>q.id===selQId);
+  if(q){
+    [q.a,q.b,q.c].forEach(id=>{
+      const i=items.findIndex(x=>x.id===id);
+      if(i>-1)items.splice(i,1);
+    });
+    questions.splice(questions.indexOf(q),1);
+  }
+  deselect();
+}
+
+/* ---- same structure, different rotation ----
+   The structure of a question = how B and C differ from the reference A,
+   per component (shape rotation / sub-shape rotation), with direction.
+   A new group keeps that pattern but replaces the magnitude with the chosen rotation. */
+function signedDelta(from,to){return ((to-from+540)%360)-180;}
+function structureOf(q){
+  const A=items.find(i=>i.id===q.a);
+  const B=items.find(i=>i.id===q.b);
+  const C=items.find(i=>i.id===q.c);
+  if(!A||!B||!C)return null;
+  const rel=X=>({dBase:signedDelta(A.baseRot,X.baseRot), dAnchor:signedDelta(A.anchorRot,X.anchorRot)});
+  return {A,B,C,relB:rel(B),relC:rel(C)};
+}
+function describeRel(lab,rel){
+  const parts=[];
+  if(Math.abs(rel.dBase)>=1)parts.push(`shape ${rel.dBase>0?"+":"−"}${Math.abs(Math.round(rel.dBase))}°`);
+  if(Math.abs(rel.dAnchor)>=1)parts.push(`sub-shapes ${rel.dAnchor>0?"+":"−"}${Math.abs(Math.round(rel.dAnchor))}°`);
+  return `${lab} = A ${parts.length?"with "+parts.join(", "):"(identical)"}`;
+}
+function renderQStruct(q){
+  const s=structureOf(q);
+  if(!s){$("qStruct").textContent="";return;}
+  $("qStruct").innerHTML=describeRel("B",s.relB)+"<br>"+describeRel("C",s.relC);
+}
+let gvMode="relation";
+document.querySelectorAll("#gvMode button").forEach(b=>{
+  b.onclick=()=>{
+    gvMode=b.dataset.v;
+    document.querySelectorAll("#gvMode button").forEach(x=>x.classList.toggle("on",x===b));
+    $("gvDegLabel").textContent=gvMode==="relation"?"rotation A↔B,C":"turn everything";
+  };
+});
+function makeGroupVariation(){
+  const q=questions.find(q=>q.id===selQId);
+  if(!q)return;
+  const d=parseFloat($("qRelDeg").value);
+  if(isNaN(d))return;
+  const s=structureOf(q);
+  if(!s)return;
+  let nA,nB,nC;
+  if(gvMode==="relation"){
+    /* same relation, different rotation:
+       A unchanged; B,C rebuilt from A with the chosen magnitude on the
+       components (and directions) in which they originally differed. */
+    const apply=(rel)=>{
+      const copy={...s.A,id:uid++,qId:null,label:null};
+      if(Math.abs(rel.dBase)>=1)  copy.baseRot  =norm(s.A.baseRot  +Math.sign(rel.dBase)*d);
+      if(Math.abs(rel.dAnchor)>=1)copy.anchorRot=norm(s.A.anchorRot+Math.sign(rel.dAnchor)*d);
+      items.push(copy);
+      return copy;
+    };
+    nA={...s.A,id:uid++,qId:null,label:null};
+    items.push(nA);
+    nB=apply(s.relB);
+    nC=apply(s.relC);
+  }else{
+    /* different reference, same relation:
+       every member turns as a whole by d — the exact A→B and A→C offsets
+       are preserved; only the orientation of the reference changes. */
+    const turn=(src)=>{
+      const copy={...src,id:uid++,qId:null,label:null};
+      copy.baseRot=norm(copy.baseRot+d);
+      if(copy.frame==="screen")copy.anchorRot=norm(copy.anchorRot+d);
+      items.push(copy);
+      return copy;
+    };
+    nA=turn(s.A);nB=turn(s.B);nC=turn(s.C);
+  }
+  const gapX=2*(BASE_R*Q_DX*q.s)+BASE_R*2.4*q.s;
+  const nq={
+    id:uid++,
+    title:"",
+    a:nA.id,b:nB.id,c:nC.id,
+    cx:q.cx+gapX,
+    cy:q.cy,
+    s:q.s,
+    anchorRatio:q.anchorRatio
+  };
+  [nA,nB,nC].forEach(it=>it.qId=nq.id);
+  questions.push(nq);
+  nq.title=qDefaultTitle(nA,nB,nC);
+  layoutQuestion(nq);
+  selQId=nq.id;
+  renderCanvas();
+  openQPanel();
+}
+
+/* ================= tray ================= */
+function trayPreviewSVG(entry,size){
+  return `<svg width="${size}" height="${size}" viewBox="-60 -60 120 120">${shapeMarkup(entry.def,42,entry.anchor,entry.frame,entry.baseRot,entry.anchorRot,entry.anchorRatio||0.18)}</svg>`;
+}
+function addTrayItem(entry){
+  const d=document.createElement("div");
+  d.className="trayItem";d.dataset.id=entry.id;
+  d.innerHTML=trayPreviewSVG(entry,74)+`<span class="x" title="remove">×</span>`;
+  d.querySelector(".x").onclick=e=>{e.stopPropagation();d.remove();};
+  d.addEventListener("pointerdown",e=>startTrayDrag(e,entry));
+  $("tray").appendChild(d);
+}
+const ghost=$("ghost");
+let dragEntry=null;
+function startTrayDrag(e,entry){
+  e.preventDefault();
+  dragEntry=entry;
+  ghost.innerHTML=trayPreviewSVG(entry,70);
+  ghost.style.display="block";
+  moveGhost(e);
+  window.addEventListener("pointermove",moveGhost);
+  window.addEventListener("pointerup",dropGhost,{once:true});
+}
+function moveGhost(e){
+  ghost.style.left=(e.clientX-35)+"px";
+  ghost.style.top=(e.clientY-35)+"px";
+}
+function dropGhost(e){
+  window.removeEventListener("pointermove",moveGhost);
+  ghost.style.display="none";
+  const wrap=$("canvasWrap").getBoundingClientRect();
+  if(e.clientX>=wrap.left&&e.clientX<=wrap.right&&e.clientY>=wrap.top&&e.clientY<=wrap.bottom&&dragEntry){
+    const w=toWorld(e.clientX-wrap.left,e.clientY-wrap.top);
+    items.push({id:uid++,trayRef:dragEntry,x:w.x,y:w.y,
+                scale:1,baseRot:dragEntry.baseRot,anchorRot:dragEntry.anchorRot,frame:dragEntry.frame,
+                anchorRatio:dragEntry.anchorRatio||0.18,label:null,qId:null});
+    selId=items[items.length-1].id;selIds=[];selQId=null;
+    renderCanvas();openSelPanel();
+  }
+  dragEntry=null;
+}
+
+/* ================= canvas render ================= */
+const svg=$("canvas");
+let rubber=null; // {x0,y0,x1,y1} world coords
+function toWorld(px,py){return {x:(px-view.tx)/view.z, y:(py-view.ty)/view.z};}
+function renderCanvas(){
+  $("emptyHint").style.display=items.length?"none":"block";
+  $("zoomBadge").textContent=Math.round(view.z*100)+"%";
+  let out=`<g transform="translate(${view.tx},${view.ty}) scale(${view.z})">`;
+  questions.forEach(q=>{
+    const A=items.find(i=>i.id===q.a);
+    if(!A)return;
+    const ty=A.y-BASE_R*1.25*A.scale-26;
+    const selQ=q.id===selQId;
+    out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="13" fill="#111" style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${escapeXML(q.title)}</text>`;
+    if(selQ){
+      const dx=BASE_R*Q_DX*q.s+BASE_R*1.4*q.s, dy=BASE_R*Q_DY*q.s+BASE_R*1.5*q.s;
+      out+=`<rect x="${q.cx-dx}" y="${q.cy-dy-14}" width="${2*dx}" height="${2*dy+14}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;
+    }
+  });
+  items.forEach(it=>{
+    const e=it.trayRef;
+    out+=`<g class="item" data-id="${it.id}" transform="translate(${it.x},${it.y}) scale(${it.scale})">`+
+         shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||0.18)+`</g>`;
+    if(it.label){
+      const ly=it.y+BASE_R*1.25*it.scale+20;
+      out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">${it.label}</text>`;
+    }
+    const inMulti=selIds.includes(it.id);
+    if(it.id===selId||inMulti){
+      const b=BASE_R*1.25*it.scale, hs=6/view.z;
+      out+=`<g transform="translate(${it.x},${it.y})">`+
+        `<rect x="${-b}" y="${-b}" width="${2*b}" height="${2*b}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${4/view.z} ${3/view.z}"/>`;
+      if(it.id===selId&&!it.qId){
+        out+=`<rect data-h="scale" x="${b-hs}" y="${b-hs}" width="${2*hs}" height="${2*hs}" fill="#fff" stroke="#4a90d9" stroke-width="${1/view.z}" style="cursor:nwse-resize"/>`+
+             `<line x1="0" y1="${-b}" x2="0" y2="${-b-22/view.z}" stroke="#4a90d9" stroke-width="${1/view.z}"/>`+
+             `<circle data-h="rot" cx="0" cy="${-b-27/view.z}" r="${5/view.z}" fill="#fff" stroke="#4a90d9" stroke-width="${1/view.z}" style="cursor:crosshair"/>`;
+      }
+      out+=`</g>`;
+    }
+  });
+  if(rubber){
+    const x=Math.min(rubber.x0,rubber.x1), y=Math.min(rubber.y0,rubber.y1);
+    const w=Math.abs(rubber.x1-rubber.x0), h=Math.abs(rubber.y1-rubber.y0);
+    out+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(74,144,217,0.06)" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${3/view.z} ${3/view.z}"/>`;
+  }
+  out+="</g>";
+  svg.innerHTML=out;
+}
+function escapeXML(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+$("zoomBadge").onclick=()=>{view.tx=0;view.ty=0;view.z=1;renderCanvas();};
+
+/* ================= canvas interaction ================= */
+let mode=null, dragIt=null, dragQ=null, start={};
+let spaceHeld=false;
+svg.addEventListener("pointerdown",e=>{
+  const t=e.target;
+  const h=t.dataset&&t.dataset.h;
+  const qid=t.dataset&&t.dataset.qid;
+  const gEl=t.closest&&t.closest("g.item");
+  const rect=svg.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+  const pt=toWorld(px,py);
+
+  if(spaceHeld||e.button===1){
+    mode="pan";start={px,py,tx:view.tx,ty:view.ty};
+    svg.classList.add("panning");
+    svg.setPointerCapture(e.pointerId);
+    return;
+  }
+  if(qid){
+    selQId=parseInt(qid);selId=null;selIds=[];
+    const q=questions.find(q=>q.id===selQId);
+    mode="moveQ";dragQ=q;
+    start={dx:pt.x-q.cx,dy:pt.y-q.cy};
+    renderCanvas();openQPanel();
+    svg.setPointerCapture(e.pointerId);
+    return;
+  }
+  if(h&&selId!=null){
+    dragIt=items.find(i=>i.id===selId);
+    mode=h;
+    start={scale:dragIt.scale,rot:dragIt.baseRot,
+           d0:Math.hypot(pt.x-dragIt.x,pt.y-dragIt.y),
+           a0:Math.atan2(pt.y-dragIt.y,pt.x-dragIt.x)*180/Math.PI};
+  }else if(gEl){
+    const id=parseInt(gEl.dataset.id);
+    const it=items.find(i=>i.id===id);
+    if(it.qId){
+      // member of a question → select & drag the whole group
+      selQId=it.qId;selId=null;selIds=[];
+      const q=questions.find(q=>q.id===selQId);
+      mode="moveQ";dragQ=q;
+      start={dx:pt.x-q.cx,dy:pt.y-q.cy};
+      renderCanvas();openQPanel();
+    }else{
+      selId=id;selIds=[];selQId=null;
+      dragIt=it;
+      mode="move";
+      start={dx:pt.x-it.x,dy:pt.y-it.y};
+      renderCanvas();openSelPanel();
+    }
+  }else{
+    // empty canvas → rubber band
+    selId=null;selIds=[];selQId=null;
+    mode="rubber";
+    rubber={x0:pt.x,y0:pt.y,x1:pt.x,y1:pt.y};
+    renderCanvas();
+  }
+  svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener("pointermove",e=>{
+  if(!mode)return;
+  const rect=svg.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+  if(mode==="pan"){
+    view.tx=start.tx+(px-start.px);
+    view.ty=start.ty+(py-start.py);
+    renderCanvas();return;
+  }
+  const pt=toWorld(px,py);
+  if(mode==="rubber"){
+    rubber.x1=pt.x;rubber.y1=pt.y;
+    renderCanvas();return;
+  }
+  if(mode==="moveQ"&&dragQ){
+    dragQ.cx=pt.x-start.dx;
+    dragQ.cy=pt.y-start.dy;
+    layoutQuestion(dragQ);
+    renderCanvas();return;
+  }
+  if(!dragIt)return;
+  if(mode==="move"){dragIt.x=pt.x-start.dx;dragIt.y=pt.y-start.dy;}
+  else if(mode==="scale"){
+    const d=Math.hypot(pt.x-dragIt.x,pt.y-dragIt.y);
+    dragIt.scale=Math.max(0.2,Math.min(4,start.scale*d/start.d0));
+    syncSelPanelNumbers();
+  }
+  else if(mode==="rot"){
+    const a=Math.atan2(pt.y-dragIt.y,pt.x-dragIt.x)*180/Math.PI;
+    let r=start.rot+(a-start.a0);
+    if(e.shiftKey)r=Math.round(r/15)*15;
+    dragIt.baseRot=norm(r);
+    syncSelPanelNumbers();
+  }
+  renderCanvas();
+});
+svg.addEventListener("pointerup",e=>{
+  if(mode==="rubber"&&rubber){
+    const x0=Math.min(rubber.x0,rubber.x1), x1=Math.max(rubber.x0,rubber.x1);
+    const y0=Math.min(rubber.y0,rubber.y1), y1=Math.max(rubber.y0,rubber.y1);
+    const caught=items.filter(i=>i.x>=x0&&i.x<=x1&&i.y>=y0&&i.y<=y1).map(i=>i.id);
+    rubber=null;
+    if(caught.length===0){deselect();}
+    else if(caught.length===1){
+      const it=items.find(i=>i.id===caught[0]);
+      if(it.qId){selQId=it.qId;renderCanvas();openQPanel();}
+      else{selId=caught[0];renderCanvas();openSelPanel();}
+    }
+    else{selIds=caught;renderCanvas();openMultiPanel();}
+  }
+  mode=null;dragIt=null;dragQ=null;svg.classList.remove("panning");
+});
+svg.addEventListener("dblclick",e=>{
+  const gEl=e.target.closest&&e.target.closest("g.item");
+  if(!gEl)return;
+  const id=parseInt(gEl.dataset.id);
+  const it=items.find(i=>i.id===id);
+  if(!it||!it.qId)return; // ungrouped objects already open on single click
+  selId=id;selQId=null;selIds=[];
+  mode=null;dragQ=null;
+  renderCanvas();
+  openSelPanel();
+});
+svg.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const rect=svg.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+  if(e.ctrlKey||e.metaKey){
+    const f=e.deltaY<0?1.08:0.93;
+    const z2=Math.max(0.2,Math.min(4,view.z*f));
+    view.tx=px-(px-view.tx)*(z2/view.z);
+    view.ty=py-(py-view.ty)*(z2/view.z);
+    view.z=z2;
+  }else{
+    view.tx-=e.deltaX;
+    view.ty-=e.deltaY;
+  }
+  renderCanvas();
+},{passive:false});
+window.addEventListener("keydown",e=>{
+  if(e.code==="Space"&&document.activeElement.tagName!=="INPUT"){spaceHeld=true;}
+  if((e.key==="Backspace"||e.key==="Delete")&&document.activeElement.tagName!=="INPUT"){
+    if(selId!=null)deleteSelected();
+    else if(selIds.length)deleteMulti();
+    else if(selQId!=null)deleteQuestion();
+  }
+  if((e.metaKey||e.ctrlKey)&&e.key==="d"&&selId!=null){
+    e.preventDefault();duplicateSelected();
+  }
+});
+window.addEventListener("keyup",e=>{
+  if(e.code==="Space")spaceHeld=false;
+});
+function syncSelPanelNumbers(){
+  const it=items.find(i=>i.id===selId);
+  if(!it)return;
+  const rotIn=document.querySelector('#selSpecs input[data-f="baseRot"]');
+  if(rotIn&&document.activeElement!==rotIn)rotIn.value=norm(it.baseRot);
+  const sizeIn=document.querySelector('#selSpecs input[data-f="size"]');
+  if(sizeIn&&document.activeElement!==sizeIn)sizeIn.value=Math.round(it.scale*100);
+}
+
+/* ================= save / load ================= */
+function saveCanvas(){
+  const name=($("canvasName").value.trim()||"untitled-canvas").replace(/\s+/g,"-");
+  const data={
+    version:3,
+    name,
+    view:{...view},
+    tray:tray.map(t=>({id:t.id,def:t.def,anchor:t.anchor,baseRot:t.baseRot,anchorRot:t.anchorRot,frame:t.frame,anchorRatio:t.anchorRatio||0.18})),
+    items:items.map(i=>({id:i.id,trayId:i.trayRef.id,x:i.x,y:i.y,scale:i.scale,
+                         baseRot:i.baseRot,anchorRot:i.anchorRot,frame:i.frame,anchorRatio:i.anchorRatio||0.18,
+                         label:i.label||null,qId:i.qId||null})),
+    questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||0.18}))
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=name+".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+$("loadFile").addEventListener("change",e=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const data=JSON.parse(rd.result);
+      if(!data.tray||!data.items)throw new Error("not a canvas file");
+      tray.length=0;items.length=0;questions.length=0;
+      selId=null;selIds=[];selQId=null;
+      document.querySelectorAll(".trayItem").forEach(el=>el.remove());
+      data.tray.forEach(t=>{
+        const entry={id:t.id,def:t.def,anchor:t.anchor||t.sub,baseRot:t.baseRot||0,anchorRot:(t.anchorRot!=null?t.anchorRot:t.subRot)||0,frame:t.frame||"screen",anchorRatio:t.anchorRatio||t.subRatio||0.18};
+        tray.push(entry);addTrayItem(entry);
+        uid=Math.max(uid,t.id+1);
+      });
+      data.items.forEach(i=>{
+        const ref=tray.find(t=>t.id===i.trayId);
+        if(!ref)return;
+        items.push({id:i.id,trayRef:ref,x:i.x,y:i.y,scale:i.scale,
+                    baseRot:i.baseRot,anchorRot:(i.anchorRot!=null?i.anchorRot:i.subRot)||0,frame:i.frame,anchorRatio:i.anchorRatio||i.subRatio||0.18,
+                    label:i.label||null,qId:i.qId||null});
+        uid=Math.max(uid,i.id+1);
+      });
+      // v3 questions, or convert v2 "trials"
+      const qs=data.questions||(data.trials||[]).map(t=>{
+        const A=data.items.find(i=>i.id===t.a),B=data.items.find(i=>i.id===t.b),C=data.items.find(i=>i.id===t.c);
+        if(!A||!B||!C)return null;
+        return {id:t.id,title:t.title,a:t.a,b:t.b,c:t.c,
+                cx:(A.x+B.x+C.x)/3,cy:(A.y+B.y+C.y)/3,s:A.scale||1};
+      }).filter(Boolean);
+      qs.forEach(q=>{
+        questions.push({...q,anchorRatio:q.anchorRatio||q.subRatio||0.18});
+        [q.a,q.b,q.c].forEach(id=>{
+          const it=items.find(i=>i.id===id);
+          if(it)it.qId=q.id;
+        });
+        uid=Math.max(uid,q.id+1);
+      });
+      questions.forEach(layoutQuestion);
+      if(data.view)Object.assign(view,data.view);
+      $("canvasName").value=data.name||"";
+      renderCanvas();showPanel("createPanel");
+    }catch(err){
+      alert("Could not load canvas: "+err.message);
+    }
+    e.target.value="";
+  };
+  rd.readAsText(f);
+});
+
+new ResizeObserver(()=>renderCanvas()).observe($("canvasWrap"));
+renderCanvas();
+$("shapeInput").focus();
+</script>
+</body>
+</html>

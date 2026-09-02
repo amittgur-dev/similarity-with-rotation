@@ -1,0 +1,229 @@
+/* The SVG canvas: rendering of items/questions/selection and all pointer,
+   wheel and keyboard interaction. */
+
+import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup, norm } from "./geometry.js";
+import { items, questions, sel, view, findItem, findQuestion } from "./state.js";
+import { $, escapeXML } from "./dom.js";
+import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers } from "./console.js";
+import { layoutQuestion, deleteQuestion } from "./questions.js";
+
+let svg=null;
+let rubber=null; // {x0,y0,x1,y1} world coords
+
+export function toWorld(px,py){return {x:(px-view.tx)/view.z, y:(py-view.ty)/view.z};}
+
+export function renderCanvas(){
+  if(!svg)return;
+  $("emptyHint").style.display=items.length?"none":"block";
+  $("zoomBadge").textContent=Math.round(view.z*100)+"%";
+  let out=`<g transform="translate(${view.tx},${view.ty}) scale(${view.z})">`;
+  questions.forEach(q=>{
+    const A=findItem(q.a);
+    if(!A)return;
+    const ty=A.y-BASE_R*1.25*A.scale-26;
+    const selQ=q.id===sel.qId;
+    out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="13" fill="#111" style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${escapeXML(q.title)}</text>`;
+    if(selQ){
+      const dx=BASE_R*Q_DX*q.s+BASE_R*1.4*q.s, dy=BASE_R*Q_DY*q.s+BASE_R*1.5*q.s;
+      out+=`<rect x="${q.cx-dx}" y="${q.cy-dy-14}" width="${2*dx}" height="${2*dy+14}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;
+    }
+  });
+  items.forEach(it=>{
+    const e=it.trayRef;
+    out+=`<g class="item" data-id="${it.id}" transform="translate(${it.x},${it.y}) scale(${it.scale})">`+
+         shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO)+`</g>`;
+    if(it.label){
+      const ly=it.y+BASE_R*1.25*it.scale+20;
+      out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">${it.label}</text>`;
+    }
+    const inMulti=sel.ids.includes(it.id);
+    if(it.id===sel.id||inMulti){
+      const b=BASE_R*1.25*it.scale, hs=6/view.z;
+      out+=`<g transform="translate(${it.x},${it.y})">`+
+        `<rect x="${-b}" y="${-b}" width="${2*b}" height="${2*b}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${4/view.z} ${3/view.z}"/>`;
+      if(it.id===sel.id&&!it.qId){
+        out+=`<rect data-h="scale" x="${b-hs}" y="${b-hs}" width="${2*hs}" height="${2*hs}" fill="#fff" stroke="#4a90d9" stroke-width="${1/view.z}" style="cursor:nwse-resize"/>`+
+             `<line x1="0" y1="${-b}" x2="0" y2="${-b-22/view.z}" stroke="#4a90d9" stroke-width="${1/view.z}"/>`+
+             `<circle data-h="rot" cx="0" cy="${-b-27/view.z}" r="${5/view.z}" fill="#fff" stroke="#4a90d9" stroke-width="${1/view.z}" style="cursor:crosshair"/>`;
+      }
+      out+=`</g>`;
+    }
+  });
+  if(rubber){
+    const x=Math.min(rubber.x0,rubber.x1), y=Math.min(rubber.y0,rubber.y1);
+    const w=Math.abs(rubber.x1-rubber.x0), h=Math.abs(rubber.y1-rubber.y0);
+    out+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(74,144,217,0.06)" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${3/view.z} ${3/view.z}"/>`;
+  }
+  out+="</g>";
+  svg.innerHTML=out;
+}
+
+/* ================= interaction ================= */
+let mode=null, dragIt=null, dragQ=null, start={};
+let spaceHeld=false;
+
+function selectQuestion(q,pt,pointerId){
+  sel.qId=q.id;sel.id=null;sel.ids=[];
+  mode="moveQ";dragQ=q;
+  start={dx:pt.x-q.cx,dy:pt.y-q.cy};
+  renderCanvas();openQPanel();
+  svg.setPointerCapture(pointerId);
+}
+
+function onPointerDown(e){
+  const t=e.target;
+  const h=t.dataset&&t.dataset.h;
+  const qid=t.dataset&&t.dataset.qid;
+  const gEl=t.closest&&t.closest("g.item");
+  const rect=svg.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+  const pt=toWorld(px,py);
+
+  if(spaceHeld||e.button===1){
+    mode="pan";start={px,py,tx:view.tx,ty:view.ty};
+    svg.classList.add("panning");
+    svg.setPointerCapture(e.pointerId);
+    return;
+  }
+  if(qid){
+    selectQuestion(findQuestion(parseInt(qid)),pt,e.pointerId);
+    return;
+  }
+  if(h&&sel.id!=null){
+    dragIt=findItem(sel.id);
+    mode=h;
+    start={scale:dragIt.scale,rot:dragIt.baseRot,
+           d0:Math.hypot(pt.x-dragIt.x,pt.y-dragIt.y),
+           a0:Math.atan2(pt.y-dragIt.y,pt.x-dragIt.x)*180/Math.PI};
+  }else if(gEl){
+    const id=parseInt(gEl.dataset.id);
+    const it=findItem(id);
+    if(it.qId){
+      // member of a question → select & drag the whole group
+      selectQuestion(findQuestion(it.qId),pt,e.pointerId);
+      return;
+    }
+    sel.id=id;sel.ids=[];sel.qId=null;
+    dragIt=it;
+    mode="move";
+    start={dx:pt.x-it.x,dy:pt.y-it.y};
+    renderCanvas();openSelPanel();
+  }else{
+    // empty canvas → rubber band
+    sel.id=null;sel.ids=[];sel.qId=null;
+    mode="rubber";
+    rubber={x0:pt.x,y0:pt.y,x1:pt.x,y1:pt.y};
+    renderCanvas();
+  }
+  svg.setPointerCapture(e.pointerId);
+}
+function onPointerMove(e){
+  if(!mode)return;
+  const rect=svg.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+  if(mode==="pan"){
+    view.tx=start.tx+(px-start.px);
+    view.ty=start.ty+(py-start.py);
+    renderCanvas();return;
+  }
+  const pt=toWorld(px,py);
+  if(mode==="rubber"){
+    rubber.x1=pt.x;rubber.y1=pt.y;
+    renderCanvas();return;
+  }
+  if(mode==="moveQ"&&dragQ){
+    dragQ.cx=pt.x-start.dx;
+    dragQ.cy=pt.y-start.dy;
+    layoutQuestion(dragQ);
+    renderCanvas();return;
+  }
+  if(!dragIt)return;
+  if(mode==="move"){dragIt.x=pt.x-start.dx;dragIt.y=pt.y-start.dy;}
+  else if(mode==="scale"){
+    const d=Math.hypot(pt.x-dragIt.x,pt.y-dragIt.y);
+    dragIt.scale=Math.max(0.2,Math.min(4,start.scale*d/start.d0));
+    syncSelPanelNumbers();
+  }
+  else if(mode==="rot"){
+    const a=Math.atan2(pt.y-dragIt.y,pt.x-dragIt.x)*180/Math.PI;
+    let r=start.rot+(a-start.a0);
+    if(e.shiftKey)r=Math.round(r/15)*15;
+    dragIt.baseRot=norm(r);
+    syncSelPanelNumbers();
+  }
+  renderCanvas();
+}
+function onPointerUp(){
+  if(mode==="rubber"&&rubber){
+    const x0=Math.min(rubber.x0,rubber.x1), x1=Math.max(rubber.x0,rubber.x1);
+    const y0=Math.min(rubber.y0,rubber.y1), y1=Math.max(rubber.y0,rubber.y1);
+    // tests object centers only (known rough edge)
+    const caught=items.filter(i=>i.x>=x0&&i.x<=x1&&i.y>=y0&&i.y<=y1).map(i=>i.id);
+    rubber=null;
+    if(caught.length===0){deselect();}
+    else if(caught.length===1){
+      const it=findItem(caught[0]);
+      if(it.qId){sel.qId=it.qId;renderCanvas();openQPanel();}
+      else{sel.id=caught[0];renderCanvas();openSelPanel();}
+    }
+    else{sel.ids=caught;renderCanvas();openMultiPanel();}
+  }
+  mode=null;dragIt=null;dragQ=null;svg.classList.remove("panning");
+}
+function onDblClick(e){
+  const gEl=e.target.closest&&e.target.closest("g.item");
+  if(!gEl)return;
+  const id=parseInt(gEl.dataset.id);
+  const it=findItem(id);
+  if(!it||!it.qId)return; // ungrouped objects already open on single click
+  sel.id=id;sel.qId=null;sel.ids=[];
+  mode=null;dragQ=null;
+  renderCanvas();
+  openSelPanel();
+}
+function onWheel(e){
+  e.preventDefault();
+  const rect=svg.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+  if(e.ctrlKey||e.metaKey){
+    const f=e.deltaY<0?1.08:0.93;
+    const z2=Math.max(0.2,Math.min(4,view.z*f));
+    view.tx=px-(px-view.tx)*(z2/view.z);
+    view.ty=py-(py-view.ty)*(z2/view.z);
+    view.z=z2;
+  }else{
+    view.tx-=e.deltaX;
+    view.ty-=e.deltaY;
+  }
+  renderCanvas();
+}
+function onKeyDown(e){
+  if(e.code==="Space"&&document.activeElement.tagName!=="INPUT"){spaceHeld=true;}
+  if((e.key==="Backspace"||e.key==="Delete")&&document.activeElement.tagName!=="INPUT"){
+    if(sel.id!=null)deleteSelected();
+    else if(sel.ids.length)deleteMulti();
+    else if(sel.qId!=null)deleteQuestion();
+  }
+  if((e.metaKey||e.ctrlKey)&&e.key==="d"&&sel.id!=null){
+    e.preventDefault();duplicateSelected();
+  }
+}
+function onKeyUp(e){
+  if(e.code==="Space")spaceHeld=false;
+}
+
+export function resetView(){view.tx=0;view.ty=0;view.z=1;renderCanvas();}
+
+export function initCanvas(){
+  svg=$("canvas");
+  svg.addEventListener("pointerdown",onPointerDown);
+  svg.addEventListener("pointermove",onPointerMove);
+  svg.addEventListener("pointerup",onPointerUp);
+  svg.addEventListener("dblclick",onDblClick);
+  svg.addEventListener("wheel",onWheel,{passive:false});
+  window.addEventListener("keydown",onKeyDown);
+  window.addEventListener("keyup",onKeyUp);
+  $("zoomBadge").onclick=resetView;
+  new ResizeObserver(()=>renderCanvas()).observe($("canvasWrap"));
+  renderCanvas();
+}

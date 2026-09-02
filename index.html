@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stimulus Builder</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="canvasWrap">
+  <svg id="canvas"></svg>
+  <div id="emptyHint">drag a shape here<br>· drag empty space to select · scroll to pan · ⌘/ctrl+scroll to zoom ·</div>
+  <div id="zoomBadge" title="reset view">100%</div>
+</div>
+
+<div id="console">
+  <div id="saveRow">
+    <input type="text" id="canvasName" placeholder="untitled canvas" autocomplete="off">
+    <button data-action="save" title="download canvas as .json">save</button>
+    <button data-action="load" title="load canvas .json">load</button>
+    <input type="file" id="loadFile" accept=".json" style="display:none">
+  </div>
+
+  <div id="steps">
+
+    <!-- creation -->
+    <div class="panel on" id="createPanel">
+      <label>New shape</label>
+      <input type="text" id="shapeInput" placeholder="shape — e.g. square, square 45" autocomplete="off">
+      <div class="err" id="err1"></div>
+      <div id="shapeSpec"></div>
+      <div id="anchorSection" style="display:none">
+        <input type="text" id="anchorInput" placeholder="sub-shape — e.g. diamond / none" autocomplete="off" style="margin-top:14px">
+        <div class="err" id="err2"></div>
+      </div>
+      <div class="steprow" id="createRow" style="display:none">
+        <button data-action="create">create</button>
+      </div>
+      <p class="note">to build a question: place three objects, drag a box around them, then “make similarity question”.</p>
+    </div>
+
+    <!-- selection: single object -->
+    <div class="panel" id="selPanel">
+      <label>Object</label>
+      <div id="selSpecs"></div>
+
+      <div class="seg" id="labelSeg" style="margin-top:14px">
+        <button data-v="A">A</button>
+        <button data-v="B">B</button>
+        <button data-v="C">C</button>
+        <button data-v="">–</button>
+      </div>
+
+      <div class="fn" id="rvFn">
+        <div class="fnlabel">Rotational variant</div>
+        <div class="seg" id="rvScope" style="margin-bottom:8px">
+          <button data-v="whole" class="on">whole</button>
+          <button data-v="shape">shape</button>
+          <button data-v="anchors">sub-shapes</button>
+        </div>
+        <div class="fnrow">
+          <span style="font-size:0.58rem;color:var(--grey)">Δ</span>
+          <input type="number" id="rvDeg" value="45" step="15">
+          <span style="font-size:0.7rem;color:var(--grey)">°</span>
+          <button data-action="makeVariant" style="flex:1">make variant</button>
+        </div>
+      </div>
+
+      <div class="fn" id="varyFn">
+        <div class="fnlabel">Vary (grid)</div>
+        <input type="text" id="varyInput" placeholder="shape 0,45,90 · sub 0:30:180" autocomplete="off">
+        <div class="err" id="errVary"></div>
+      </div>
+
+      <p class="note" id="groupedNote" style="display:none">this object belongs to a question — its position, size and sub-shape relative size are set by the group. rotations edited here update the group live.</p>
+
+      <div class="steprow">
+        <button class="ghost" data-action="deselect">done</button>
+        <button id="dupBtn" data-action="duplicate">duplicate</button>
+        <button id="delBtn" data-action="deleteSelected">delete</button>
+      </div>
+    </div>
+
+    <!-- selection: multiple objects -->
+    <div class="panel" id="multiPanel">
+      <label>Selection</label>
+      <div id="multiInfo" style="font-size:0.75rem"></div>
+      <div class="err" id="errMulti"></div>
+      <div class="steprow">
+        <button id="makeQBtn" data-action="makeQuestion">make similarity question</button>
+      </div>
+      <div class="steprow">
+        <button class="ghost" data-action="deselect">done</button>
+        <button data-action="deleteMulti">delete all</button>
+      </div>
+    </div>
+
+    <!-- selection: question group -->
+    <div class="panel" id="qPanel">
+      <label>Similarity question</label>
+      <input type="text" id="qTitle" autocomplete="off">
+      <div class="fnrow" style="margin-top:12px">
+        <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">SIZE</span>
+        <input type="number" id="qSize" step="5" min="20" max="400">
+        <span style="font-size:0.7rem;color:var(--grey)">%</span>
+        <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em;margin-left:10px">SUB-SHAPE RELATIVE SIZE</span>
+        <input type="number" id="qRatio" step="2" min="5" max="60">
+        <span style="font-size:0.7rem;color:var(--grey)">%</span>
+      </div>
+      <div id="qMembers"></div>
+
+      <div class="fn">
+        <div class="fnlabel">New group</div>
+        <div class="note" id="qStruct" style="margin-top:0"></div>
+        <div class="seg" id="gvMode" style="margin:8px 0">
+          <button data-v="relation" class="on">same relation<br>different rotation</button>
+          <button data-v="reference">different reference<br>same relation</button>
+        </div>
+        <div class="fnrow">
+          <span style="font-size:0.58rem;color:var(--grey)" id="gvDegLabel">rotation A↔B,C</span>
+          <input type="number" id="qRelDeg" value="45" step="5">
+          <span style="font-size:0.7rem;color:var(--grey)">°</span>
+          <button data-action="makeGroupVariation" style="flex:1">make group</button>
+        </div>
+      </div>
+
+      <div class="steprow">
+        <button class="ghost" data-action="deselect">done</button>
+        <button data-action="ungroup">ungroup</button>
+        <button data-action="deleteQuestion">delete</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="tray">
+    <span id="trayLabel">created shapes</span>
+  </div>
+</div>
+
+<div id="ghost"></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
