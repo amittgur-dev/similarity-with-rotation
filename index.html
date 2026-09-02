@@ -10,15 +10,21 @@
 
 <div id="canvasWrap">
   <svg id="canvas"></svg>
-  <div id="emptyHint">drag a shape here<br>· drag empty space to select · scroll to pan · ⌘/ctrl+scroll to zoom ·</div>
+  <div id="emptyHint">drag a shape here<br>· drag to move around · shift-drag to select · scroll to pan · ⌘/ctrl+scroll to zoom ·</div>
   <div id="zoomBadge" title="reset view">100%</div>
+  <div id="libBar">
+    <select id="libSelect" title="canvases saved in this browser"></select>
+    <button data-action="newCanvas" title="start a blank canvas">new</button>
+    <button data-action="removeCanvas" id="removeCanvasBtn" title="remove the selected canvas from this browser">remove</button>
+  </div>
 </div>
 
 <div id="console">
   <div id="saveRow">
     <input type="text" id="canvasName" placeholder="untitled canvas" autocomplete="off">
-    <button data-action="save" title="download canvas as .json">save</button>
-    <button data-action="load" title="load canvas .json">load</button>
+    <button data-action="save" id="saveBtn" title="save to this browser's canvas library">save</button>
+    <button data-action="export" title="download as a .json file">export</button>
+    <button data-action="import" title="load a .json file">import</button>
     <input type="file" id="loadFile" accept=".json" style="display:none">
   </div>
 
@@ -37,7 +43,7 @@
       <div class="steprow" id="createRow" style="display:none">
         <button data-action="create">create</button>
       </div>
-      <p class="note">to build a question: place three objects, drag a box around them, then “make similarity question”.</p>
+      <p class="note">to build a question: place three objects, shift-drag a box around them, then “make similarity question”.</p>
     </div>
 
     <!-- selection: single object -->

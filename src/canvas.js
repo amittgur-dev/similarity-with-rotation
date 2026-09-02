@@ -7,6 +7,8 @@ import { $, escapeXML } from "./dom.js";
 import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers } from "./console.js";
 import { layoutQuestion, deleteQuestion } from "./questions.js";
 
+const LABEL_GAP=1.55;   // label distance below an object center, × BASE_R × scale
+
 let svg=null;
 let rubber=null; // {x0,y0,x1,y1} world coords
 
@@ -24,7 +26,7 @@ export function renderCanvas(){
     const selQ=q.id===sel.qId;
     out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="13" fill="#111" style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${escapeXML(q.title)}</text>`;
     if(selQ){
-      const dx=BASE_R*Q_DX*q.s+BASE_R*1.4*q.s, dy=BASE_R*Q_DY*q.s+BASE_R*1.5*q.s;
+      const dx=BASE_R*Q_DX*q.s+BASE_R*1.4*q.s, dy=BASE_R*Q_DY*q.s+BASE_R*LABEL_GAP*q.s+30;
       out+=`<rect x="${q.cx-dx}" y="${q.cy-dy-14}" width="${2*dx}" height="${2*dy+14}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;
     }
   });
@@ -33,7 +35,7 @@ export function renderCanvas(){
     out+=`<g class="item" data-id="${it.id}" transform="translate(${it.x},${it.y}) scale(${it.scale})">`+
          shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO)+`</g>`;
     if(it.label){
-      const ly=it.y+BASE_R*1.25*it.scale+20;
+      const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
       out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">${it.label}</text>`;
     }
     const inMulti=sel.ids.includes(it.id);
@@ -108,12 +110,17 @@ function onPointerDown(e){
     mode="move";
     start={dx:pt.x-it.x,dy:pt.y-it.y};
     renderCanvas();openSelPanel();
-  }else{
-    // empty canvas → rubber band
+  }else if(e.shiftKey){
+    // shift-drag on empty canvas → rubber band selection
     sel.id=null;sel.ids=[];sel.qId=null;
     mode="rubber";
     rubber={x0:pt.x,y0:pt.y,x1:pt.x,y1:pt.y};
     renderCanvas();
+  }else{
+    // drag on empty canvas → pan the view (and drop any selection)
+    mode="pan";start={px,py,tx:view.tx,ty:view.ty};
+    svg.classList.add("panning");
+    deselect();
   }
   svg.setPointerCapture(e.pointerId);
 }

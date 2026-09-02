@@ -32,9 +32,11 @@ async function run(url,tag){
     await page.mouse.move(x,y,{steps:8});
     await page.mouse.up();
   };
-  const dragCanvas=async(x0,y0,x1,y1)=>{
+  const dragCanvas=async(x0,y0,x1,y1,shift=false)=>{
+    if(shift)await page.keyboard.down("Shift"); // rubber band: shift-drag in the app, plain drag in the prototype (shift is ignored there)
     await page.mouse.move(x0,y0);await page.mouse.down();
     await page.mouse.move(x1,y1,{steps:10});await page.mouse.up();
+    if(shift)await page.keyboard.up("Shift");
   };
   const blur=()=>page.evaluate(()=>document.activeElement&&document.activeElement.blur());
 
@@ -53,7 +55,7 @@ async function run(url,tag){
   await page.fill('#selSpecs input[data-f="anchorRatio"]',"24");
   await btn("C").click();
   // rubber band → question
-  await dragCanvas(50,60,420,520);
+  await dragCanvas(50,60,420,520,true);
   await btn("make similarity question").click();
   await page.fill("#qRelDeg","30");
   await btn("make group").click();
@@ -94,7 +96,7 @@ async function run(url,tag){
   const sc=await page.locator('[data-h="scale"]').boundingBox();
   await dragCanvas(sc.x+sc.width/2,sc.y+sc.height/2,sc.x+30,sc.y+30);
   // multi-select + delete all (includes grouped members, which must survive)
-  await dragCanvas(560,80,915,760);
+  await dragCanvas(560,80,915,760,true);
   await btn("delete all").click();
   // pan / zoom / space-pan
   await page.mouse.move(400,300);
@@ -107,7 +109,9 @@ async function run(url,tag){
   await btn("ungroup").click();
   // save
   await page.fill("#canvasName","compare run");
-  const [dl]=await Promise.all([page.waitForEvent("download"),btn("save").click()]);
+  // the app downloads via "export"; the prototype via "save"
+  const dlBtn=(await btn("export").count())?btn("export"):btn("save");
+  const [dl]=await Promise.all([page.waitForEvent("download"),dlBtn.click()]);
   const json=fs.readFileSync(await dl.path(),"utf8");
   const snap=await page.evaluate(()=>({
     svg:document.getElementById("canvas").innerHTML,
@@ -140,9 +144,12 @@ const cmp=(label,x,y)=>{
   fs.writeFileSync(`${OUT}/diff-${label}-a.txt`,x);fs.writeFileSync(`${OUT}/diff-${label}-b.txt`,y);
 };
 cmp("save.json",a.json,b.json);
-const stripHandlers=s=>s.replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"");
-for(const k of Object.keys(a.snap))cmp("snap."+k,stripHandlers(String(a.snap[k])),stripHandlers(String(b.snap[k])));
-for(const k of Object.keys(a.after))cmp("after."+k,String(a.after[k]),String(b.after[k]));
+// button handler attributes and the creation-panel help note legitimately differ
+// A/B/C labels deliberately sit lower than in the prototype: drop their y before comparing
+const stripLabelY=s=>s.replace(/(<text x="[^"]*") y="[^"]*"( text-anchor="middle" font-family="monospace" font-size="15")/g,"$1$2");
+const stripHandlers=s=>s.replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<p class="note">to build a question[^<]*<\/p>/,"");
+for(const k of Object.keys(a.snap))cmp("snap."+k,stripLabelY(stripHandlers(String(a.snap[k]))),stripLabelY(stripHandlers(String(b.snap[k]))));
+for(const k of Object.keys(a.after))cmp("after."+k,stripLabelY(String(a.after[k])),stripLabelY(String(b.after[k])));
 console.log("errors original:",a.errors,"\nerrors modular:",b.errors);
 if(a.errors.length||b.errors.length)ok=false;
 console.log(JSON.parse(a.json).items.length,"items,",JSON.parse(a.json).questions.length,"questions in save");

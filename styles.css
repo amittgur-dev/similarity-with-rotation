@@ -23,6 +23,17 @@ body{font-family:var(--mono);color:var(--ink);display:flex;background:#fff}
   padding:3px 7px;border:1px solid var(--faint);background:#fff;
 }
 #zoomBadge:hover{color:var(--ink);border-color:var(--ink)}
+#libBar{
+  position:absolute;top:10px;left:12px;display:flex;gap:6px;align-items:center;
+}
+#libBar select,#libBar button{
+  font-family:var(--mono);font-size:0.6rem;border:1px solid var(--faint);
+  background:#fff;color:var(--grey);padding:4px 8px;cursor:pointer;
+}
+#libBar select{max-width:220px;color:var(--ink);padding-right:4px}
+#libBar select:hover,#libBar button:hover:not(:disabled){border-color:var(--ink);color:var(--ink)}
+#libBar button:disabled{color:#ccc;cursor:default}
+#saveBtn.saved{border-color:var(--ink);color:var(--ink)}
 
 #console{
   width:270px;border-left:1px solid var(--faint);

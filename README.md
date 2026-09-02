@@ -16,6 +16,11 @@ python3 -m http.server 8080      # then open http://localhost:8080/
 npm test                         # unit tests (node --test, no packages needed)
 ```
 
+Canvas navigation: drag empty space to move around, **shift-drag** to
+box-select, scroll to pan, ⌘/ctrl+scroll to zoom, space+drag or the middle
+button also pan. Drag a box around three objects and press "make similarity
+question" to group them.
+
 `HANDOFF.md` is the original design brief and roadmap; `prototype/index-v9.html`
 is the single-file prototype this code was split from (kept as the behavioural
 reference — see *Verification* below).
@@ -28,6 +33,7 @@ reference — see *Verification* below).
 | `src/geometry.js` | **pure**: shape parser, vertex layout, `shapeMarkup()`, angle helpers, frame semantics |
 | `src/variants.js` | **pure**: rotational variants, vary-grid parser, question structure, the two group variations, condition-code titles, A/B/C assignment |
 | `src/io.js` | **pure** save-file (de)serialisation + migrations; thin download/file-read helpers |
+| `src/library.js` | **pure** in-browser canvas library over an injected storage (localStorage in the app) |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
 | `src/questions.js` | grouping, rigid layout, ungroup/delete, group-variation commands |
 | `src/console.js` | the right-hand panels (creation, object, selection, question) and single-object commands |
@@ -111,22 +117,32 @@ Other documented decisions:
   the configuration IS the sub-shapes (no outlines, ever — these are stimuli)
 - stimuli render strictly black on white; only the surrounding UI is styled
 
-## Save format (version 3)
+## Saving: library and files
 
-JSON `{version, name, view, tray[], items[], questions[]}` produced by
-`serializeCanvas()`; `deserializeCanvas()` migrates older files
+**save** stores the canvas under its name in this browser's library
+(localStorage). The dropdown at the top-left of the canvas lists saved
+canvases, most recent first; picking one opens it. **new** starts a blank
+canvas, **remove** deletes the selected library entry. The library is
+per-browser and per-site, so it does not follow you to another machine.
+
+**export** downloads the same JSON as a file, **import** loads one. Files
+are the canonical, shareable format — the `canvases/` directory is the
+intended home for canvases kept in git.
+
+JSON `{version, name, view, tray[], items[], questions[]}` (version 3) is
+produced by `serializeCanvas()`; `deserializeCanvas()` migrates older files
 (`sub*` keys → `anchor*`, v2 `trials` → `questions`). Saved canvases are
 research artifacts — keep the migrations working (they are unit-tested).
-The `canvases/` directory is the intended home for canvases kept in git.
 
 ## Verification
 
 Phase 0 was a pure restructuring: no rendering or interaction behaviour
-changed. Besides the unit tests, `tests/browser/compare-with-prototype.mjs`
+changed. Since then two deliberate changes: dragging empty canvas pans
+(box-select is shift-drag) and the in-browser library. Besides the unit tests, `tests/browser/compare-with-prototype.mjs`
 drives `prototype/index-v9.html` and `index.html` through the same ~40-step
 interaction script (creation, drops, panel edits, question, both group
 variations, all three variant scopes, vary grid, duplicate/delete/⌘D, handle
-drags, rubber band, pan/zoom, ungroup, save, reload) and diffs the save file,
+drags, rubber band, pan/zoom, ungroup, export, reload) and diffs the save file,
 the canvas SVG, the console panels and the post-reload state. They are
 byte-identical. It needs Playwright (`npm i -g playwright`, chromium):
 
@@ -137,8 +153,8 @@ node tests/browser/compare-with-prototype.mjs http://localhost:8765 /tmp/out
 
 ## Roadmap
 
-See `HANDOFF.md`. Phase 0 (this) is done; next are Phase 1 (autosave +
-recent canvases, undo/redo), Phase 2 (SVG/PNG + batch export with manifest)
+See `HANDOFF.md`. Phase 0 is done and the Phase 1 canvas library is in;
+next are undo/redo, Phase 2 (SVG/PNG + batch export with manifest)
 and Phase 3 (experiment run mode).
 
 ## Known rough edges (unchanged from the prototype, fix opportunistically)
