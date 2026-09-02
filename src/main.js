@@ -2,7 +2,7 @@
 
 import { tray, items, questions, view, clearSelection, bumpId } from "./state.js";
 import { $ } from "./dom.js";
-import { initCanvas, renderCanvas } from "./canvas.js";
+import { initCanvas, renderCanvas, zoomIn, zoomOut } from "./canvas.js";
 import { initConsole, showPanel, createShape, makeVariant, deselect, duplicateSelected, deleteSelected, deleteMulti } from "./console.js";
 import { makeQuestion, makeGroupVariation, ungroupQuestion, deleteQuestion, layoutQuestion } from "./questions.js";
 import { addTrayItem, clearTrayDOM } from "./tray.js";
@@ -113,6 +113,8 @@ const actions={
   import:()=>$("loadFile").click(),
   newCanvas,
   removeCanvas,
+  zoomIn,
+  zoomOut,
   create:createShape,
   makeVariant,
   deselect,

@@ -98,15 +98,15 @@ async function run(url,tag){
   // multi-select + delete all (includes grouped members, which must survive)
   await dragCanvas(560,80,915,760,true);
   await btn("delete all").click();
+  // click question title text → selects; ungroup the second question
+  await page.click('text[data-qid="12"]');
+  await btn("ungroup").click();
   // pan / zoom / space-pan
   await page.mouse.move(400,300);
   await page.mouse.wheel(0,40);
   await page.keyboard.down("Control");await page.mouse.wheel(0,-100);await page.keyboard.up("Control");
   await blur();
   await page.keyboard.down("Space");await dragCanvas(400,300,430,320);await page.keyboard.up("Space");
-  // click question title text → selects; ungroup the second question
-  await page.click('text[data-qid="12"]');
-  await btn("ungroup").click();
   // save
   await page.fill("#canvasName","compare run");
   // the app downloads via "export"; the prototype via "save"

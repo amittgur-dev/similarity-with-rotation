@@ -105,6 +105,17 @@ function onPointerDown(e){
       selectQuestion(findQuestion(it.qId),pt,e.pointerId);
       return;
     }
+    if(e.shiftKey){
+      // shift-click → add to / remove from a multi-selection (no drag)
+      const ids=new Set(sel.ids);
+      if(sel.id!=null)ids.add(sel.id);
+      if(ids.has(id))ids.delete(id);else ids.add(id);
+      sel.id=null;sel.ids=[...ids];sel.qId=null;
+      if(sel.ids.length===1){sel.id=sel.ids[0];sel.ids=[];renderCanvas();openSelPanel();}
+      else if(sel.ids.length===0){deselect();}
+      else{renderCanvas();openMultiPanel();}
+      return;
+    }
     sel.id=id;sel.ids=[];sel.qId=null;
     dragIt=it;
     mode="move";
@@ -220,6 +231,18 @@ function onKeyUp(e){
 }
 
 export function resetView(){view.tx=0;view.ty=0;view.z=1;renderCanvas();}
+/* zoom by a factor around the middle of the visible canvas */
+export function zoomBy(f){
+  const rect=svg.getBoundingClientRect();
+  const px=rect.width/2, py=rect.height/2;
+  const z2=Math.max(0.2,Math.min(4,view.z*f));
+  view.tx=px-(px-view.tx)*(z2/view.z);
+  view.ty=py-(py-view.ty)*(z2/view.z);
+  view.z=z2;
+  renderCanvas();
+}
+export const zoomIn=()=>zoomBy(1.25);
+export const zoomOut=()=>zoomBy(1/1.25);
 
 export function initCanvas(){
   svg=$("canvas");

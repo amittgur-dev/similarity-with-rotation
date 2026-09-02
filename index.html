@@ -10,8 +10,13 @@
 
 <div id="canvasWrap">
   <svg id="canvas"></svg>
-  <div id="emptyHint">drag a shape here<br>· drag to move around · shift-drag to select · scroll to pan · ⌘/ctrl+scroll to zoom ·</div>
-  <div id="zoomBadge" title="reset view">100%</div>
+  <div id="emptyHint">drag a shape here</div>
+  <div id="gestureHint">drag to move around · shift-click objects to select several · shift-drag to box-select · scroll to pan · ⌘/ctrl+scroll to zoom</div>
+  <div id="zoomBar">
+    <button data-action="zoomOut" title="zoom out">−</button>
+    <div id="zoomBadge" title="reset view">100%</div>
+    <button data-action="zoomIn" title="zoom in">+</button>
+  </div>
   <div id="libBar">
     <select id="libSelect" title="canvases saved in this browser"></select>
     <button data-action="newCanvas" title="start a blank canvas">new</button>
@@ -43,7 +48,7 @@
       <div class="steprow" id="createRow" style="display:none">
         <button data-action="create">create</button>
       </div>
-      <p class="note">to build a question: place three objects, shift-drag a box around them, then “make similarity question”.</p>
+      <p class="note">to build a question: place three objects, shift-click them (or shift-drag a box around them), then “make similarity question”.</p>
     </div>
 
     <!-- selection: single object -->

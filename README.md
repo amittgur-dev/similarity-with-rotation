@@ -16,9 +16,11 @@ python3 -m http.server 8080      # then open http://localhost:8080/
 npm test                         # unit tests (node --test, no packages needed)
 ```
 
-Canvas navigation: drag empty space to move around, **shift-drag** to
-box-select, scroll to pan, ⌘/ctrl+scroll to zoom, space+drag or the middle
-button also pan. Drag a box around three objects and press "make similarity
+Canvas navigation: drag empty space to move around, scroll to pan,
+⌘/ctrl+scroll or the +/− buttons to zoom (the percentage resets the view),
+space+drag or the middle button also pan. Click an object to select it,
+**shift-click** further objects to build a multi-selection, or **shift-drag**
+a box; with three ungrouped objects selected press "make similarity
 question" to group them.
 
 `HANDOFF.md` is the original design brief and roadmap; `prototype/index-v9.html`
