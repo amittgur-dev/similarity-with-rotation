@@ -32,9 +32,9 @@ jobs:
         run: |
           set -e
           V="${GITHUB_SHA::7}"
-          sed -i "s|src=\"src/main.js\"|src=\"src/main.js?v=$V\"|; s|__BUILD__|$V|" index.html
+          sed -i "s|src=\"src/main.js\"|src=\"src/main.js?v=$V\"|; s|href=\"styles.css\"|href=\"styles.css?v=$V\"|; s|__BUILD__|$V|" index.html
           sed -i -E "s|from \"(\./[a-z]+\.js)\"|from \"\1?v=$V\"|g" src/*.js
-          grep -c "?v=$V" index.html src/main.js
+          test "$(grep -c "?v=$V" index.html)" = 2 && grep -c "?v=$V" src/main.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true

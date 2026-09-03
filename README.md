@@ -129,11 +129,11 @@ Other documented decisions:
 
 ## First-run walkthrough
 
-After the calibration on a first visit, a seven-step walkthrough points an
-arrow at each part of the app in turn (shape, sub-shape, tray, canvas and
-questions, save/library, experiment, settings). It is non-modal, so each
-step can be tried immediately; skip or Esc ends it. Replay it from
-⚙ settings → show walkthrough (`src/tour.js`).
+After the calibration on a first visit, a seven-step walkthrough appears as
+a centered pop-up over the page (shape, sub-shape, tray, canvas and
+questions, save/library, experiment, settings); the element being described
+gets a light dashed outline. Next/back, arrow keys, skip, Esc or a click
+outside end it. Replay it from ⚙ settings → show walkthrough (`src/tour.js`).
 
 ## Screen calibration (absolute size)
 
