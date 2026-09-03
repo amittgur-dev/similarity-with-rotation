@@ -275,16 +275,22 @@ export function applyVary(){
 }
 
 /* ================= absolute size readouts =================
-   Object diameter on screen = 2·BASE_R·scale·zoom CSS px, converted with the
-   screen calibration. Refreshed on every render, so zooming updates them. */
+   Width × height of the drawn figure on screen (sub-shapes included),
+   converted with the screen calibration. Refreshed on every render. */
 export function updateMmReadouts(){
+  const figure=id=>{   // drawn figure's size on screen, from the rendered bounding box
+    const g=document.querySelector(`g.item[data-id="${id}"]`);
+    const it=findItem(id);
+    if(!g||!it)return null;
+    const bb=g.getBBox();
+    return {w:bb.width*it.scale*view.z,h:bb.height*it.scale*view.z};
+  };
   document.querySelectorAll(".mmReadout").forEach(el=>{
-    let scale=null;
-    if(el.dataset.item){const it=findItem(parseInt(el.dataset.item));if(it)scale=it.scale;}
-    else if(el.id==="qMm"){const q=findQuestion(sel.qId);if(q)scale=q.s;}
-    if(scale==null){el.textContent="";return;}
-    const mm=pxToMm(2*BASE_R*scale*view.z);
-    el.textContent="⌀ "+formatMm(mm)+(calib.calibrated?"":" · uncalibrated");
+    let f=null, suffix="";
+    if(el.dataset.item)f=figure(parseInt(el.dataset.item));
+    else if(el.id==="qMm"){const q=findQuestion(sel.qId);if(q)f=figure(q.a);}
+    if(!f){el.textContent="";return;}
+    el.textContent=formatMm(pxToMm(f.w))+" × "+formatMm(pxToMm(f.h))+suffix+(calib.calibrated?"":" · uncalibrated");
     el.classList.toggle("uncal",!calib.calibrated);
   });
 }

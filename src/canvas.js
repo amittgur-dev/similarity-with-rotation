@@ -14,19 +14,24 @@ let svg=null;
 let rubber=null; // {x0,y0,x1,y1} world coords
 let hoverId=null, hoverTimer=null, hoverCandidate=null;   // dwell-to-measure
 
-/* A dimension line under an object, as on a technical drawing: hairline
-   spanning the diameter, end ticks, the absolute size in mm. Drawn in world
-   coordinates so it sits with the object; strokes and text stay 1:1 on screen. */
-function dimensionMarkup(it,hover){
-  const z=view.z, r=BASE_R*it.scale;
-  const y=it.y+r*1.25+9/z, tick=5/z;   // just below the selection box
-  const mm=pxToMm(2*r*z);
-  const label=(calib.calibrated?"":"≈ ")+formatMm(mm);
+/* Dimension lines for an object, as on a technical drawing: width below,
+   height on the right, each a hairline with end ticks and the size in mm.
+   Measured from the drawn figure's bounding box (sub-shapes included), in
+   world coordinates; strokes and text stay 1:1 on screen. */
+function dimensionMarkup(it,bb,hover,boxed){
+  const z=view.z, s=it.scale, sel=boxed?BASE_R*1.25*s:-Infinity;   // clear the selection box when there is one
+  const x0=it.x+bb.x*s, x1=x0+bb.width*s, y0=it.y+bb.y*s, y1=y0+bb.height*s;
+  const tick=5/z, w=1/z, f=10.5/z;
+  const wy=Math.max(y1,it.y+sel)+9/z;          // width line: below the figure (and the selection box)
+  const hx=Math.max(x1,it.x+sel)+9/z;          // height line: right of them
+  const mmW=(calib.calibrated?"":"≈ ")+formatMm(pxToMm(bb.width*s*z));
+  const mmH=(calib.calibrated?"":"≈ ")+formatMm(pxToMm(bb.height*s*z));
+  const ln=(a,b,c,d)=>`<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="#9a9a9a" stroke-width="${w}"/>`;
   return `<g class="dim${hover?" dimHover":""}" pointer-events="none">`+
-    `<line x1="${it.x-r}" y1="${y}" x2="${it.x+r}" y2="${y}" stroke="#9a9a9a" stroke-width="${1/z}"/>`+
-    `<line x1="${it.x-r}" y1="${y-tick}" x2="${it.x-r}" y2="${y+tick}" stroke="#9a9a9a" stroke-width="${1/z}"/>`+
-    `<line x1="${it.x+r}" y1="${y-tick}" x2="${it.x+r}" y2="${y+tick}" stroke="#9a9a9a" stroke-width="${1/z}"/>`+
-    `<text x="${it.x}" y="${y+13/z}" text-anchor="middle" font-family="monospace" font-size="${10.5/z}" fill="#7a7a7a">${label}</text>`+
+    ln(x0,wy,x1,wy)+ln(x0,wy-tick,x0,wy+tick)+ln(x1,wy-tick,x1,wy+tick)+
+    `<text x="${(x0+x1)/2}" y="${wy+13/z}" text-anchor="middle" font-family="monospace" font-size="${f}" fill="#7a7a7a">${mmW}</text>`+
+    ln(hx,y0,hx,y1)+ln(hx-tick,y0,hx+tick,y0)+ln(hx-tick,y1,hx+tick,y1)+
+    `<text x="${hx+7/z}" y="${(y0+y1)/2+f*0.35}" text-anchor="start" font-family="monospace" font-size="${f}" fill="#7a7a7a">${mmH}</text>`+
     `</g>`;
 }
 
@@ -36,6 +41,7 @@ export function renderCanvas(){
   if(!svg)return;
   $("emptyHint").style.display=items.length?"none":"block";
   $("zoomBadge").textContent=Math.round(view.z*100)+"%";
+  const dimItems=[];
   let out=`<g transform="translate(${view.tx},${view.ty}) scale(${view.z})">`;
   questions.forEach(q=>{
     const A=findItem(q.a);
@@ -56,9 +62,10 @@ export function renderCanvas(){
       const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
       out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">${it.label}</text>`;
     }
-    // measurement: pinned, or the selected object, or after dwelling on one
-    if(it.showMm||it.id===sel.id||it.id===hoverId)out+=dimensionMarkup(it,!it.showMm&&it.id!==sel.id);
     const inMulti=sel.ids.includes(it.id);
+    // measurement: pinned, or the selected object (or a member of the selected question), or after dwelling on one
+    const chosen=it.id===sel.id||(sel.qId!=null&&it.qId===sel.qId);
+    if(it.showMm||chosen||it.id===hoverId)dimItems.push({it,hover:!it.showMm&&!chosen,boxed:it.id===sel.id||inMulti});
     if(it.id===sel.id||inMulti){
       const b=BASE_R*1.25*it.scale, hs=6/view.z;
       out+=`<g transform="translate(${it.x},${it.y})">`+
@@ -78,6 +85,14 @@ export function renderCanvas(){
   }
   out+="</g>";
   svg.innerHTML=out;
+  // dimension lines need the drawn figure's bounding box, so they are added after the render
+  if(dimItems.length){
+    const root=svg.firstElementChild;
+    dimItems.forEach(({it,hover,boxed})=>{
+      const g=svg.querySelector(`g.item[data-id="${it.id}"]`);
+      if(g)root.insertAdjacentHTML("beforeend",dimensionMarkup(it,g.getBBox(),hover,boxed));
+    });
+  }
   updateMmReadouts();
 }
 

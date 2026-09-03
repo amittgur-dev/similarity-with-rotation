@@ -199,6 +199,8 @@ body.consoleCollapsed #console{width:0}
 #calibBox .steprow button.ghost{border-color:var(--faint);color:var(--grey)}
 #calibBox .steprow button.ghost:hover{background:#fff;color:var(--ink);border-color:var(--ink)}
 .mmReadout{font-size:0.62rem;color:var(--grey);white-space:nowrap}
+#qPanel>.mmRow{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px}
+#qPanel>.mmRow>span:first-child{font-size:0.58rem;letter-spacing:0.1em;color:var(--grey);text-transform:uppercase}
 .mmReadout.uncal{color:#c9a227}
 
 /* ---- sub-shape nudge: the next stage after naming a shape ---- */

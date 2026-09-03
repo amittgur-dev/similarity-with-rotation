@@ -141,11 +141,13 @@ On the first visit the app shows a card-shaped outline: hold a bank card
 (ISO/IEC 7810 ID-1, 85.60 × 53.98 mm) against the screen, resize the outline
 until it matches, and confirm. That measures CSS pixels per millimetre for
 this screen and is stored in the browser (`src/calibration.js`). Object and
-question panels then show the on-screen diameter in mm (the base radius is
-70 canvas units, so an object at size 100% and zoom 100% is 140 px across).
-Selecting a shape shows a dimension line under it with its width in mm
-(≈ when uncalibrated); resting the pointer on any other shape for 1.2 s
-shows its line too, until the pointer moves on. "Show absolute size" in a shape's console rows pins that
+question panels then show the drawn figure's on-screen width × height in
+mm (the base radius is 70 canvas units, so vertices of an object at size
+100% and zoom 100% lie on a 140 px circle).
+Selecting a shape (or a question) shows dimension lines with the drawn
+figure's width and height in mm, sub-shapes included (≈ when
+uncalibrated); resting the pointer on any other shape for 1.2 s shows its
+lines too, until the pointer moves on. "Show absolute size" in a shape's console rows pins that
 line, and pinned lines are saved with the canvas.
 The ⚙ **settings** button at the bottom-left shows the current px/mm and offers **re-calibrate screen** (and **reset view**); "skip" uses the nominal
 96 dpi and marks readouts *uncalibrated*. Redo the calibration after changing
