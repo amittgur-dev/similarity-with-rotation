@@ -284,6 +284,7 @@ label.check.mini:hover{color:var(--ink)}
 }
 #settingsMenu .menuHead{font-size:0.56rem;letter-spacing:0.14em;color:var(--grey);text-transform:uppercase}
 #settingsMenu .note{margin-top:0}
+#buildId{font-size:0.52rem;color:#ccc;letter-spacing:0.1em}
 #settingsMenu button{
   font-family:var(--mono);font-size:0.62rem;letter-spacing:0.06em;text-align:left;
   border:1px solid var(--faint);background:#fff;color:var(--ink);padding:6px 8px;cursor:pointer;

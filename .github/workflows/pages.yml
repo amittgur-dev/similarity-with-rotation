@@ -24,6 +24,17 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+      # Cache-bust the zero-build module graph: GitHub Pages serves files with
+      # max-age=600, so without this a reload can mix a fresh index.html with
+      # stale modules. Stamp every module URL with the commit and show the
+      # build id in the settings menu. Repo files are untouched.
+      - name: Stamp module URLs with the commit
+        run: |
+          set -e
+          V="${GITHUB_SHA::7}"
+          sed -i "s|src=\"src/main.js\"|src=\"src/main.js?v=$V\"|; s|__BUILD__|$V|" index.html
+          sed -i -E "s|from \"(\./[a-z]+\.js)\"|from \"\1?v=$V\"|g" src/*.js
+          grep -c "?v=$V" index.html src/main.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true
