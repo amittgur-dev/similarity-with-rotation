@@ -23,6 +23,10 @@ space+drag or the middle button also pan. Click an object to select it,
 a box; with three ungrouped objects selected press "make similarity
 question" to group them.
 
+The console on the right can be resized by dragging the thin splitter on
+its left edge; clicking the splitter (or dragging it all the way right)
+collapses it, and clicking again brings it back. The width is remembered.
+
 `HANDOFF.md` is the original design brief and roadmap; `prototype/index-v9.html`
 is the single-file prototype this code was split from (kept as the behavioural
 reference — see *Verification* below).
@@ -36,6 +40,8 @@ reference — see *Verification* below).
 | `src/variants.js` | **pure**: rotational variants, vary-grid parser, question structure, the two group variations, condition-code titles, A/B/C assignment |
 | `src/io.js` | **pure** save-file (de)serialisation + migrations; thin download/file-read helpers |
 | `src/library.js` | **pure** in-browser canvas library over an injected storage (localStorage in the app) |
+| `src/calibration.js`, `src/calibrate.js` | **pure** px-per-mm model + storage, and the card-outline overlay |
+| `src/splitter.js` | resizable / collapsible console |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
 | `src/questions.js` | grouping, rigid layout, ungroup/delete, group-variation commands |
 | `src/console.js` | the right-hand panels (creation, object, selection, question) and single-object commands |
@@ -118,6 +124,18 @@ Other documented decisions:
 - an object with no sub-shapes renders as a solid fill; with sub-shapes,
   the configuration IS the sub-shapes (no outlines, ever — these are stimuli)
 - stimuli render strictly black on white; only the surrounding UI is styled
+
+## Screen calibration (absolute size)
+
+On the first visit the app shows a card-shaped outline: hold a bank card
+(ISO/IEC 7810 ID-1, 85.60 × 53.98 mm) against the screen, resize the outline
+until it matches, and confirm. That measures CSS pixels per millimetre for
+this screen and is stored in the browser (`src/calibration.js`). Object and
+question panels then show the on-screen diameter in mm (the base radius is
+70 canvas units, so an object at size 100% and zoom 100% is 140 px across).
+The **calibrate** button at the top-right redoes it; "skip" uses the nominal
+96 dpi and marks readouts *uncalibrated*. Redo the calibration after changing
+screen or browser zoom — those change the pixel size and the app cannot tell.
 
 ## Saving: library and files
 

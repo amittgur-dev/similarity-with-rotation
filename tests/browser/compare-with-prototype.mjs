@@ -19,6 +19,7 @@ async function run(url,tag){
   await page.goto(url);
   // native drag of a stray text selection cancels pointer sequences in both versions (see README rough edges)
   await page.evaluate(()=>document.addEventListener("dragstart",e=>e.preventDefault()));
+  if(await page.locator("#calibSkip").count())await page.click("#calibSkip");
   const btn=name=>page.getByRole("button",{name,exact:true});
   const create=async(shape,sub)=>{
     await page.fill("#shapeInput",shape);await page.press("#shapeInput","Enter");
@@ -147,7 +148,7 @@ cmp("save.json",a.json,b.json);
 // button handler attributes and the creation-panel help note legitimately differ
 // A/B/C labels deliberately sit lower than in the prototype: drop their y before comparing
 const stripLabelY=s=>s.replace(/(<text x="[^"]*") y="[^"]*"( text-anchor="middle" font-family="monospace" font-size="15")/g,"$1$2");
-const stripHandlers=s=>s.replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<p class="note">to build a question[^<]*<\/p>/,"");
+const stripHandlers=s=>s.replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<div class="frow mmRow">.*?<\/div>/g,"").replace(/<span class="mmReadout[^"]*" id="qMm">[^<]*<\/span>/g,"").replace(/>\s+</g,"><").replace(/<p class="note">to build a question[^<]*<\/p>/,"");
 for(const k of Object.keys(a.snap))cmp("snap."+k,stripLabelY(stripHandlers(String(a.snap[k]))),stripLabelY(stripHandlers(String(b.snap[k]))));
 for(const k of Object.keys(a.after))cmp("after."+k,stripLabelY(String(a.after[k])),stripLabelY(String(b.after[k])));
 console.log("errors original:",a.errors,"\nerrors modular:",b.errors);

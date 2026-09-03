@@ -8,6 +8,9 @@ import { makeQuestion, makeGroupVariation, ungroupQuestion, deleteQuestion, layo
 import { addTrayItem, clearTrayDOM } from "./tray.js";
 import { serializeCanvas, deserializeCanvas, canvasFileName, downloadJSON, readJSONFile } from "./io.js";
 import { listCanvases, saveToLibrary, loadFromLibrary, removeFromLibrary } from "./library.js";
+import { loadCalibration, calib } from "./calibration.js";
+import { initCalibration, openCalibration } from "./calibrate.js";
+import { initSplitter } from "./splitter.js";
 
 const storage=(()=>{try{return window.localStorage;}catch{return null;}})();
 
@@ -115,6 +118,7 @@ const actions={
   removeCanvas,
   zoomIn,
   zoomOut,
+  calibrate:openCalibration,
   create:createShape,
   makeVariant,
   deselect,
@@ -135,7 +139,11 @@ $("loadFile").addEventListener("change",e=>{
 });
 $("libSelect").addEventListener("change",openFromLibrary);
 
+initSplitter({storage});
 initConsole();
 initCanvas();
 refreshLibrary("");
-$("shapeInput").focus();
+loadCalibration(storage);
+initCalibration({storage,onDone:()=>{renderCanvas();$("shapeInput").focus();}});
+if(!calib.calibrated)openCalibration();   // first visit on this screen
+else $("shapeInput").focus();

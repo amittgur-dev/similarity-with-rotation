@@ -5,6 +5,7 @@ import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, vertCount 
 import { rotateParams, parseVary } from "./variants.js";
 import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem } from "./state.js";
 import { $ } from "./dom.js";
+import { calib, pxToMm, formatMm } from "./calibration.js";
 import { renderCanvas } from "./canvas.js";
 import { layoutQuestion, renderQStruct } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
@@ -24,7 +25,8 @@ export function buildSpecRows(container, target, cfg){
     `<div class="fields">`+
       `<div class="frow"><span>${cfg.def.name}</span></div>`+
       `<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.baseRot)}" data-f="baseRot">°</div>`+
-      (cfg.showSize?`<div class="frow"><span>size</span><input type="number" step="5" min="20" max="400" value="${Math.round(target.scale*100)}" data-f="size">%</div>`:"")+
+      (cfg.showSize?`<div class="frow"><span>size</span><input type="number" step="5" min="20" max="400" value="${Math.round(target.scale*100)}" data-f="size">%</div>`+
+                    `<div class="frow mmRow"><span>on screen</span><span class="mmReadout" data-item="${target.id}"></span></div>`:"")+
     `</div>`;
   wrap.appendChild(row1);
   if(hasAnchors){
@@ -66,6 +68,7 @@ export function buildSpecRows(container, target, cfg){
     };
   });
   container.appendChild(wrap);
+  updateMmReadouts();
 }
 
 /* ================= creation ================= */
@@ -200,6 +203,7 @@ export function openQPanel(){
     buildSpecRows(container,it,{def:it.trayRef.def,anchor:it.trayRef.anchor,showSize:false,showRatio:false,onChange:()=>{renderCanvas();renderQStruct(q);}});
   });
   renderQStruct(q);
+  updateMmReadouts();
   showPanel("qPanel");
 }
 export function syncSelPanelNumbers(){
@@ -258,6 +262,21 @@ export function applyVary(){
     });
   });
   renderCanvas();
+}
+
+/* ================= absolute size readouts =================
+   Object diameter on screen = 2·BASE_R·scale·zoom CSS px, converted with the
+   screen calibration. Refreshed on every render, so zooming updates them. */
+export function updateMmReadouts(){
+  document.querySelectorAll(".mmReadout").forEach(el=>{
+    let scale=null;
+    if(el.dataset.item){const it=findItem(parseInt(el.dataset.item));if(it)scale=it.scale;}
+    else if(el.id==="qMm"){const q=findQuestion(sel.qId);if(q)scale=q.s;}
+    if(scale==null){el.textContent="";return;}
+    const mm=pxToMm(2*BASE_R*scale*view.z);
+    el.textContent="⌀ "+formatMm(mm)+(calib.calibrated?"":" · uncalibrated");
+    el.classList.toggle("uncal",!calib.calibrated);
+  });
 }
 
 /* ================= wiring ================= */

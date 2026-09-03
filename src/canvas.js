@@ -4,7 +4,7 @@
 import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup, norm } from "./geometry.js";
 import { items, questions, sel, view, findItem, findQuestion } from "./state.js";
 import { $, escapeXML } from "./dom.js";
-import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers } from "./console.js";
+import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers, updateMmReadouts } from "./console.js";
 import { layoutQuestion, deleteQuestion } from "./questions.js";
 
 const LABEL_GAP=1.55;   // label distance below an object center, × BASE_R × scale
@@ -58,6 +58,7 @@ export function renderCanvas(){
   }
   out+="</g>";
   svg.innerHTML=out;
+  updateMmReadouts();
 }
 
 /* ================= interaction ================= */
