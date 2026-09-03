@@ -9,6 +9,7 @@ import { calib, pxToMm, formatMm } from "./calibration.js";
 import { renderCanvas } from "./canvas.js";
 import { layoutQuestion, renderQStruct } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
+import { syncExpToggle } from "./run.js";
 
 /* ================= spec rows ================= */
 export function miniSVG(def,rot,isAnchor){
@@ -92,8 +93,11 @@ function onShapeInput(){
   rebuildDraftRows();
   $("anchorSection").style.display="block";
   $("createRow").style.display="flex";
+  // the next stage is the sub-shape: make it blink until something is typed there
+  $("anchorInput").classList.toggle("nudge",!$("anchorInput").value.trim());
 }
 function onAnchorInput(){
+  $("anchorInput").classList.remove("nudge");
   const raw=$("anchorInput").value.trim();
   if(raw===""||raw.toLowerCase()==="none"){
     draft.anchor={none:true};$("err2").textContent="";rebuildDraftRows();return;
@@ -136,6 +140,7 @@ export function createShape(){
     },{once:true});
   }
   $("shapeInput").value="";$("anchorInput").value="";
+  $("anchorInput").classList.remove("nudge");
   $("shapeSpec").innerHTML="";
   $("anchorSection").style.display="none";$("createRow").style.display="none";
   resetDraft();
@@ -144,7 +149,7 @@ export function createShape(){
 
 /* ================= panels ================= */
 export function showPanel(id){
-  ["createPanel","selPanel","multiPanel","qPanel"].forEach(p=>$(p).classList.toggle("on",p===id));
+  ["createPanel","selPanel","multiPanel","qPanel","expPanel"].forEach(p=>$(p).classList.toggle("on",p===id));
 }
 export function deselect(){
   clearSelection();
@@ -190,6 +195,7 @@ export function openQPanel(){
   const q=findQuestion(sel.qId);
   if(!q){showPanel("createPanel");return;}
   $("qTitle").value=q.title;
+  syncExpToggle(q);
   $("qSize").value=Math.round(q.s*100);
   $("qRatio").value=Math.round((q.anchorRatio||DEFAULT_RATIO)*100);
   const container=$("qMembers");

@@ -42,6 +42,7 @@ reference — see *Verification* below).
 | `src/library.js` | **pure** in-browser canvas library over an injected storage (localStorage in the app) |
 | `src/calibration.js`, `src/calibrate.js` | **pure** px-per-mm model + storage, and the card-outline overlay |
 | `src/splitter.js` | resizable / collapsible console |
+| `src/experiment.js`, `src/run.js` | **pure** trial model, stimulus markup and CSV; the experiment panel and pilot runner |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
 | `src/questions.js` | grouping, rigid layout, ungroup/delete, group-variation commands |
 | `src/console.js` | the right-hand panels (creation, object, selection, question) and single-object commands |
@@ -137,6 +138,20 @@ The **calibrate** button at the top-right redoes it; "skip" uses the nominal
 96 dpi and marks readouts *uncalibrated*. Redo the calibration after changing
 screen or browser zoom — those change the pixel size and the app cannot tell.
 
+## Experiment (pilot runner)
+
+Open a question and press **☆ include in experiment**; the question gets a ★
+on the canvas and the footer under the tray counts the included questions.
+Click that footer for the experiment panel: the trial list, a participant
+id, a shuffle option and **pilot the experiment**. A run shows one question
+per trial as "Is A more similar to B or C?" — the stimulus is drawn from the
+same objects as the canvas, at 1:1 pixels (so the calibrated mm readouts
+apply), with A/B/C labels and two answer buttons (keys B / C also work,
+Esc quits). Response and reaction time are recorded; the run ends with a
+table and a CSV download whose columns carry every stimulus parameter
+(`src/experiment.js`, pure and unit-tested). The inclusion flag is saved
+with the canvas.
+
 ## Saving: library and files
 
 **save** stores the canvas under its name in this browser's library
@@ -174,7 +189,7 @@ node tests/browser/compare-with-prototype.mjs http://localhost:8765 /tmp/out
 ## Roadmap
 
 See `HANDOFF.md`. Phase 0 is done and the Phase 1 canvas library is in;
-next are undo/redo, Phase 2 (SVG/PNG + batch export with manifest)
+the Phase 3 pilot runner exists in a first form; next are undo/redo, Phase 2 (SVG/PNG + batch export with manifest)
 and Phase 3 (experiment run mode).
 
 ## Known rough edges (unchanged from the prototype, fix opportunistically)

@@ -19,7 +19,7 @@ export function serializeCanvas({name,view,tray,items,questions}){
     items:items.map(i=>({id:i.id,trayId:i.trayRef.id,x:i.x,y:i.y,scale:i.scale,
                          baseRot:i.baseRot,anchorRot:i.anchorRot,frame:i.frame,anchorRatio:i.anchorRatio||DEFAULT_RATIO,
                          label:i.label||null,qId:i.qId||null})),
-    questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO}))
+    questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO,...(q.inExp?{inExp:true}:{})}))
   };
 }
 

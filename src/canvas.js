@@ -24,7 +24,7 @@ export function renderCanvas(){
     if(!A)return;
     const ty=A.y-BASE_R*1.25*A.scale-26;
     const selQ=q.id===sel.qId;
-    out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="13" fill="#111" style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${escapeXML(q.title)}</text>`;
+    out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="13" fill="#111" style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${q.inExp?"★ ":""}${escapeXML(q.title)}</text>`;
     if(selQ){
       const dx=BASE_R*Q_DX*q.s+BASE_R*1.4*q.s, dy=BASE_R*Q_DY*q.s+BASE_R*LABEL_GAP*q.s+30;
       out+=`<rect x="${q.cx-dx}" y="${q.cy-dy-14}" width="${2*dx}" height="${2*dy+14}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;

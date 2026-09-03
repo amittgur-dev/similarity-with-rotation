@@ -60,7 +60,7 @@
       <div class="err" id="err1"></div>
       <div id="shapeSpec"></div>
       <div id="anchorSection" style="display:none">
-        <input type="text" id="anchorInput" placeholder="sub-shape — e.g. diamond / none" autocomplete="off" style="margin-top:14px">
+        <input type="text" id="anchorInput" placeholder="next: sub-shape — e.g. diamond / none" autocomplete="off" style="margin-top:14px">
         <div class="err" id="err2"></div>
       </div>
       <div class="steprow" id="createRow" style="display:none">
@@ -129,6 +129,7 @@
     <div class="panel" id="qPanel">
       <label>Similarity question</label>
       <input type="text" id="qTitle" autocomplete="off">
+      <button id="qExpToggle" class="expToggle" title="use this question as a trial">☆ include in experiment</button>
       <div class="fnrow" style="margin-top:12px">
         <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">SIZE</span>
         <input type="number" id="qSize" step="5" min="20" max="400">
@@ -162,7 +163,33 @@
       </div>
     </div>
 
+
+    <!-- experiment -->
+    <div class="panel" id="expPanel">
+      <label>Experiment</label>
+      <p class="note" style="margin-top:0">each trial shows one question as “Is A more similar to B or C?” with two answer buttons; responses and reaction times are recorded and exported as CSV with every stimulus parameter.</p>
+      <div id="expList"></div>
+      <div class="fn">
+        <div class="fnlabel">Pilot</div>
+        <div class="fnrow" style="margin-bottom:8px">
+          <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">PARTICIPANT</span>
+          <input type="text" id="expPid" value="pilot" autocomplete="off" style="flex:1;font-size:0.72rem">
+        </div>
+        <label class="check"><input type="checkbox" id="expShuffle"> shuffle order</label>
+        <div class="steprow" style="margin-top:10px">
+          <button id="pilotBtn">pilot the experiment</button>
+        </div>
+        <div class="note" id="expLast"></div>
+      </div>
+      <div class="steprow">
+        <button class="ghost" id="expDone">done</button>
+        <button id="expDownload" disabled>download CSV</button>
+      </div>
+    </div>
+
   </div>
+
+  <div id="expBar" class="empty" title="open the experiment"><span id="expInfo">experiment · none yet</span><span class="expArrow">▸</span></div>
 
   <div id="tray">
     <span id="trayLabel">created shapes</span>
@@ -170,6 +197,23 @@
 </div>
 
 <div id="ghost"></div>
+
+<!-- pilot run -->
+<div id="run" hidden>
+  <div id="runCount"></div>
+  <button id="runQuit" title="stop the run (Esc)">quit</button>
+  <div id="runPrompt"></div>
+  <div id="runStage"><svg id="runSvg"></svg></div>
+  <div id="runChoice"><button data-r="B">B</button><button data-r="C">C</button></div>
+  <div id="runEnd" hidden>
+    <label>Run complete</label>
+    <table id="runTable"></table>
+    <div class="steprow">
+      <button class="ghost" id="runEndClose">close</button>
+      <button id="runEndDownload">download CSV</button>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="src/main.js"></script>
 </body>

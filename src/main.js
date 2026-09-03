@@ -11,6 +11,7 @@ import { listCanvases, saveToLibrary, loadFromLibrary, removeFromLibrary } from 
 import { loadCalibration, calib } from "./calibration.js";
 import { initCalibration, openCalibration } from "./calibrate.js";
 import { initSplitter } from "./splitter.js";
+import { initExperiment, refreshExpBar } from "./run.js";
 
 const storage=(()=>{try{return window.localStorage;}catch{return null;}})();
 
@@ -30,6 +31,7 @@ function applyLoaded(loaded){
   if(loaded.view)Object.assign(view,loaded.view);
   $("canvasName").value=loaded.name;
   renderCanvas();showPanel("createPanel");
+  refreshExpBar();
 }
 function newCanvas(){
   tray.length=0;items.length=0;questions.length=0;
@@ -38,6 +40,7 @@ function newCanvas(){
   Object.assign(view,{tx:0,ty:0,z:1});
   $("canvasName").value="";
   renderCanvas();showPanel("createPanel");
+  refreshExpBar();
   refreshLibrary("");
   $("shapeInput").focus();
 }
@@ -142,6 +145,7 @@ $("libSelect").addEventListener("change",openFromLibrary);
 initSplitter({storage});
 initConsole();
 initCanvas();
+initExperiment();
 refreshLibrary("");
 loadCalibration(storage);
 initCalibration({storage,onDone:()=>{renderCanvas();$("shapeInput").focus();}});
