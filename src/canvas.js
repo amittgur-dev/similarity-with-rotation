@@ -56,7 +56,8 @@ export function renderCanvas(){
       const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
       out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">${it.label}</text>`;
     }
-    if(it.showMm||it.id===hoverId)out+=dimensionMarkup(it,it.id===hoverId&&!it.showMm);
+    // measurement: pinned, or the selected object, or after dwelling on one
+    if(it.showMm||it.id===sel.id||it.id===hoverId)out+=dimensionMarkup(it,!it.showMm&&it.id!==sel.id);
     const inMulti=sel.ids.includes(it.id);
     if(it.id===sel.id||inMulti){
       const b=BASE_R*1.25*it.scale, hs=6/view.z;
