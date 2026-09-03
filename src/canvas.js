@@ -5,12 +5,30 @@ import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup, norm } from "./geometry
 import { items, questions, sel, view, findItem, findQuestion } from "./state.js";
 import { $, escapeXML } from "./dom.js";
 import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers, updateMmReadouts } from "./console.js";
+import { calib, pxToMm, formatMm } from "./calibration.js";
 import { layoutQuestion, deleteQuestion } from "./questions.js";
 
 const LABEL_GAP=1.55;   // label distance below an object center, × BASE_R × scale
 
 let svg=null;
 let rubber=null; // {x0,y0,x1,y1} world coords
+let hoverId=null, hoverTimer=null, hoverCandidate=null;   // dwell-to-measure
+
+/* A dimension line under an object, as on a technical drawing: hairline
+   spanning the diameter, end ticks, the absolute size in mm. Drawn in world
+   coordinates so it sits with the object; strokes and text stay 1:1 on screen. */
+function dimensionMarkup(it,hover){
+  const z=view.z, r=BASE_R*it.scale;
+  const y=it.y+r*1.25+9/z, tick=5/z;   // just below the selection box
+  const mm=pxToMm(2*r*z);
+  const label=(calib.calibrated?"":"≈ ")+formatMm(mm);
+  return `<g class="dim${hover?" dimHover":""}" pointer-events="none">`+
+    `<line x1="${it.x-r}" y1="${y}" x2="${it.x+r}" y2="${y}" stroke="#9a9a9a" stroke-width="${1/z}"/>`+
+    `<line x1="${it.x-r}" y1="${y-tick}" x2="${it.x-r}" y2="${y+tick}" stroke="#9a9a9a" stroke-width="${1/z}"/>`+
+    `<line x1="${it.x+r}" y1="${y-tick}" x2="${it.x+r}" y2="${y+tick}" stroke="#9a9a9a" stroke-width="${1/z}"/>`+
+    `<text x="${it.x}" y="${y+13/z}" text-anchor="middle" font-family="monospace" font-size="${10.5/z}" fill="#7a7a7a">${label}</text>`+
+    `</g>`;
+}
 
 export function toWorld(px,py){return {x:(px-view.tx)/view.z, y:(py-view.ty)/view.z};}
 
@@ -38,6 +56,7 @@ export function renderCanvas(){
       const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
       out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">${it.label}</text>`;
     }
+    if(it.showMm||it.id===hoverId)out+=dimensionMarkup(it,it.id===hoverId&&!it.showMm);
     const inMulti=sel.ids.includes(it.id);
     if(it.id===sel.id||inMulti){
       const b=BASE_R*1.25*it.scale, hs=6/view.z;
@@ -136,8 +155,27 @@ function onPointerDown(e){
   }
   svg.setPointerCapture(e.pointerId);
 }
+/* dwell 1.2 s over an object → show its dimension; any movement elsewhere hides it */
+const DWELL_MS=1200;
+function trackHover(e){
+  const gEl=e.target.closest&&e.target.closest("g.item");
+  const id=gEl?parseInt(gEl.dataset.id):null;
+  if(id!==hoverCandidate){
+    hoverCandidate=id;
+    clearTimeout(hoverTimer);hoverTimer=null;
+    if(hoverId!=null){hoverId=null;renderCanvas();}
+  }
+  if(id!=null&&hoverId!==id&&!hoverTimer){
+    hoverTimer=setTimeout(()=>{hoverTimer=null;if(hoverCandidate===id){hoverId=id;renderCanvas();}},DWELL_MS);
+  }
+}
+function clearHover(){
+  hoverCandidate=null;clearTimeout(hoverTimer);hoverTimer=null;
+  if(hoverId!=null){hoverId=null;renderCanvas();}
+}
 function onPointerMove(e){
-  if(!mode)return;
+  if(!mode){trackHover(e);return;}
+  if(hoverId!=null||hoverTimer)clearHover();
   const rect=svg.getBoundingClientRect();
   const px=e.clientX-rect.left, py=e.clientY-rect.top;
   if(mode==="pan"){
@@ -249,6 +287,7 @@ export function initCanvas(){
   svg=$("canvas");
   svg.addEventListener("pointerdown",onPointerDown);
   svg.addEventListener("pointermove",onPointerMove);
+  svg.addEventListener("pointerleave",clearHover);
   svg.addEventListener("pointerup",onPointerUp);
   svg.addEventListener("dblclick",onDblClick);
   svg.addEventListener("wheel",onWheel,{passive:false});

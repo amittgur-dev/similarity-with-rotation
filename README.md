@@ -134,6 +134,10 @@ until it matches, and confirm. That measures CSS pixels per millimetre for
 this screen and is stored in the browser (`src/calibration.js`). Object and
 question panels then show the on-screen diameter in mm (the base radius is
 70 canvas units, so an object at size 100% and zoom 100% is 140 px across).
+Rest the pointer on a shape for 1.2 s and a dimension line appears under
+it with its width in mm (≈ when uncalibrated); it fades out as soon as the
+pointer moves on. "Show absolute size" in a shape's console rows pins that
+line, and pinned lines are saved with the canvas.
 The **calibrate** button at the top-right redoes it; "skip" uses the nominal
 96 dpi and marks readouts *uncalibrated*. Redo the calibration after changing
 screen or browser zoom — those change the pixel size and the app cannot tell.

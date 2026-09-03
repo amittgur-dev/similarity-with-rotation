@@ -261,3 +261,10 @@ label.check input{accent-color:var(--ink)}
 #runEnd .steprow button:hover{background:var(--ink);color:#fff}
 #runEnd .steprow button.ghost{border-color:var(--faint);color:var(--grey)}
 #runEnd .steprow button.ghost:hover{background:#fff;color:var(--ink);border-color:var(--ink)}
+
+/* ---- dimension line ---- */
+@keyframes dimIn{from{opacity:0}to{opacity:1}}
+.dimHover{animation:dimIn .25s ease-out}
+label.check.mini{font-size:0.58rem;color:var(--grey);letter-spacing:0.05em;margin-top:2px}
+label.check.mini:hover{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.dimHover{animation:none}}

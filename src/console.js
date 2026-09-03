@@ -28,6 +28,7 @@ export function buildSpecRows(container, target, cfg){
       `<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.baseRot)}" data-f="baseRot">°</div>`+
       (cfg.showSize?`<div class="frow"><span>size</span><input type="number" step="5" min="20" max="400" value="${Math.round(target.scale*100)}" data-f="size">%</div>`+
                     `<div class="frow mmRow"><span>on screen</span><span class="mmReadout" data-item="${target.id}"></span></div>`:"")+
+      (target.id!=null?`<label class="check mini mmRow"><input type="checkbox" data-f="showMm" ${target.showMm?"checked":""}> show absolute size</label>`:"")+
     `</div>`;
   wrap.appendChild(row1);
   if(hasAnchors){
@@ -47,7 +48,7 @@ export function buildSpecRows(container, target, cfg){
       `</div>`;
     wrap.appendChild(row2);
   }
-  wrap.querySelectorAll("input[data-f]").forEach(inp=>{
+  wrap.querySelectorAll("input[data-f]:not([type=checkbox])").forEach(inp=>{
     inp.addEventListener("input",()=>{
       const f=inp.dataset.f;
       const v=parseFloat(inp.value);
@@ -60,6 +61,9 @@ export function buildSpecRows(container, target, cfg){
       if(pvs[0])pvs[0].innerHTML=miniSVG(cfg.def,target.baseRot);
       if(pvs[1])pvs[1].innerHTML=miniSVG(cfg.anchor,target.anchorRot,true);
     });
+  });
+  wrap.querySelectorAll('input[data-f="showMm"]').forEach(cb=>{
+    cb.addEventListener("change",()=>{target.showMm=cb.checked;cfg.onChange();});
   });
   wrap.querySelectorAll('.seg[data-f="frame"] button').forEach(b=>{
     b.onclick=()=>{

@@ -18,7 +18,7 @@ export function serializeCanvas({name,view,tray,items,questions}){
     tray:tray.map(t=>({id:t.id,def:t.def,anchor:t.anchor,baseRot:t.baseRot,anchorRot:t.anchorRot,frame:t.frame,anchorRatio:t.anchorRatio||DEFAULT_RATIO})),
     items:items.map(i=>({id:i.id,trayId:i.trayRef.id,x:i.x,y:i.y,scale:i.scale,
                          baseRot:i.baseRot,anchorRot:i.anchorRot,frame:i.frame,anchorRatio:i.anchorRatio||DEFAULT_RATIO,
-                         label:i.label||null,qId:i.qId||null})),
+                         label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{})})),
     questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO,...(q.inExp?{inExp:true}:{})}))
   };
 }
@@ -43,7 +43,7 @@ export function deserializeCanvas(data){
     items.push({id:i.id,trayRef:ref,x:i.x,y:i.y,scale:i.scale,
                 baseRot:i.baseRot,anchorRot:(i.anchorRot!=null?i.anchorRot:i.subRot)||0,frame:i.frame,
                 anchorRatio:i.anchorRatio||i.subRatio||DEFAULT_RATIO,
-                label:i.label||null,qId:i.qId||null});
+                label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{})});
   });
   const qs=data.questions||(data.trials||[]).map(t=>{
     const A=data.items.find(i=>i.id===t.a),B=data.items.find(i=>i.id===t.b),C=data.items.find(i=>i.id===t.c);

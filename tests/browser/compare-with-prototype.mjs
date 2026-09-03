@@ -147,8 +147,10 @@ const cmp=(label,x,y)=>{
 cmp("save.json",a.json,b.json);
 // button handler attributes and the creation-panel help note legitimately differ
 // A/B/C labels deliberately sit lower than in the prototype: drop their y before comparing
-const stripLabelY=s=>s.replace(/(<text x="[^"]*") y="[^"]*"( text-anchor="middle" font-family="monospace" font-size="15")/g,"$1$2");
-const stripHandlers=s=>s.replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<div class="frow mmRow">.*?<\/div>/g,"").replace(/<span class="mmReadout[^"]*" id="qMm">[^<]*<\/span>/g,"").replace(/<button id="qExpToggle"[^>]*>[^<]*<\/button>/g,"").replace(/>\s+</g,"><").replace(/<p class="note">to build a question[^<]*<\/p>/,"").replace(/ class="nudge"/g,"").replace(/ class=""/g,"").replace(/placeholder="next: /g,'placeholder="').replace(/<!--[^>]*-->/g,"").replace(/>\s+</g,"><").trim();
+// dwell-to-measure dimension lines and their console toggle do not exist in the prototype
+const stripDims=s=>s.replace(/<g class="dim[^"]*" pointer-events="none">.*?<\/g>/g,"").replace(/<label class="check mini mmRow">.*?<\/label>/g,"");
+const stripLabelY=s=>stripDims(s).replace(/(<text x="[^"]*") y="[^"]*"( text-anchor="middle" font-family="monospace" font-size="15")/g,"$1$2");
+const stripHandlers=s=>stripDims(s).replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<div class="frow mmRow">.*?<\/div>/g,"").replace(/<span class="mmReadout[^"]*" id="qMm">[^<]*<\/span>/g,"").replace(/<button id="qExpToggle"[^>]*>[^<]*<\/button>/g,"").replace(/>\s+</g,"><").replace(/<p class="note">to build a question[^<]*<\/p>/,"").replace(/ class="nudge"/g,"").replace(/ class=""/g,"").replace(/placeholder="next: /g,'placeholder="').replace(/<!--[^>]*-->/g,"").replace(/>\s+</g,"><").trim();
 for(const k of Object.keys(a.snap))cmp("snap."+k,stripLabelY(stripHandlers(String(a.snap[k]))),stripLabelY(stripHandlers(String(b.snap[k]))));
 for(const k of Object.keys(a.after))cmp("after."+k,stripLabelY(String(a.after[k])),stripLabelY(String(b.after[k])));
 console.log("errors original:",a.errors,"\nerrors modular:",b.errors);
