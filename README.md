@@ -42,6 +42,7 @@ reference — see *Verification* below).
 | `src/library.js` | **pure** in-browser canvas library over an injected storage (localStorage in the app) |
 | `src/calibration.js`, `src/calibrate.js` | **pure** px-per-mm model + storage, and the card-outline overlay |
 | `src/splitter.js` | resizable / collapsible console |
+| `src/tour.js` | first-run walkthrough |
 | `src/experiment.js`, `src/run.js` | **pure** trial model, stimulus markup and CSV; the experiment panel and pilot runner |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
 | `src/questions.js` | grouping, rigid layout, ungroup/delete, group-variation commands |
@@ -125,6 +126,14 @@ Other documented decisions:
 - an object with no sub-shapes renders as a solid fill; with sub-shapes,
   the configuration IS the sub-shapes (no outlines, ever — these are stimuli)
 - stimuli render strictly black on white; only the surrounding UI is styled
+
+## First-run walkthrough
+
+After the calibration on a first visit, a seven-step walkthrough points an
+arrow at each part of the app in turn (shape, sub-shape, tray, canvas and
+questions, save/library, experiment, settings). It is non-modal, so each
+step can be tried immediately; skip or Esc ends it. Replay it from
+⚙ settings → show walkthrough (`src/tour.js`).
 
 ## Screen calibration (absolute size)
 

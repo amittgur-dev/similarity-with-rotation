@@ -23,6 +23,7 @@
       <div class="note" id="calibStatus"></div>
       <button data-action="calibrate">re-calibrate screen</button>
       <button data-action="resetView">reset view</button>
+      <button data-action="tour">show walkthrough</button>
     </div>
     <button id="settingsBtn" title="settings">⚙</button>
   </div>
@@ -52,11 +53,13 @@
 
 <div id="console">
   <div id="saveRow">
+    <div class="saveBtns">
+      <button data-action="save" id="saveBtn" title="save to this browser's canvas library">save</button>
+      <button data-action="export" title="download as a .json file">export</button>
+      <button data-action="import" title="load a .json file">import</button>
+      <input type="file" id="loadFile" accept=".json" style="display:none">
+    </div>
     <input type="text" id="canvasName" placeholder="untitled canvas" autocomplete="off">
-    <button data-action="save" id="saveBtn" title="save to this browser's canvas library">save</button>
-    <button data-action="export" title="download as a .json file">export</button>
-    <button data-action="import" title="load a .json file">import</button>
-    <input type="file" id="loadFile" accept=".json" style="display:none">
   </div>
 
   <div id="steps">
@@ -205,6 +208,20 @@
 </div>
 
 <div id="ghost"></div>
+
+<!-- walkthrough -->
+<div id="tour" hidden>
+  <svg id="tourArrow"><defs><marker id="tourHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a90d9"/></marker></defs><path id="tourPath" fill="none" stroke="#4a90d9" stroke-width="1.6" stroke-linecap="round" marker-end="url(#tourHead)"/></svg>
+  <div id="tourCard">
+    <div class="tourHead"><span id="tourTitle"></span><span id="tourCount"></span></div>
+    <p id="tourText"></p>
+    <div class="tourRow">
+      <button id="tourSkip" class="ghost">skip</button>
+      <button id="tourBack" class="ghost">back</button>
+      <button id="tourNext">next</button>
+    </div>
+  </div>
+</div>
 
 <!-- pilot run -->
 <div id="run" hidden>

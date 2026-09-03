@@ -11,6 +11,7 @@ import { listCanvases, saveToLibrary, loadFromLibrary, removeFromLibrary } from 
 import { loadCalibration, readCalibration, calib } from "./calibration.js";
 import { initCalibration, openCalibration } from "./calibrate.js";
 import { initSplitter } from "./splitter.js";
+import { initTour, startTour, tourDone } from "./tour.js";
 import { initExperiment, refreshExpBar } from "./run.js";
 
 const storage=(()=>{try{return window.localStorage;}catch{return null;}})();
@@ -137,6 +138,7 @@ const actions={
   zoomOut,
   calibrate:()=>{closeSettings();openCalibration();},
   resetView:()=>{closeSettings();resetView();},
+  tour:()=>{closeSettings();startTour();},
   create:createShape,
   makeVariant,
   deselect,
@@ -166,6 +168,8 @@ initCanvas();
 initExperiment();
 refreshLibrary("");
 loadCalibration(storage);
-initCalibration({storage,onDone:()=>{renderCanvas();$("shapeInput").focus();}});
-if(!calib.calibrated)openCalibration();   // first visit on this screen
-else $("shapeInput").focus();
+initTour({storage});
+const firstRun=!tourDone();
+initCalibration({storage,onDone:()=>{renderCanvas();$("shapeInput").focus();if(firstRun&&!tourDone())startTour();}});
+if(!calib.calibrated)openCalibration();   // first visit on this screen: calibrate, then the walkthrough
+else{$("shapeInput").focus();if(firstRun)startTour();}

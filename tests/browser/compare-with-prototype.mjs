@@ -20,6 +20,7 @@ async function run(url,tag){
   // native drag of a stray text selection cancels pointer sequences in both versions (see README rough edges)
   await page.evaluate(()=>document.addEventListener("dragstart",e=>e.preventDefault()));
   if(await page.locator("#calibSkip").count())await page.click("#calibSkip");
+  if(await page.locator("#tourSkip").count())await page.click("#tourSkip");
   const btn=name=>page.getByRole("button",{name,exact:true});
   const create=async(shape,sub)=>{
     await page.fill("#shapeInput",shape);await page.press("#shapeInput","Enter");
