@@ -17,7 +17,7 @@ npm test                         # unit tests (node --test, no packages needed)
 ```
 
 Canvas navigation: drag empty space to move around, scroll to pan,
-⌘/ctrl+scroll or the +/− buttons to zoom (the percentage resets the view),
+⌘/ctrl+scroll or the +/− buttons to zoom (the percentage resets the view, as does settings → reset view),
 space+drag or the middle button also pan. Click an object to select it,
 **shift-click** further objects to build a multi-selection, or **shift-drag**
 a box; with three ungrouped objects selected press "make similarity
@@ -138,7 +138,7 @@ Rest the pointer on a shape for 1.2 s and a dimension line appears under
 it with its width in mm (≈ when uncalibrated); it fades out as soon as the
 pointer moves on. "Show absolute size" in a shape's console rows pins that
 line, and pinned lines are saved with the canvas.
-The **calibrate** button at the top-right redoes it; "skip" uses the nominal
+The ⚙ **settings** button at the bottom-left shows the current px/mm and offers **re-calibrate screen** (and **reset view**); "skip" uses the nominal
 96 dpi and marks readouts *uncalibrated*. Redo the calibration after changing
 screen or browser zoom — those change the pixel size and the app cannot tell.
 

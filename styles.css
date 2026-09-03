@@ -27,7 +27,6 @@ body{font-family:var(--mono);color:var(--ink);display:flex;background:#fff}
   padding:3px 7px;border:1px solid var(--faint);background:#fff;line-height:1.2;
 }
 #zoomBar button{font-size:0.8rem;padding:0 8px;height:22px}
-#zoomBar #calibBtn{font-size:0.6rem;margin-left:6px}
 #zoomBadge{min-width:44px;text-align:center;height:22px;display:flex;align-items:center;justify-content:center}
 #zoomBar button:hover,#zoomBadge:hover{color:var(--ink);border-color:var(--ink)}
 #libBar{
@@ -268,3 +267,23 @@ label.check input{accent-color:var(--ink)}
 label.check.mini{font-size:0.58rem;color:var(--grey);letter-spacing:0.05em;margin-top:2px}
 label.check.mini:hover{color:var(--ink)}
 @media (prefers-reduced-motion:reduce){.dimHover{animation:none}}
+
+/* ---- settings (bottom-left) ---- */
+#settings{position:absolute;left:12px;bottom:10px;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+#settingsBtn{
+  font-family:var(--mono);font-size:0.8rem;line-height:1;width:26px;height:24px;
+  border:1px solid var(--faint);background:#fff;color:#bbb;cursor:pointer;
+}
+#settingsBtn:hover,#settingsBtn.on{color:var(--ink);border-color:var(--ink)}
+#settingsMenu[hidden]{display:none}
+#settingsMenu{
+  display:flex;flex-direction:column;gap:6px;min-width:220px;
+  padding:10px 12px;border:1px solid var(--faint);background:#fff;box-shadow:0 4px 18px rgba(0,0,0,0.06);
+}
+#settingsMenu .menuHead{font-size:0.56rem;letter-spacing:0.14em;color:var(--grey);text-transform:uppercase}
+#settingsMenu .note{margin-top:0}
+#settingsMenu button{
+  font-family:var(--mono);font-size:0.62rem;letter-spacing:0.06em;text-align:left;
+  border:1px solid var(--faint);background:#fff;color:var(--ink);padding:6px 8px;cursor:pointer;
+}
+#settingsMenu button:hover{border-color:var(--ink)}

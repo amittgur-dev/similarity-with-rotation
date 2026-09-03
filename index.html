@@ -16,7 +16,15 @@
     <button data-action="zoomOut" title="zoom out">−</button>
     <div id="zoomBadge" title="reset view">100%</div>
     <button data-action="zoomIn" title="zoom in">+</button>
-    <button data-action="calibrate" id="calibBtn" title="measure this screen with a bank card">calibrate</button>
+  </div>
+  <div id="settings">
+    <div id="settingsMenu" hidden>
+      <div class="menuHead">Settings</div>
+      <div class="note" id="calibStatus"></div>
+      <button data-action="calibrate">re-calibrate screen</button>
+      <button data-action="resetView">reset view</button>
+    </div>
+    <button id="settingsBtn" title="settings">⚙</button>
   </div>
   <div id="calib" hidden>
     <div id="calibBox">

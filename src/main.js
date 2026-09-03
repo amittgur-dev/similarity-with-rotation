@@ -2,13 +2,13 @@
 
 import { tray, items, questions, view, clearSelection, bumpId } from "./state.js";
 import { $ } from "./dom.js";
-import { initCanvas, renderCanvas, zoomIn, zoomOut } from "./canvas.js";
+import { initCanvas, renderCanvas, zoomIn, zoomOut, resetView } from "./canvas.js";
 import { initConsole, showPanel, createShape, makeVariant, deselect, duplicateSelected, deleteSelected, deleteMulti } from "./console.js";
 import { makeQuestion, makeGroupVariation, ungroupQuestion, deleteQuestion, layoutQuestion } from "./questions.js";
 import { addTrayItem, clearTrayDOM } from "./tray.js";
 import { serializeCanvas, deserializeCanvas, canvasFileName, downloadJSON, readJSONFile } from "./io.js";
 import { listCanvases, saveToLibrary, loadFromLibrary, removeFromLibrary } from "./library.js";
-import { loadCalibration, calib } from "./calibration.js";
+import { loadCalibration, readCalibration, calib } from "./calibration.js";
 import { initCalibration, openCalibration } from "./calibrate.js";
 import { initSplitter } from "./splitter.js";
 import { initExperiment, refreshExpBar } from "./run.js";
@@ -99,6 +99,20 @@ function removeCanvas(){
   refreshLibrary("");
 }
 
+/* ---- settings menu (bottom-left) ---- */
+function calibStatusText(){
+  if(!calib.calibrated)return "screen not calibrated · sizes assume 96 dpi";
+  const rec=readCalibration(storage);
+  const when=rec&&rec.when?new Date(rec.when).toLocaleDateString():"";
+  return `${calib.pxPerMm.toFixed(2)} px/mm${when?" · measured "+when:""}`;
+}
+function openSettings(){
+  $("calibStatus").textContent=calibStatusText();
+  $("settingsMenu").hidden=false;$("settingsBtn").classList.add("on");
+}
+function closeSettings(){$("settingsMenu").hidden=true;$("settingsBtn").classList.remove("on");}
+function toggleSettings(){($("settingsMenu").hidden?openSettings:closeSettings)();}
+
 /* ---- files ---- */
 function exportCanvas(){
   const name=canvasFileName($("canvasName").value);
@@ -121,7 +135,8 @@ const actions={
   removeCanvas,
   zoomIn,
   zoomOut,
-  calibrate:openCalibration,
+  calibrate:()=>{closeSettings();openCalibration();},
+  resetView:()=>{closeSettings();resetView();},
   create:createShape,
   makeVariant,
   deselect,
@@ -141,6 +156,9 @@ $("loadFile").addEventListener("change",e=>{
   if(f)importCanvasFile(f).then(()=>{e.target.value="";});
 });
 $("libSelect").addEventListener("change",openFromLibrary);
+$("settingsBtn").addEventListener("click",e=>{e.stopPropagation();toggleSettings();});
+document.addEventListener("pointerdown",e=>{if(!$("settingsMenu").hidden&&!e.target.closest("#settings"))closeSettings();});
+window.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsMenu").hidden)closeSettings();});
 
 initSplitter({storage});
 initConsole();
