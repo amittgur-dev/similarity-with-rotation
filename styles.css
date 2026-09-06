@@ -219,32 +219,36 @@ body.consoleCollapsed #console{width:0}
   #anchorInput.nudge::placeholder{animation:none;color:#d9534f}
 }
 
-/* ---- experiment ---- */
-.expToggle{
-  margin-top:8px;font-family:var(--mono);font-size:0.725rem;letter-spacing:0.06em;
-  border:1px solid var(--faint);background:#fff;color:var(--grey);padding:4px 8px;cursor:pointer;
+/* ---- experiments: chips, strip, lens ---- */
+.chip{
+  font-family:var(--mono);font-size:0.72rem;letter-spacing:0.04em;line-height:1;
+  border:1px solid var(--faint);background:#fff;color:var(--grey);padding:6px 9px;cursor:pointer;white-space:nowrap;
 }
-.expToggle:hover{border-color:var(--ink);color:var(--ink)}
-.expToggle.on{border-color:var(--ink);color:var(--ink)}
+.chip:hover{border-color:var(--ink);color:var(--ink)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip.add{color:var(--grey);border-style:dashed}
+.chip.add:hover{color:var(--ink)}
+.expChips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.expChips .lbl{font-size:0.7rem;letter-spacing:0.1em;color:var(--grey);text-transform:uppercase;margin-right:2px}
 #expBar{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:7px 16px;border-top:1px solid var(--faint);cursor:pointer;
-  font-size:0.725rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink);
+  display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;
+  padding:8px 16px;border-top:1px solid var(--faint);min-height:44px;
 }
-#expBar.empty{color:#8a8a8a}
-#expBar:hover{color:var(--ink);background:#fafafa}
-#expBar .expArrow{color:#8a8a8a}
-.expRow{display:flex;align-items:center;gap:8px;font-size:0.805rem;padding:5px 0;border-bottom:1px solid var(--faint);cursor:pointer}
-.expRow input{accent-color:var(--ink);margin:0}
+#expBar::-webkit-scrollbar{display:none}
+#expBar.empty .chip.add{border-style:solid}
+.expCode{font-size:0.8rem;font-weight:700;letter-spacing:0.08em;padding:0 0 6px;color:var(--ink)}
+.expRow{display:flex;align-items:center;gap:8px;font-size:0.8rem;padding:6px 0;border-bottom:1px solid var(--faint)}
+.expRow input{accent-color:var(--ink);margin:0;cursor:pointer}
+.expRow .n{color:var(--grey);font-size:0.72rem;flex:0 0 1.4em}
+.expRow .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.expRow .t:hover{text-decoration:underline}
 .expTools{display:flex;justify-content:space-between;align-items:center;margin:4px 0 2px}
-.expTools button{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.08em;border:1px solid var(--faint);background:#fff;color:var(--grey);padding:2px 7px;cursor:pointer}
+.expTools button{font-family:var(--mono);font-size:0.68rem;letter-spacing:0.08em;border:1px solid var(--faint);background:#fff;color:var(--grey);padding:3px 8px;cursor:pointer}
 .expTools button:hover{border-color:var(--ink);color:var(--ink)}
-.expRow .n{color:var(--grey);font-size:0.725rem;flex:0 0 1.4em}
-.expRow .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.expRow button{border:none;background:none;color:var(--grey);cursor:pointer;font-family:var(--mono);font-size:0.925rem;line-height:1}
-.expRow button:hover{color:#c0392b}
 label.check{display:flex;align-items:center;gap:6px;font-size:0.775rem;color:var(--ink);cursor:pointer}
 label.check input{accent-color:var(--ink)}
+#canvas .lensOut{opacity:0.28}
+#canvas tspan[data-toggle-q]{cursor:pointer}
 #run[hidden]{display:none}
 #run{
   position:fixed;inset:0;background:#fff;z-index:50;
@@ -409,3 +413,8 @@ html[data-text="larger"]{font-size:20px}
 #settingsMenu .seg button{font-size:0.72rem;padding:6px 2px}
 .panel input[type=text]{font-size:1rem}
 .trayItem .x{width:18px;height:18px;font-size:12px;line-height:16px;top:-9px;right:-9px}
+
+/* ---- result downloads ---- */
+.fnrow button.dl{font-family:var(--mono);font-size:0.72rem;border:1px solid var(--faint);background:#fff;color:var(--ink);padding:6px 10px;cursor:pointer}
+.fnrow button.dl:hover:not(:disabled){border-color:var(--ink)}
+.fnrow button.dl:disabled{color:#9a9a9a;cursor:not-allowed}

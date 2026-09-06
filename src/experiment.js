@@ -7,7 +7,52 @@ import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup } from "./geometry.js";
 export const PROMPT="Is A more similar to B or C?";
 export const LABEL_GAP=1.55;   // same as the canvas
 
-export function experimentQuestions(questions){return questions.filter(q=>q.inExp);}
+/* ---- experiments: named subsets of a canvas's questions with their own run settings ---- */
+export const DEFAULT_SETTINGS={repeats:1,shuffle:true,swapSides:true,fixation:true,fullscreen:true};
+export function normalizeSettings(s={}){
+  return {repeats:Math.max(1,Math.min(50,parseInt(s.repeats)||1)),
+          shuffle:s.shuffle!==false,swapSides:s.swapSides!==false,fixation:s.fixation!==false,fullscreen:s.fullscreen!==false};
+}
+/* n is a creation ordinal that is never renumbered; the code E<n> is what
+   appears on the canvas and in every CSV row, so renaming keeps joins intact */
+export function newExperiment(id,n,name,questionIds=[]){
+  return {id,n,name:name||`experiment ${n}`,questions:[...questionIds],settings:{...DEFAULT_SETTINGS}};
+}
+export const experimentCode=exp=>`E${exp.n}`;
+export const nextOrdinal=experiments=>experiments.reduce((m,e)=>Math.max(m,e.n||0),0)+1;
+/* members in canvas order (the experiment's list is kept as a set in canvas order) */
+export function experimentQuestions(exp,questions){
+  if(!exp)return [];
+  const ids=new Set(exp.questions);
+  return questions.filter(q=>ids.has(q.id));
+}
+export const isMember=(exp,qId)=>!!exp&&exp.questions.includes(qId);
+export function setMembership(exp,qId,on,questions){
+  const ids=new Set(exp.questions);
+  if(on)ids.add(qId);else ids.delete(qId);
+  exp.questions=questions.filter(q=>ids.has(q.id)).map(q=>q.id);
+  return exp;
+}
+export const experimentsOf=(qId,experiments)=>experiments.filter(e=>e.questions.includes(qId));
+export function removeQuestionEverywhere(qId,experiments){
+  experiments.forEach(e=>{e.questions=e.questions.filter(id=>id!==qId);});
+}
+/* migration + validation of the experiments block of a file: v4 files carry
+   it; v3 files with starred questions become one experiment "experiment 1" */
+export function loadExperiments(data,questions){
+  const valid=new Set(questions.map(q=>q.id));
+  let list=[];
+  if(Array.isArray(data.experiments)){
+    list=data.experiments.filter(e=>e&&typeof e==="object").map((e,i)=>({
+      id:e.id,n:e.n||i+1,name:String(e.name||`experiment ${e.n||i+1}`),
+      questions:(e.questions||[]).filter(id=>valid.has(id)),settings:normalizeSettings(e.settings)}));
+  }else{
+    const starred=questions.filter(q=>q.inExp).map(q=>q.id);
+    if(starred.length)list=[{id:null,n:1,name:"experiment 1",questions:starred,settings:{...DEFAULT_SETTINGS}}];
+  }
+  questions.forEach(q=>{delete q.inExp;});
+  return list;
+}
 
 /* a self-contained snapshot of one object's stimulus parameters */
 export function paramRecord(it){
@@ -36,8 +81,10 @@ export function questionTrial(q,findItem){
 /* options: repeats (each question N times), shuffle, swapSides (B and C
    exchange left/right at random — counterbalances a side bias; labels
    stay with their objects, the record says which side B was on) */
-export function buildTrials(questions,findItem,{shuffle=false,rng=Math.random,repeats=1,swapSides=false}={}){
-  const base=experimentQuestions(questions).map(q=>questionTrial(q,findItem)).filter(Boolean);
+export function buildTrials(exp,questions,findItem,{rng=Math.random,shuffle,repeats,swapSides}={}){
+  const s=normalizeSettings(exp?exp.settings:{});
+  shuffle=shuffle??s.shuffle;repeats=repeats??s.repeats;swapSides=swapSides??s.swapSides;
+  const base=experimentQuestions(exp,questions).map((q,i)=>{const t=questionTrial(q,findItem);return t&&{...t,questionIndex:i+1};}).filter(Boolean);
   let list=[];
   for(let r=1;r<=Math.max(1,repeats|0);r++)list.push(...base.map(t=>({...t,repeat:r})));
   if(shuffle)list=shuffled(list,rng);
@@ -72,7 +119,7 @@ export function stimulusMarkup(t){
 
 /* ---- records ---- */
 const MEMBER_COLS=["shape","sub","baseRot","subRot","frame","subRatio","scale","width_mm","height_mm","width_deg","height_deg"];
-export const CSV_COLUMNS=["participant","trial","repeat","question_id","question_title","response","rt_ms","B_side",
+export const CSV_COLUMNS=["participant","canvas","experiment_id","experiment_code","experiment_name","trial","repeat","question_index","question_id","question_title","response","rt_ms","B_side",
   ...["A","B","C"].flatMap(k=>MEMBER_COLS.map(c=>`${k}_${c}`)),
   "px_per_mm","calibrated","viewing_distance_cm","fixation_ms","timestamp"];
 
@@ -88,8 +135,9 @@ export function paramColumns(t,sizes={},deg=null){
   }
   return row;
 }
-export function resultRow(t,{participant,response,rt,pxPerMm,calibrated,timestamp,sizes,deg,distanceCm,fixationMs}){
-  return {participant,trial:t.trial,repeat:t.repeat||1,question_id:t.qId,question_title:t.title,response,rt_ms:Math.round(rt),
+export function resultRow(t,{participant,canvas,exp,response,rt,pxPerMm,calibrated,timestamp,sizes,deg,distanceCm,fixationMs}){
+  return {participant,canvas:canvas??"",experiment_id:exp?exp.id:"",experiment_code:exp?experimentCode(exp):"",experiment_name:exp?exp.name:"",
+          trial:t.trial,repeat:t.repeat||1,question_index:t.questionIndex??"",question_id:t.qId,question_title:t.title,response,rt_ms:Math.round(rt),
           B_side:t.swapped?"right":"left",
           ...paramColumns(t,sizes,deg),
           px_per_mm:pxPerMm,calibrated:calibrated?1:0,viewing_distance_cm:distanceCm??"",fixation_ms:fixationMs??0,timestamp};

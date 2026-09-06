@@ -2,10 +2,11 @@
    (CSV) mapping file → full parameter record. All client-side. */
 
 import { calib, pxToMm, visualAngleDeg } from "./calibration.js";
-import { experimentQuestions, questionTrial, stimulusSVG, fileStem, paramColumns } from "./experiment.js";
+import { experimentQuestions, experimentCode, questionTrial, stimulusSVG, fileStem, paramColumns } from "./experiment.js";
 import { buildZip } from "./zip.js";
+import { buildXlsx } from "./xlsx.js";
 
-const MANIFEST_COLS=["file_svg","file_png","question_id","question_title","png_scale","px_per_mm","calibrated","viewing_distance_cm",
+const MANIFEST_COLS=["file_svg","file_png","canvas","experiment_id","experiment_code","experiment_name","question_index","question_id","question_title","png_scale","px_per_mm","calibrated","viewing_distance_cm",
   ...["A","B","C"].flatMap(k=>["shape","sub","baseRot","subRot","frame","subRatio","scale","width_mm","height_mm","width_deg","height_deg"].map(c=>`${k}_${c}`))];
 
 function csv(rows,cols){
@@ -45,9 +46,8 @@ function memberSizes(svgText){
 }
 
 /* returns {blob, count} — the zip and how many questions it holds */
-export async function exportStimuli(questions,findItem,{scale=2,onProgress=()=>{}}={}){
-  let qs=experimentQuestions(questions);
-  if(!qs.length)qs=questions;
+export async function exportStimuli(exp,questions,findItem,{scale=2,canvas="",onProgress=()=>{}}={}){
+  const qs=experimentQuestions(exp,questions);
   const files=[], manifest=[];
   let n=0;
   for(const q of qs){
@@ -58,16 +58,18 @@ export async function exportStimuli(questions,findItem,{scale=2,onProgress=()=>{
     const svg=stimulusSVG(t);
     const png=await svgToPng(svg,scale);
     files.push({name:`${stem}.svg`,data:svg},{name:`${stem}.png`,data:png});
-    manifest.push({file_svg:`${stem}.svg`,file_png:`${stem}.png`,question_id:q.id,question_title:q.title,png_scale:scale,
+    manifest.push({file_svg:`${stem}.svg`,file_png:`${stem}.png`,canvas,experiment_id:exp.id,experiment_code:experimentCode(exp),experiment_name:exp.name,
+                   question_index:n,question_id:q.id,question_title:q.title,png_scale:scale,
                    px_per_mm:calib.pxPerMm,calibrated:calib.calibrated?1:0,viewing_distance_cm:calib.distanceCm,
                    ...paramColumns(t,memberSizes(svg),mm=>visualAngleDeg(mm))});
     onProgress(n,qs.length);
   }
   files.push({name:"manifest.csv",data:csv(manifest,MANIFEST_COLS)});
+  files.push({name:"manifest.xlsx",data:buildXlsx([{name:"manifest",rows:manifest,columns:MANIFEST_COLS}])});
   files.push({name:"README.txt",data:
 `Stimuli exported from Similarity with rotation.
 Each question: <stem>.svg (vector, 1:1 canvas pixels; zoom 100%) and <stem>.png (rasterised at ${scale}× that size).
-manifest.csv maps files to the full parameter record: base shape, sub-shape, both rotations, frame, sub-shape relative size,
+manifest.csv (and manifest.xlsx) map files to the full parameter record: base shape, sub-shape, both rotations, frame, sub-shape relative size,
 scale, and the drawn figure's width/height in mm (calibrated screen) and degrees (viewing distance ${calib.distanceCm} cm).
 Rotations are in degrees; frame "screen" keeps sub-shapes at absolute orientation, "vertex" points them outward from the center.
 `});

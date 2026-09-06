@@ -146,7 +146,9 @@ const cmp=(label,x,y)=>{
   ok=false;console.log("DIFF  ",label);
   fs.writeFileSync(`${OUT}/diff-${label}-a.txt`,x);fs.writeFileSync(`${OUT}/diff-${label}-b.txt`,y);
 };
-cmp("save.json",a.json,b.json);
+// v4 files carry an experiments block; with none defined the content equals a v3 file
+const normSave=s=>{try{const d=JSON.parse(s);if(d.version===4&&Array.isArray(d.experiments)&&!d.experiments.length){delete d.experiments;d.version=3;}return JSON.stringify(d,null,2);}catch{return s;}};
+cmp("save.json",normSave(a.json),normSave(b.json));
 // button handler attributes and the creation-panel help note legitimately differ
 // A/B/C labels deliberately sit lower than in the prototype: drop their y before comparing
 // dwell-to-measure dimension lines and their console toggle do not exist in the prototype
@@ -155,7 +157,7 @@ const stripLabelY=s=>stripDims(s).replace(/font-size="1[3-7]"/g,'font-size="X"')
 // the question panel's size rows were restacked (one field per row); compare them by their inputs only
 const restack=s=>s.replace(/<div class="qRows">.*?<\/div>\s*<\/div>/s,m=>(m.match(/<input[^>]*>/g)||[]).join(""))
                  .replace(/<div class="fnrow" style="margin-top:12px">.*?<\/div>/s,m=>(m.match(/<input[^>]*>/g)||[]).join(""));
-const stripHandlers=s=>restack(stripDims(s)).replace(/<div class="titleRow">(<input[^>]*>)<button id="qTitleRegen"[^>]*>[^<]*<\/button><\/div>/g,"$1").replace(/ title="[^"]*"/g,"").replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<div class="frow mmRow">.*?<\/div>/g,"").replace(/<span class="mmReadout[^"]*" id="qMm">[^<]*<\/span>/g,"").replace(/<button id="qExpToggle"[^>]*>[^<]*<\/button>/g,"").replace(/>\s+</g,"><").replace(/<p class="note">to build a question[^<]*<\/p>/,"").replace(/ class="nudge"/g,"").replace(/ class=""/g,"").replace(/placeholder="next: /g,'placeholder="').replace(/<!--[^>]*-->/g,"").replace(/>\s+</g,"><").trim();
+const stripHandlers=s=>restack(stripDims(s)).replace(/<div class="titleRow">(<input[^>]*>)<button id="qTitleRegen"[^>]*>[^<]*<\/button><\/div>/g,"$1").replace(/ title="[^"]*"/g,"").replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<div class="frow mmRow">.*?<\/div>/g,"").replace(/<span class="mmReadout[^"]*" id="qMm">[^<]*<\/span>/g,"").replace(/<div class="expChips" id="qExpChips">.*?<\/div>/g,"").replace(/>\s+</g,"><").replace(/<p class="note">to build a question[^<]*<\/p>/,"").replace(/ class="nudge"/g,"").replace(/ class=""/g,"").replace(/placeholder="next: /g,'placeholder="').replace(/<!--[^>]*-->/g,"").replace(/>\s+</g,"><").trim();
 for(const k of Object.keys(a.snap))cmp("snap."+k,stripLabelY(stripHandlers(String(a.snap[k]))),stripLabelY(stripHandlers(String(b.snap[k]))));
 for(const k of Object.keys(a.after))cmp("after."+k,stripLabelY(String(a.after[k])),stripLabelY(String(b.after[k])));
 console.log("errors original:",a.errors,"\nerrors modular:",b.errors);

@@ -61,7 +61,7 @@ function dropGhost(e){
               scale:1,baseRot:dragEntry.baseRot,anchorRot:dragEntry.anchorRot,frame:dragEntry.frame,
               anchorRatio:dragEntry.anchorRatio||DEFAULT_RATIO,label:null,qId:null};
     items.push(it);
-    sel.id=it.id;sel.ids=[];sel.qId=null;
+    sel.id=it.id;sel.ids=[];sel.qId=null;sel.expId=null;
     renderCanvas();openSelPanel();commit();
   }
   dragEntry=null;

@@ -35,7 +35,24 @@ test("serialize → deserialize round-trips, resolving live references", ()=>{
   assert.deepEqual(back.questions,src.questions);
   assert.equal(back.items[1].qId,6);
   assert.equal(back.maxId,7);
+  assert.deepEqual(back.experiments,[]);
   assert.deepEqual(serializeCanvas({...back,name:"demo"}),data,"second save is byte-identical");
+});
+
+test("v4 experiments round-trip; v3 stars migrate into experiment 1 with a fresh id", ()=>{
+  const src=sampleCanvas();
+  src.experiments=[{id:8,n:1,name:"pilot",questions:[6],settings:{repeats:2,shuffle:false,swapSides:true,fixation:true,fullscreen:false}}];
+  const data=serializeCanvas(src);
+  assert.equal(data.version,4);
+  const back=deserializeCanvas(JSON.parse(JSON.stringify(data)));
+  assert.deepEqual(back.experiments,src.experiments);
+  assert.equal(back.maxId,8);
+  const v3=JSON.parse(JSON.stringify(data));delete v3.experiments;v3.version=3;v3.questions[0].inExp=true;
+  const m=deserializeCanvas(v3);
+  assert.equal(m.experiments.length,1);
+  assert.equal(m.experiments[0].name,"experiment 1");assert.deepEqual(m.experiments[0].questions,[6]);
+  assert.equal(m.experiments[0].id,8,"id after the highest existing id");assert.equal(m.maxId,8);
+  assert.ok(!("inExp" in m.questions[0]));
 });
 
 test("deserialize rejects non-canvas files", ()=>{

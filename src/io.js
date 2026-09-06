@@ -1,16 +1,18 @@
 /* Save / load. The (de)serializers are pure so the file format is testable;
    the DOM glue at the bottom wires them to the save button and file input.
 
-   Save format (version 3): {version, name, view, tray[], items[], questions[]}.
+   Save format (version 4): {version, name, view, tray[], items[], questions[], experiments[]}.
    Saved canvases are research artifacts — older files keep loading:
      · `sub*` keys → `anchor*`
-     · v2 `trials` → `questions` (center/scale derived from member positions) */
+     · v2 `trials` → `questions` (center/scale derived from member positions)
+     · v3 `inExp` stars → one experiment "experiment 1" */
 
 import { DEFAULT_RATIO } from "./geometry.js";
+import { loadExperiments, normalizeSettings } from "./experiment.js";
 
-export const SAVE_VERSION=3;
+export const SAVE_VERSION=4;
 
-export function serializeCanvas({name,view,tray,items,questions}){
+export function serializeCanvas({name,view,tray,items,questions,experiments=[]}){
   return {
     version:SAVE_VERSION,
     name,
@@ -19,7 +21,8 @@ export function serializeCanvas({name,view,tray,items,questions}){
     items:items.map(i=>({id:i.id,trayId:i.trayRef.id,x:i.x,y:i.y,scale:i.scale,
                          baseRot:i.baseRot,anchorRot:i.anchorRot,frame:i.frame,anchorRatio:i.anchorRatio||DEFAULT_RATIO,
                          label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{})})),
-    questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO,...(q.inExp?{inExp:true}:{})}))
+    questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO})),
+    experiments:experiments.map(e=>({id:e.id,n:e.n,name:e.name,questions:[...e.questions],settings:normalizeSettings(e.settings)}))
   };
 }
 
@@ -59,7 +62,10 @@ export function deserializeCanvas(data){
     });
     return {...q,anchorRatio:q.anchorRatio||q.subRatio||DEFAULT_RATIO};
   });
-  return {tray,items,questions,view:data.view?{...data.view}:null,name:data.name||"",maxId};
+  // experiments (v4), or one synthesised from v3 "include in experiment" stars
+  const experiments=loadExperiments(data,questions);
+  experiments.forEach(e=>{if(e.id==null)e.id=++maxId;else maxId=Math.max(maxId,e.id);});
+  return {tray,items,questions,experiments,view:data.view?{...data.view}:null,name:data.name||"",maxId};
 }
 
 export function canvasFileName(rawName){

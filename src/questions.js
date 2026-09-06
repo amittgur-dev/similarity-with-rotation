@@ -3,7 +3,8 @@
 
 import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO } from "./geometry.js";
 import { assignABC, relationOf, describeRel, applyRelation, turnWhole, questionTitle } from "./variants.js";
-import { items, questions, sel, ui, nextId, findItem, findQuestion, removeItem } from "./state.js";
+import { items, questions, experiments, sel, ui, nextId, findItem, findQuestion, removeItem } from "./state.js";
+import { removeQuestionEverywhere } from "./experiment.js";
 import { $ } from "./dom.js";
 import { renderCanvas } from "./canvas.js";
 import { openQPanel, deselect } from "./console.js";
@@ -65,6 +66,7 @@ export function ungroupQuestion(){
       if(it)it.qId=null;
     });
     questions.splice(questions.indexOf(q),1);
+    removeQuestionEverywhere(q.id,experiments);
   }
   deselect();commit();
 }
@@ -73,6 +75,7 @@ export function deleteQuestion(){
   if(q){
     [q.a,q.b,q.c].forEach(removeItem);
     questions.splice(questions.indexOf(q),1);
+    removeQuestionEverywhere(q.id,experiments);
   }
   deselect();commit();
 }

@@ -10,7 +10,7 @@ import { commit, commitSoon } from "./history.js";
 import { renderCanvas } from "./canvas.js";
 import { layoutQuestion, renderQStruct, regenerateTitle } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
-import { syncExpToggle } from "./run.js";
+import { syncExpChips } from "./run.js";
 
 /* ================= spec rows ================= */
 export function miniSVG(def,rot,isAnchor){
@@ -203,7 +203,7 @@ export function openQPanel(){
   const q=findQuestion(sel.qId);
   if(!q){showPanel("createPanel");return;}
   $("qTitle").value=q.title;
-  syncExpToggle(q);
+  syncExpChips(q);
   $("qSize").value=Math.round(q.s*100);
   $("qRatio").value=Math.round((q.anchorRatio||DEFAULT_RATIO)*100);
   const container=$("qMembers");

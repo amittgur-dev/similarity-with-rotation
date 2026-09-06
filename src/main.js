@@ -1,6 +1,6 @@
 /* Entry point: wires the modules to the page. */
 
-import { tray, items, questions, view, clearSelection, bumpId } from "./state.js";
+import { tray, items, questions, experiments, view, clearSelection, bumpId } from "./state.js";
 import { $ } from "./dom.js";
 import { initCanvas, renderCanvas, zoomIn, zoomOut, resetView } from "./canvas.js";
 import { initConsole, showPanel, createShape, makeVariant, deselect, duplicateSelected, deleteSelected, deleteMulti } from "./console.js";
@@ -27,16 +27,17 @@ export function toast(msg){
 
 /* ---- canvas contents ---- */
 function currentData(name){
-  return serializeCanvas({name,view,tray,items,questions});
+  return serializeCanvas({name,view,tray,items,questions,experiments});
 }
 /* replace the canvas contents; keepView leaves the viewport and name alone (undo/redo) */
 function applyState(loaded,{keepView=false}={}){
-  tray.length=0;items.length=0;questions.length=0;
+  tray.length=0;items.length=0;questions.length=0;experiments.length=0;
   clearSelection();
   clearTrayDOM();
   loaded.tray.forEach(t=>{tray.push(t);addTrayItem(t);});
   items.push(...loaded.items);
   questions.push(...loaded.questions);
+  experiments.push(...(loaded.experiments||[]));
   bumpId(loaded.maxId);
   questions.forEach(q=>layoutQuestion(q));
   if(!keepView){
@@ -53,7 +54,7 @@ function applyLoaded(loaded){
   writeWorking();
 }
 function newCanvas(){
-  tray.length=0;items.length=0;questions.length=0;
+  tray.length=0;items.length=0;questions.length=0;experiments.length=0;
   clearSelection();
   clearTrayDOM();
   Object.assign(view,{tx:0,ty:0,z:1});
@@ -69,7 +70,7 @@ function newCanvas(){
 
 /* ---- undo / redo + autosave of the working copy ---- */
 function stateSnapshot(){
-  const d=serializeCanvas({name:"",view:{tx:0,ty:0,z:1},tray,items,questions});
+  const d=serializeCanvas({name:"",view:{tx:0,ty:0,z:1},tray,items,questions,experiments});
   delete d.view;delete d.name;
   return JSON.stringify(d);
 }

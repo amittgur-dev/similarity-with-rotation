@@ -2,7 +2,9 @@
    wheel and keyboard interaction. */
 
 import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup, norm } from "./geometry.js";
-import { items, questions, sel, view, findItem, findQuestion } from "./state.js";
+import { items, questions, experiments, sel, view, findItem, findQuestion, findExperiment } from "./state.js";
+import { experimentsOf, experimentCode, isMember } from "./experiment.js";
+import { toggleMembership } from "./run.js";
 import { $, escapeXML } from "./dom.js";
 import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers, updateMmReadouts } from "./console.js";
 import { calib, pxToMm, formatMm } from "./calibration.js";
@@ -14,6 +16,8 @@ const LABEL_GAP=1.55;   // label distance below an object center, × BASE_R × s
 let svg=null;
 let rubber=null; // {x0,y0,x1,y1} world coords
 let hoverId=null, hoverTimer=null, hoverCandidate=null;   // dwell-to-measure
+let hoverQ=null;   // question highlighted from the experiment panel's list
+export function setHoverQuestion(id){if(hoverQ!==id){hoverQ=id;renderCanvas();}}
 
 /* Dimension lines for an object, as on a technical drawing: width below,
    height on the right, each a hairline with end ticks and the size in mm.
@@ -44,25 +48,33 @@ export function renderCanvas(){
   $("emptyHint").textContent=document.querySelector(".trayItem")?"drag a shape here":"name a shape in the console to begin →";
   $("zoomBadge").textContent=Math.round(view.z*100)+"%";
   const dimItems=[];
+  // lens: while an experiment panel is open, non-member questions fade and titles get a toggle box
+  const lens=sel.expId!=null?findExperiment(sel.expId):null;
+  const faded=new Set(lens?questions.filter(q=>!isMember(lens,q.id)).map(q=>q.id):[]);
   let out=`<g transform="translate(${view.tx},${view.ty}) scale(${view.z})">`;
   questions.forEach(q=>{
     const A=findItem(q.a);
     if(!A)return;
     const ty=A.y-BASE_R*1.25*A.scale-26;
     const selQ=q.id===sel.qId;
-    out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="14" fill="#111" style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${q.inExp?"★ ":""}${escapeXML(q.title)}</text>`;
-    if(selQ){
+    const codes=experimentsOf(q.id,experiments).map(experimentCode).join(" ");
+    const box=lens?`<tspan data-toggle-q="${q.id}" font-size="16">${isMember(lens,q.id)?"■":"□"}</tspan> `:"";
+    out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="14" fill="#111"`+
+         `${faded.has(q.id)?' class="lensOut"':""} style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${box}${escapeXML(q.title)}`+
+         (codes?`<tspan fill="#6b6b6b" font-size="12"> ${codes}</tspan>`:"")+`</text>`;
+    if(selQ||q.id===hoverQ){
       const dx=BASE_R*Q_DX*q.s+BASE_R*1.4*q.s, dy=BASE_R*Q_DY*q.s+BASE_R*LABEL_GAP*q.s+30;
       out+=`<rect x="${q.cx-dx}" y="${q.cy-dy-14}" width="${2*dx}" height="${2*dy+14}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;
     }
   });
   items.forEach(it=>{
     const e=it.trayRef;
-    out+=`<g class="item" data-id="${it.id}" transform="translate(${it.x},${it.y}) scale(${it.scale})">`+
+    const fade=it.qId!=null&&faded.has(it.qId)?' class="lensOut"':"";
+    out+=`<g class="item${fade?" lensOut":""}" data-id="${it.id}" transform="translate(${it.x},${it.y}) scale(${it.scale})">`+
          shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO)+`</g>`;
     if(it.label){
       const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
-      out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${it.label}</text>`;
+      out+=`<text${fade} x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${it.label}</text>`;
     }
     const inMulti=sel.ids.includes(it.id);
     // measurement: pinned, or the selected object (or a member of the selected question), or after dwelling on one
@@ -103,7 +115,7 @@ let mode=null, dragIt=null, dragQ=null, start={};
 let spaceHeld=false;
 
 function selectQuestion(q,pt,pointerId){
-  sel.qId=q.id;sel.id=null;sel.ids=[];
+  sel.qId=q.id;sel.id=null;sel.ids=[];sel.expId=null;
   mode="moveQ";dragQ=q;
   start={dx:pt.x-q.cx,dy:pt.y-q.cy};
   renderCanvas();openQPanel();
@@ -125,6 +137,14 @@ function onPointerDown(e){
     svg.setPointerCapture(e.pointerId);
     return;
   }
+  // lens toggle box on a title: membership only, no selection change
+  const tq=t.dataset&&t.dataset.toggleQ;
+  if(tq&&sel.expId!=null){
+    e.preventDefault();
+    toggleMembership(findExperiment(sel.expId),parseInt(tq));
+    return;
+  }
+  sel.expId=null;   // any other press ends the lens
   if(qid){
     selectQuestion(findQuestion(parseInt(qid)),pt,e.pointerId);
     return;

@@ -150,7 +150,7 @@
     <div class="panel" id="qPanel">
       <label>Similarity question</label>
       <div class="titleRow"><input type="text" id="qTitle" autocomplete="off"><button id="qTitleRegen" title="regenerate the systematic title from the current rotations">↻</button></div>
-      <button id="qExpToggle" class="expToggle" title="use this question as a trial">☆ include in experiment</button>
+      <div class="expChips" id="qExpChips"></div>
       <div class="qRows">
         <div class="fnrow"><span class="lbl">size</span><input type="number" id="qSize" step="5" min="20" max="400"><span class="unit">%</span></div>
         <div class="fnrow"><span class="lbl">sub-shape relative size</span><input type="number" id="qRatio" step="2" min="5" max="60"><span class="unit">%</span></div>
@@ -184,17 +184,14 @@
     <!-- experiment -->
     <div class="panel" id="expPanel">
       <label>Experiment</label>
-      <p class="note" style="margin-top:0">each trial shows one question as “Is A more similar to B or C?”; responses and reaction times are exported as CSV with every stimulus parameter.</p>
+      <div class="titleRow"><span class="expCode" id="expCode"></span><input type="text" id="expName" autocomplete="off" placeholder="name"></div>
+      <div class="note" id="expSummary" style="margin-top:6px"></div>
       <div id="expList"></div>
       <div class="fn">
-        <div class="fnlabel">Pilot</div>
+        <div class="fnlabel">Run</div>
         <div class="fnrow" style="margin-bottom:8px">
-          <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">PARTICIPANT</span>
-          <input type="text" id="expPid" value="pilot" autocomplete="off" style="flex:1;font-size:0.72rem">
-        </div>
-        <div class="fnrow" style="margin-bottom:8px">
-          <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">REPEATS</span>
-          <input type="number" id="expRepeats" value="1" min="1" max="20" step="1">
+          <span style="font-size:0.7rem;color:var(--grey);letter-spacing:0.1em">REPEATS</span>
+          <input type="number" id="expRepeats" value="1" min="1" max="50" step="1">
         </div>
         <div class="checks">
           <label class="check" title="present the trials in random order"><input type="checkbox" id="expShuffle" checked> shuffle order</label>
@@ -202,28 +199,38 @@
           <label class="check" title="a 500 ms fixation cross before each stimulus"><input type="checkbox" id="expFix" checked> fixation cross</label>
           <label class="check" title="run in full screen (Esc quits)"><input type="checkbox" id="expFull" checked> full screen</label>
         </div>
+        <div class="fnrow" style="margin-top:10px">
+          <span style="font-size:0.7rem;color:var(--grey);letter-spacing:0.1em">PARTICIPANT</span>
+          <input type="text" id="expPid" value="pilot" autocomplete="off" style="flex:1;font-size:0.85rem">
+        </div>
         <div class="steprow" style="margin-top:10px">
-          <button id="pilotBtn">pilot the experiment</button>
+          <button id="pilotBtn">pilot this experiment</button>
         </div>
         <div class="note" id="pilotHint" style="margin-top:6px"></div>
         <div class="note" id="expLast"></div>
+        <div class="fnrow" style="margin-top:8px;gap:8px">
+          <span style="font-size:0.7rem;color:var(--grey);letter-spacing:0.1em;flex:1">LAST RUN</span>
+          <button class="ghost dl" id="expDownload" disabled title="results as a flat CSV table">.csv</button>
+          <button class="ghost dl" id="expDownloadX" disabled title="results workbook: results + per-question summary sheets">.xlsx</button>
+        </div>
       </div>
       <div class="fn">
         <div class="fnlabel">Stimuli</div>
-        <p class="note" style="margin-top:0">SVG + PNG of every included question and a manifest.csv with the full parameter record, in one zip.</p>
+        <p class="note" style="margin-top:0">SVG + PNG of every question in this experiment and a manifest.csv with the full parameter record, in one zip.</p>
         <div class="steprow" style="margin-top:8px">
           <button id="expExport">export stimuli (zip)</button>
         </div>
       </div>
       <div class="steprow">
         <button class="ghost" id="expDone">done</button>
-        <button id="expDownload" disabled>download CSV</button>
+        <button id="expDup">duplicate</button>
+        <button id="expDelete">delete</button>
       </div>
     </div>
 
   </div>
 
-  <div id="expBar" class="empty" title="open the experiment"><span id="expInfo">experiment · none yet</span><span class="expArrow">▸</span></div>
+  <div id="expBar" class="empty" title="experiments: named sets of questions with their own run settings"></div>
 
   <div id="tray">
     <span id="trayLabel">created shapes</span>
@@ -271,7 +278,8 @@
     <table id="runTable"></table>
     <div class="steprow">
       <button class="ghost" id="runEndClose">close</button>
-      <button id="runEndDownload">download CSV</button>
+      <button id="runEndDownload" title="results as a flat CSV table">download .csv</button>
+      <button id="runEndDownloadX" title="results workbook: results + per-question summary sheets">download .xlsx</button>
     </div>
   </div>
 </div>

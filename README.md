@@ -43,7 +43,8 @@ reference — see *Verification* below).
 | `src/calibration.js`, `src/calibrate.js` | **pure** px-per-mm model + storage, and the card-outline overlay |
 | `src/splitter.js` | resizable / collapsible console |
 | `src/tour.js` | first-run walkthrough |
-| `src/experiment.js`, `src/run.js` | **pure** trial model, stimulus markup, CSV and summary; the experiment panel and pilot runner |
+| `src/experiment.js`, `src/run.js` | **pure** experiments model, trial model, stimulus markup, CSV and summary; the strip, lens, experiment panel and pilot runner |
+| `src/xlsx.js` | **pure** .xlsx writer (inline strings) for results and manifests |
 | `src/history.js` | **pure** undo/redo over injected snapshot/restore |
 | `src/stimexport.js`, `src/zip.js` | stimulus export (SVG + PNG + manifest) and a **pure** store-only zip writer |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
@@ -177,29 +178,39 @@ The ⚙ **settings** button at the bottom-left shows the current px/mm and offer
 96 dpi and marks readouts *uncalibrated*. Redo the calibration after changing
 screen or browser zoom — those change the pixel size and the app cannot tell.
 
-## Experiment (pilot runner)
+## Experiments
 
-Open a question and press **☆ include in experiment**; the question gets a ★
-on the canvas and the footer under the tray counts the included questions.
-Click that footer for the experiment panel: every question on the canvas
-with a checkbox (tick to include; "all"/"none"), participant id,
-repeats, and options for shuffled order, **swapping B/C sides at random**
-(counterbalances a side bias; the record says which side B was on), a 500 ms
-fixation cross and full screen. **pilot the experiment** opens a start
-screen with instructions (space begins), then one question per trial as
-"Is A more similar to B or C?" — the stimulus is drawn from the same objects
-as the canvas at 1:1 pixels (so the calibrated sizes apply), with A/B/C
-labels and two answer buttons (keys B / C also work, Esc quits), 400 ms
-blank between trials. The run ends with a summary (proportion B, median
-RT), a table and a CSV whose columns carry every stimulus parameter, each
-member's width/height in mm and degrees, B side, repeat, px/mm, viewing
-distance and fixation (`src/experiment.js`, pure and unit-tested). The
-inclusion flag is saved with the canvas.
+An experiment is a named subset of the canvas's questions with its own run
+settings; a canvas can hold several, and a question can be in several.
+Each gets a code (E1, E2…) that never changes, shown in grey after the
+titles of its questions on the canvas and stamped into every result row,
+so renaming an experiment never breaks an analysis join.
 
-**export stimuli (zip)** writes every included question (or all questions
-if none is included) as `<title>.svg` and `<title>.png` (2× raster) with a
-`manifest.csv` mapping file → full parameter record, all client-side
-(`src/stimexport.js`, `src/zip.js`).
+- The strip under the console lists the experiments as chips
+  ("E1 pilot · 6"); "+ experiment" creates one. Opening a chip shows the
+  experiment panel and a **lens** on the canvas: questions outside the
+  experiment fade, and every title gets a □/■ box that toggles membership
+  in place. The lens ends when the panel closes (done, Esc, any other
+  selection).
+- The experiment panel: code and editable name, a summary line, the list
+  of all questions with a checkbox each (hovering a row frames that question
+  on the canvas, clicking its title opens it), run settings saved with the
+  experiment (repeats, shuffle, swap B/C sides, fixation cross, full
+  screen), participant id, **pilot this experiment**, the last run's results
+  as .csv or .xlsx (results sheet + per-question summary), **export stimuli
+  (zip)** (SVG + PNG per question with manifest.csv and manifest.xlsx), and
+  duplicate / delete.
+- The question panel shows one chip per experiment (filled when the
+  question is a member) and "+" to start a new experiment containing it.
+- A run: start screen (space begins), then per trial an optional 500 ms
+  fixation, the question as "Is A more similar to B or C?" drawn from the
+  same objects as the canvas at 1:1 pixels with A/B/C labels, keys B / C or
+  the buttons, 400 ms blank. Results carry participant, canvas, experiment
+  id/code/name, trial, repeat, question index, response, RT, B side, every
+  member's parameters and on-screen size in mm and degrees, px/mm, viewing
+  distance and fixation (`src/experiment.js`, pure and unit-tested).
+- Save format v4 adds `experiments[]`; v3 files with "include in
+  experiment" stars load as one experiment "experiment 1".
 
 ## Saving: library and files
 
