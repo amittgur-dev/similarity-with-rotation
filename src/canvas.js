@@ -4,7 +4,7 @@
 import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup, norm } from "./geometry.js";
 import { items, questions, experiments, sel, view, findItem, findQuestion, findExperiment } from "./state.js";
 import { experimentsOf, experimentCode, isMember } from "./experiment.js";
-import { toggleMembership } from "./run.js";
+import { toggleMembership, refreshExpBar } from "./run.js";
 import { $, escapeXML } from "./dom.js";
 import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers, updateMmReadouts } from "./console.js";
 import { calib, pxToMm, formatMm } from "./calibration.js";
@@ -74,7 +74,7 @@ export function renderCanvas(){
          shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO)+`</g>`;
     if(it.label){
       const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
-      out+=`<text${fade} x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${it.label}</text>`;
+      out+=`<text${fade} x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${escapeXML(it.label)}</text>`;
     }
     const inMulti=sel.ids.includes(it.id);
     // measurement: pinned, or the selected object (or a member of the selected question), or after dwelling on one
@@ -125,7 +125,8 @@ function selectQuestion(q,pt,pointerId){
 function onPointerDown(e){
   const t=e.target;
   const h=t.dataset&&t.dataset.h;
-  const qid=t.dataset&&t.dataset.qid;
+  const tEl=t.closest&&t.closest("text[data-qid]");   // the code tspan inside a title counts as the title
+  const qid=tEl?tEl.dataset.qid:undefined;
   const gEl=t.closest&&t.closest("g.item");
   const rect=svg.getBoundingClientRect();
   const px=e.clientX-rect.left, py=e.clientY-rect.top;
@@ -272,10 +273,12 @@ function onDblClick(e){
   const id=parseInt(gEl.dataset.id);
   const it=findItem(id);
   if(!it||!it.qId)return; // ungrouped objects already open on single click
-  sel.id=id;sel.qId=null;sel.ids=[];
+  const hadExp=sel.expId!=null;
+  sel.id=id;sel.qId=null;sel.ids=[];sel.expId=null;
   mode=null;dragQ=null;
   renderCanvas();
   openSelPanel();
+  if(hadExp)refreshExpBar();
 }
 function onWheel(e){
   e.preventDefault();
@@ -293,12 +296,18 @@ function onWheel(e){
   }
   renderCanvas();
 }
+/* text entry gets the keys; checkboxes, radios, sliders and buttons do not */
+export function isTyping(){
+  const el=document.activeElement;
+  if(!el)return false;
+  if(el.tagName==="TEXTAREA"||el.tagName==="SELECT"||el.isContentEditable)return true;
+  return el.tagName==="INPUT"&&!/^(checkbox|radio|range|button|submit|file|color)$/i.test(el.type||"");
+}
 function onKeyDown(e){
-  const typing=["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
-  const covered=!$("run").hidden||!$("calib").hidden||!$("tour").hidden;
-  if(typing||covered)return;
+  const covered=!$("run").hidden||!$("calib").hidden||!$("tour").hidden||document.querySelector(".modal:not([hidden])");
+  if(isTyping()||covered)return;
   if(e.code==="Space"){spaceHeld=true;}
-  if(e.key==="Escape"&&(sel.id!=null||sel.ids.length||sel.qId!=null)){deselect();return;}
+  if(e.key==="Escape"&&(sel.id!=null||sel.ids.length||sel.qId!=null||sel.expId!=null)){deselect();return;}
   // arrow keys nudge the selection (shift: ×10); screen pixels, so it feels the same at any zoom
   const arrow={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
   if(arrow){
@@ -310,12 +319,14 @@ function onKeyDown(e){
     else return;
     e.preventDefault();renderCanvas();commitSoon();return;
   }
+  // a question member (opened by double-click) is edited, never deleted or duplicated on its own
+  const grouped=sel.id!=null&&!!(findItem(sel.id)||{}).qId;
   if(e.key==="Backspace"||e.key==="Delete"){
-    if(sel.id!=null)deleteSelected();
+    if(sel.id!=null){if(!grouped)deleteSelected();}
     else if(sel.ids.length)deleteMulti();
     else if(sel.qId!=null)deleteQuestion();
   }
-  if((e.metaKey||e.ctrlKey)&&e.key==="d"&&sel.id!=null){
+  if((e.metaKey||e.ctrlKey)&&e.key==="d"&&sel.id!=null&&!grouped){
     e.preventDefault();duplicateSelected();
   }
 }

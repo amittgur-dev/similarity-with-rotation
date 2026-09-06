@@ -15,6 +15,7 @@ async function run(url,tag){
   const page=await browser.newPage({viewport:{width:1200,height:800}});
   const errors=[];
   page.on("pageerror",e=>errors.push(String(e)));
+  page.on("dialog",d=>d.accept());   // the modular app confirms before discarding unsaved edits
   // resource-load failures (e.g. the web font when offline) are not app errors; script errors still surface via pageerror
   page.on("console",m=>{if(m.type()==="error"&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
   await page.goto(url);

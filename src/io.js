@@ -12,7 +12,7 @@ import { loadExperiments, normalizeSettings } from "./experiment.js";
 
 export const SAVE_VERSION=4;
 
-export function serializeCanvas({name,view,tray,items,questions,experiments=[]}){
+export function serializeCanvas({name,view,tray,items,questions,experiments=[],nextExperimentN=0}){
   return {
     version:SAVE_VERSION,
     name,
@@ -22,7 +22,8 @@ export function serializeCanvas({name,view,tray,items,questions,experiments=[]})
                          baseRot:i.baseRot,anchorRot:i.anchorRot,frame:i.frame,anchorRatio:i.anchorRatio||DEFAULT_RATIO,
                          label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{})})),
     questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO})),
-    experiments:experiments.map(e=>({id:e.id,n:e.n,name:e.name,questions:[...e.questions],settings:normalizeSettings(e.settings),...(e.online?{online:{...e.online}}:{})}))
+    experiments:experiments.map(e=>({id:e.id,n:e.n,name:e.name,questions:[...e.questions],settings:normalizeSettings(e.settings),...(e.online?{online:{...e.online}}:{})})),
+    ...(nextExperimentN>0?{nextExperimentN}:{})
   };
 }
 
@@ -51,21 +52,20 @@ export function deserializeCanvas(data){
   const qs=data.questions||(data.trials||[]).map(t=>{
     const A=data.items.find(i=>i.id===t.a),B=data.items.find(i=>i.id===t.b),C=data.items.find(i=>i.id===t.c);
     if(!A||!B||!C)return null;
-    return {id:t.id,title:t.title,a:t.a,b:t.b,c:t.c,
+    return {id:t.id,title:String(t.title??""),a:t.a,b:t.b,c:t.c,
             cx:(A.x+B.x+C.x)/3,cy:(A.y+B.y+C.y)/3,s:A.scale||1};
   }).filter(Boolean);
-  const questions=qs.map(q=>{
+  // a question whose members are missing cannot be drawn or run: dropped (its remaining members stay as free objects)
+  const questions=qs.filter(q=>q&&[q.a,q.b,q.c].every(id=>items.some(i=>i.id===id))).map(q=>{
     maxId=Math.max(maxId,q.id);
-    [q.a,q.b,q.c].forEach(id=>{
-      const it=items.find(i=>i.id===id);
-      if(it)it.qId=q.id;
-    });
-    return {...q,anchorRatio:q.anchorRatio||q.subRatio||DEFAULT_RATIO};
+    [q.a,q.b,q.c].forEach(id=>{items.find(i=>i.id===id).qId=q.id;});
+    return {...q,title:String(q.title??""),anchorRatio:q.anchorRatio||q.subRatio||DEFAULT_RATIO};
   });
+  items.forEach(i=>{if(i.qId&&!questions.some(q=>q.id===i.qId))i.qId=null;});
   // experiments (v4), or one synthesised from v3 "include in experiment" stars
   const experiments=loadExperiments(data,questions);
   experiments.forEach(e=>{if(e.id==null)e.id=++maxId;else maxId=Math.max(maxId,e.id);});
-  return {tray,items,questions,experiments,view:data.view?{...data.view}:null,name:data.name||"",maxId};
+  return {tray,items,questions,experiments,view:data.view?{...data.view}:null,name:data.name||"",maxId,nextExperimentN:parseInt(data.nextExperimentN)||0};
 }
 
 export function canvasFileName(rawName){

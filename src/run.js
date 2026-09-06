@@ -6,7 +6,7 @@
    which reads the same objects as the canvas. */
 
 import { $ } from "./dom.js";
-import { questions, experiments, sel, findItem, findQuestion, findExperiment, nextId, clearSelection } from "./state.js";
+import { questions, experiments, sel, counters, findItem, findQuestion, findExperiment, nextId, clearSelection } from "./state.js";
 import { calib, pxToMm, visualAngleDeg } from "./calibration.js";
 import { PROMPT, experimentQuestions, experimentCode, newExperiment, nextOrdinal, isMember, setMembership,
          buildTrials, trialGeometry, stimulusMarkup, resultRow, toCSV, summarize, normalizeSettings } from "./experiment.js";
@@ -23,8 +23,10 @@ const lastRuns=new Map();   // experiment id → {participant, rows, when}
 let participant="pilot";
 
 /* ---- creating and editing experiments ---- */
+/* ordinals are never reissued, even after the newest experiment is deleted */
+export function newOrdinal(){const n=nextOrdinal(experiments,counters.expN);counters.expN=n;return n;}
 export function createExperiment(questionIds=[]){
-  const e=newExperiment(nextId(),nextOrdinal(experiments),null,[]);
+  const e=newExperiment(nextId(),newOrdinal(),null,[]);
   questionIds.forEach(id=>setMembership(e,id,true,questions));
   experiments.push(e);
   return e;
@@ -155,7 +157,7 @@ export function refreshExpPanel(){
 function duplicateExperiment(){
   const exp=findExperiment(sel.expId);
   if(!exp)return;
-  const e=newExperiment(nextId(),nextOrdinal(experiments),`${exp.name} copy`,exp.questions);
+  const e=newExperiment(nextId(),newOrdinal(),`${exp.name} copy`,exp.questions);
   e.settings={...exp.settings};
   experiments.push(e);
   openExpPanel(e.id);commit();
@@ -166,7 +168,7 @@ function deleteExperiment(){
   if(!confirm(`Delete experiment ${experimentCode(exp)} “${exp.name}”? The questions stay on the canvas.`))return;
   experiments.splice(experiments.indexOf(exp),1);
   lastRuns.delete(exp.id);
-  deselect();commit();
+  deselect();refreshExpBar();commit();
 }
 
 /* ---- runner ----
@@ -177,6 +179,9 @@ function deleteExperiment(){
     intro, instructions, onRow(row,trial), onFinish(rows)} */
 const FIX_MS=500, ITI_MS=400;
 let trials=[],idx=0,rows=[],shownAt=0,accepting=false,opts={},runExp=null,runCfg={};
+let runToken=0,fixTimer=null,itiTimer=null,begun=false;   // a quit or restart invalidates pending timers
+/* forget in-memory pilot results when the canvas is replaced (ids restart per canvas) */
+export function resetRuns(){lastRuns.clear();runExp=null;}
 
 export function setPhase(p){   // "start" | "fix" | "stim" | "blank" | "end" | "msg" | "thanks"
   $("runStart").hidden=p!=="start";
@@ -215,8 +220,14 @@ function showTrial(){
   svg.setAttribute("width",g.viewBox[2]);
   svg.setAttribute("height",g.viewBox[3]);
   svg.innerHTML=stimulusMarkup(t);
-  const go=()=>{setPhase("stim");t.sizes=memberSizesMm(svg);shownAt=performance.now();accepting=true;};
-  if(opts.fixation){setPhase("fix");setTimeout(go,FIX_MS);}
+  const tok=runToken;
+  const go=()=>{
+    if(tok!==runToken)return;
+    setPhase("stim");t.sizes=memberSizesMm(svg);
+    // the clock starts when the stimulus frame has actually been painted
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{if(tok!==runToken)return;shownAt=performance.now();accepting=true;}));
+  };
+  if(opts.fixation){setPhase("fix");fixTimer=setTimeout(go,FIX_MS);}
   else go();
 }
 function respond(r){
@@ -231,7 +242,8 @@ function respond(r){
   if(runCfg.onRow)try{runCfg.onRow(row,t);}catch{}
   setPhase("blank");
   idx++;
-  setTimeout(()=>{ if(idx<trials.length)showTrial(); else finish(); },ITI_MS);
+  const tok=runToken;
+  itiTimer=setTimeout(()=>{ if(tok!==runToken)return; if(idx<trials.length)showTrial(); else finish(); },ITI_MS);
 }
 function finish(){
   $("runCount").textContent="";
@@ -255,7 +267,9 @@ function finish(){
   if(runCfg.onFinish)runCfg.onFinish(rows);
 }
 function leaveFullscreen(){if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}
+function cancelTimers(){runToken++;clearTimeout(fixTimer);clearTimeout(itiTimer);fixTimer=itiTimer=null;}
 export function startRun(cfg){
+  cancelTimers();begun=false;
   runCfg=cfg;runExp=cfg.exp;participant=cfg.participant||"pilot";
   opts=normalizeSettings(cfg.settings||{});
   trials=cfg.trials;idx=0;rows=[];accepting=false;
@@ -278,11 +292,14 @@ export function startPilot(){
             intro:`${experimentCode(exp)} ${exp.name} · participant ${pid} · ${list.length} trial${list.length===1?"":"s"}`});
 }
 function begin(){
+  if(begun)return;   // Enter reaches both the key handler and the focused button
+  begun=true;
   if(opts.fullscreen&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});
   showTrial();
 }
 function quit(){
   if(runCfg.mode==="participant")return;   // a participant session has no way out but the end
+  cancelTimers();
   accepting=false;
   $("run").hidden=true;
   leaveFullscreen();
@@ -339,6 +356,7 @@ export function initExperiment(){
     const exp=findExperiment(sel.expId);
     if(!exp)return;
     exp.settings=readSettings();
+    $("expRepeats").value=exp.settings.repeats;   // echo the value the run will use
     refreshSummary(exp);commit();
   }));
   $("expRepeats").addEventListener("input",()=>{const exp=findExperiment(sel.expId);if(exp){exp.settings=readSettings();refreshSummary(exp);}});
@@ -357,7 +375,7 @@ export function initExperiment(){
   $("expExport").addEventListener("click",exportStimuliZip);
   document.querySelectorAll("#runChoice button").forEach(b=>b.addEventListener("click",()=>respond(b.dataset.r)));
   window.addEventListener("keydown",e=>{
-    if($("run").hidden)return;
+    if($("run").hidden||e.repeat)return;   // a held key must not answer the next trial
     if(!$("runStart").hidden){if(e.key===" "||e.key==="Enter"){e.preventDefault();begin();}else if(e.key==="Escape")quit();return;}
     if(!$("runMsg").hidden||!$("runThanks").hidden)return;
     if(e.key==="b"||e.key==="B")respond("B");

@@ -8,6 +8,7 @@ export const tray=[];        // {id, def, anchor, baseRot, anchorRot, frame, anc
 export const items=[];       // {id, trayRef, x,y, scale, baseRot, anchorRot, frame, anchorRatio, label, qId}
 export const questions=[];   // {id, title, a,b,c, cx,cy, s, anchorRatio}
 export const experiments=[]; // {id, n, name, questions:[qId…], settings:{repeats,shuffle,swapSides,fixation,fullscreen}}
+export const counters={expN:0};   // highest experiment ordinal ever issued on this canvas (codes are never reused)
 
 /* selection: exactly one of these is active at a time
    (single object / multiple objects / a question group) */

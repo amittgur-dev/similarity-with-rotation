@@ -4,13 +4,13 @@
 import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, vertCount } from "./geometry.js";
 import { rotateParams, parseVary } from "./variants.js";
 import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem } from "./state.js";
-import { $ } from "./dom.js";
+import { $, escapeXML } from "./dom.js";
 import { calib, pxToMm, visualAngleDeg, formatDeg } from "./calibration.js";
 import { commit, commitSoon } from "./history.js";
 import { renderCanvas } from "./canvas.js";
 import { layoutQuestion, renderQStruct, regenerateTitle } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
-import { syncExpChips } from "./run.js";
+import { syncExpChips, refreshExpBar } from "./run.js";
 
 /* ================= spec rows ================= */
 export function miniSVG(def,rot,isAnchor){
@@ -25,7 +25,7 @@ export function buildSpecRows(container, target, cfg){
   row1.innerHTML=
     `<div class="pv">${miniSVG(cfg.def,target.baseRot)}</div>`+
     `<div class="fields">`+
-      `<div class="frow"><span>${cfg.def.name}</span></div>`+
+      `<div class="frow"><span>${escapeXML(cfg.def.name)}</span></div>`+
       `<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.baseRot)}" data-f="baseRot">°</div>`+
       (cfg.showSize?`<div class="frow"><span>size</span><input type="number" step="5" min="20" max="400" value="${Math.round(target.scale*100)}" data-f="size">%</div>`+
                     `<div class="frow mmRow"><span>on screen</span><span class="mmReadout" data-item="${target.id}"></span></div>`:"")+
@@ -39,7 +39,7 @@ export function buildSpecRows(container, target, cfg){
     row2.innerHTML=
       `<div class="pv">${miniSVG(cfg.anchor,target.anchorRot,true)}</div>`+
       `<div class="fields">`+
-        `<div class="frow"><span>${cfg.anchor.name} × ${vertCount(cfg.def)}</span></div>`+
+        `<div class="frow"><span>${escapeXML(cfg.anchor.name)} × ${vertCount(cfg.def)}</span></div>`+
         (orientable?`<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.anchorRot)}" data-f="anchorRot">°</div>`:"")+
         (cfg.showRatio===false?"":`<div class="frow"><span>relative size</span><input type="number" step="2" min="5" max="60" value="${Math.round((target.anchorRatio||DEFAULT_RATIO)*100)}" data-f="anchorRatio">%</div>`)+
         `<div class="seg" data-f="frame" title="frame of the sub-shapes">`+
@@ -160,8 +160,10 @@ export function showPanel(id){
   ["createPanel","selPanel","multiPanel","qPanel","expPanel"].forEach(p=>$(p).classList.toggle("on",p===id));
 }
 export function deselect(){
+  const hadExp=sel.expId!=null;
   clearSelection();
   renderCanvas();showPanel("createPanel");
+  if(hadExp)refreshExpBar();   // the strip shows which experiment is open
 }
 export function openSelPanel(){
   const it=findItem(sel.id);
@@ -231,6 +233,8 @@ export function syncSelPanelNumbers(){
 
 /* ================= single-object ops ================= */
 export function deleteSelected(){
+  const it=findItem(sel.id);
+  if(!it||it.qId)return;   // grouped objects are deleted via their question
   removeItem(sel.id);
   deselect();commit();
 }

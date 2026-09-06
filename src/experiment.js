@@ -22,7 +22,7 @@ export function newExperiment(id,n,name,questionIds=[]){
   return {id,n,name:name||`experiment ${n}`,questions:[...questionIds],settings:{...DEFAULT_SETTINGS}};
 }
 export const experimentCode=exp=>`E${exp.n}`;
-export const nextOrdinal=experiments=>experiments.reduce((m,e)=>Math.max(m,e.n||0),0)+1;
+export const nextOrdinal=(experiments,floor=0)=>Math.max(floor,experiments.reduce((m,e)=>Math.max(m,e.n||0),0))+1;
 /* members in canvas order (the experiment's list is kept as a set in canvas order) */
 export function experimentQuestions(exp,questions){
   if(!exp)return [];
@@ -159,7 +159,7 @@ export function resultRow(t,{participant,canvas,exp,response,rt,pxPerMm,calibrat
 }
 function csvCell(v){
   const s=v==null?"":String(v);
-  return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
 }
 export function toCSV(rows,columns=CSV_COLUMNS){
   return [columns.join(","),...rows.map(r=>columns.map(c=>csvCell(r[c])).join(","))].join("\n")+"\n";

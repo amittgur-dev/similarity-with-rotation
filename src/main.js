@@ -1,9 +1,9 @@
 /* Entry point: wires the modules to the page. */
 
-import { tray, items, questions, experiments, view, clearSelection, bumpId } from "./state.js";
+import { tray, items, questions, experiments, counters, view, sel, clearSelection, bumpId, findExperiment, findQuestion } from "./state.js";
 import { $ } from "./dom.js";
-import { initCanvas, renderCanvas, zoomIn, zoomOut, resetView } from "./canvas.js";
-import { initConsole, showPanel, createShape, makeVariant, deselect, duplicateSelected, deleteSelected, deleteMulti } from "./console.js";
+import { initCanvas, renderCanvas, zoomIn, zoomOut, resetView, isTyping } from "./canvas.js";
+import { initConsole, showPanel, openQPanel, createShape, makeVariant, deselect, duplicateSelected, deleteSelected, deleteMulti } from "./console.js";
 import { makeQuestion, makeGroupVariation, ungroupQuestion, deleteQuestion, layoutQuestion } from "./questions.js";
 import { addTrayItem, clearTrayDOM } from "./tray.js";
 import { serializeCanvas, deserializeCanvas, canvasFileName, downloadJSON, readJSONFile } from "./io.js";
@@ -13,7 +13,7 @@ import { initHistory, commit, undo, redo, resetHistory } from "./history.js";
 import { initCalibration, openCalibration } from "./calibrate.js";
 import { initSplitter } from "./splitter.js";
 import { initTour, startTour, tourDone } from "./tour.js";
-import { initExperiment, refreshExpBar } from "./run.js";
+import { initExperiment, refreshExpBar, openExpPanel, resetRuns } from "./run.js";
 import { initCloud, openConnections, startParticipant } from "./cloud.js";
 import { initAssist, openDescribe } from "./assist.js";
 import { prolificParams } from "./online.js";
@@ -30,12 +30,15 @@ export function toast(msg){
 
 /* ---- canvas contents ---- */
 function currentData(name){
-  return serializeCanvas({name,view,tray,items,questions,experiments});
+  return serializeCanvas({name,view,tray,items,questions,experiments,nextExperimentN:counters.expN});
 }
 /* replace the canvas contents; keepView leaves the viewport and name alone (undo/redo) */
 function applyState(loaded,{keepView=false}={}){
+  const keep={expId:sel.expId,qId:sel.qId};   // undo/redo keeps the open panel when its record survives
   tray.length=0;items.length=0;questions.length=0;experiments.length=0;
   clearSelection();
+  if(!keepView)resetRuns();
+  counters.expN=loaded.nextExperimentN||0;
   clearTrayDOM();
   loaded.tray.forEach(t=>{tray.push(t);addTrayItem(t);});
   items.push(...loaded.items);
@@ -49,6 +52,10 @@ function applyState(loaded,{keepView=false}={}){
   }
   renderCanvas();showPanel("createPanel");
   refreshExpBar();
+  if(keepView){
+    if(keep.expId!=null&&findExperiment(keep.expId))openExpPanel(keep.expId);
+    else if(keep.qId!=null&&findQuestion(keep.qId)){sel.qId=keep.qId;renderCanvas();openQPanel();}
+  }
 }
 function applyLoaded(loaded){
   applyState(loaded);
@@ -56,8 +63,12 @@ function applyLoaded(loaded){
   setDirty(false);
   writeWorking();
 }
+/* unsaved edits are only thrown away on purpose */
+function discardOk(){return !dirty||confirm("Discard the unsaved changes to the current canvas?");}
 function newCanvas(){
+  if(!discardOk())return;
   tray.length=0;items.length=0;questions.length=0;experiments.length=0;
+  counters.expN=0;resetRuns();
   clearSelection();
   clearTrayDOM();
   Object.assign(view,{tx:0,ty:0,z:1});
@@ -73,7 +84,7 @@ function newCanvas(){
 
 /* ---- undo / redo + autosave of the working copy ---- */
 function stateSnapshot(){
-  const d=serializeCanvas({name:"",view:{tx:0,ty:0,z:1},tray,items,questions,experiments});
+  const d=serializeCanvas({name:"",view:{tx:0,ty:0,z:1},tray,items,questions,experiments,nextExperimentN:counters.expN});
   delete d.view;delete d.name;
   return JSON.stringify(d);
 }
@@ -135,6 +146,7 @@ function saveCanvas(){
 function openFromLibrary(){
   const name=$("libSelect").value;
   if(!name)return;
+  if(!discardOk()){refreshLibrary("");return;}
   const data=loadFromLibrary(storage,name);
   if(!data){refreshLibrary("");return;}
   try{
@@ -206,6 +218,7 @@ function exportCanvas(){
   downloadJSON(currentData(name),name+".json");
 }
 async function importCanvasFile(file){
+  if(!discardOk())return;
   try{
     applyLoaded(deserializeCanvas(await readJSONFile(file)));
     refreshLibrary("");
@@ -254,8 +267,7 @@ $("viewDist").addEventListener("change",()=>{
 });
 /* keyboard: undo / redo / save (not while typing, not under an overlay) */
 window.addEventListener("keydown",e=>{
-  const tag=document.activeElement&&document.activeElement.tagName;
-  if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
+  if(isTyping())return;
   if(!$("run").hidden||!$("calib").hidden||!$("tour").hidden||document.querySelector(".modal:not([hidden])"))return;
   const mod=e.metaKey||e.ctrlKey;
   if(!mod)return;

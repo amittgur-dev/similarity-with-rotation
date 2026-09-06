@@ -492,4 +492,5 @@ body.participantRun #runQuit{display:none}
 .runScreen .steprow button{font-family:var(--mono);font-size:0.745rem;letter-spacing:0.08em;border:1px solid var(--ink);background:#fff;color:var(--ink);padding:8px 12px;cursor:pointer;flex:1}
 .runScreen .steprow button:hover{background:var(--ink);color:#fff}
 .runScreen .steprow button[hidden]{display:none}
+.steprow[hidden]{display:none}
 #runInstructions[hidden],#runIntro[hidden]{display:none}

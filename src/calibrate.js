@@ -56,8 +56,8 @@ export function initCalibration(opts){
   });
   // arrow keys nudge by 1 px when the slider has focus (fine adjustment)
   $("calib").addEventListener("keydown",e=>{
-    if(e.key==="Enter"){e.preventDefault();confirm();}
-    if(e.key==="Escape"){e.preventDefault();closeCalibration();}
+    if(e.key==="Enter"){e.preventDefault();e.stopPropagation();confirm();}
+    if(e.key==="Escape"){e.preventDefault();e.stopPropagation();closeCalibration();}
   });
   $("calibConfirm").addEventListener("click",confirm);
   $("calibSkip").addEventListener("click",closeCalibration);

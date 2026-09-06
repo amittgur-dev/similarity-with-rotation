@@ -48,13 +48,16 @@ function memberSizes(svgText){
 /* returns {blob, count} — the zip and how many questions it holds */
 export async function exportStimuli(exp,questions,findItem,{scale=2,canvas="",onProgress=()=>{}}={}){
   const qs=experimentQuestions(exp,questions);
-  const files=[], manifest=[];
+  const files=[], manifest=[], used=new Set();
   let n=0;
   for(const q of qs){
     n++;
     const t=questionTrial(q,findItem);
     if(!t)continue;
-    const stem=fileStem(q.title,n);
+    // file names must be unique in the zip (and on case-insensitive file systems)
+    let stem=fileStem(q.title,n);
+    for(let k=2;used.has(stem.toLowerCase());k++)stem=`${fileStem(q.title,n)}-${k}`;
+    used.add(stem.toLowerCase());
     const svg=stimulusSVG(t);
     const png=await svgToPng(svg,scale);
     files.push({name:`${stem}.svg`,data:svg},{name:`${stem}.png`,data:png});

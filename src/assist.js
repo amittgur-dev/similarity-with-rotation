@@ -7,14 +7,14 @@ import { $ } from "./dom.js";
 import { BASE_R, Q_DX, Q_DY, parseShape, norm } from "./geometry.js";
 import { questionTitle } from "./variants.js";
 import { tray, items, questions, experiments, view, nextId } from "./state.js";
-import { newExperiment, nextOrdinal } from "./experiment.js";
+import { newExperiment } from "./experiment.js";
 import { layoutQuestion } from "./questions.js";
 import { addTrayItem } from "./tray.js";
 import { renderCanvas } from "./canvas.js";
 import { commit } from "./history.js";
 import { buildRequestBody, requestPlanDirect, requestPlanViaFunction, materializePlan } from "./describe.js";
 import { aiConfig, ensureToken, openConnections } from "./cloud.js";
-import { openExpPanel, refreshExpBar } from "./run.js";
+import { openExpPanel, refreshExpBar, newOrdinal } from "./run.js";
 
 let toast=()=>{}, aborter=null;
 
@@ -63,7 +63,7 @@ async function generate(){
       await requestPlanViaFunction(body,{url:c.url,anonKey:c.anonKey,token:await ensureToken()},fetchWithSignal);
     const before=new Set(tray.map(t=>t.id));
     const origin=placement();
-    const res=materializePlan(plan,{tray,items,questions,experiments,nextId,parseShape,norm,layoutQuestion,questionTitle,newExperiment,nextOrdinal,BASE_R,Q_DX,Q_DY,origin});
+    const res=materializePlan(plan,{tray,items,questions,experiments,nextId,parseShape,norm,layoutQuestion,questionTitle,newExperiment,nextOrdinal:()=>newOrdinal(),BASE_R,Q_DX,Q_DY,origin});
     tray.filter(t=>!before.has(t.id)).forEach(addTrayItem);
     if(!res.questions.length)throw new Error("nothing could be built from the plan"+(res.problems.length?": "+res.problems.join("; "):""));
     view.z=1;view.tx=40-(origin.x-BASE_R*Q_DX-BASE_R*1.6);view.ty=60-(origin.y-BASE_R*Q_DY-BASE_R*1.6);
