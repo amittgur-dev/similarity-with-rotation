@@ -123,4 +123,8 @@ test("loadExperiments: v4 block validated, v3 stars become experiment 1, nothing
   assert.deepEqual(v3.map(e=>[e.id,e.n,e.name,e.questions]),[[null,1,"experiment 1",[10,12]]]);
   assert.ok(starred.every(q=>!("inExp" in q)),"stars are stripped");
   assert.deepEqual(loadExperiments({},qs()),[]);
+  // a published experiment keeps its online record; junk in that slot is dropped
+  const pub=loadExperiments({experiments:[{id:1,n:1,questions:[10],online:{id:"abc123",when:"t",active:true}},{id:2,n:2,questions:[],online:"x"}]},qs());
+  assert.deepEqual(pub[0].online,{id:"abc123",when:"t",active:true});
+  assert.ok(!("online" in pub[1]));
 });

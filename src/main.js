@@ -14,6 +14,9 @@ import { initCalibration, openCalibration } from "./calibrate.js";
 import { initSplitter } from "./splitter.js";
 import { initTour, startTour, tourDone } from "./tour.js";
 import { initExperiment, refreshExpBar } from "./run.js";
+import { initCloud, openConnections, startParticipant } from "./cloud.js";
+import { initAssist, openDescribe } from "./assist.js";
+import { prolificParams } from "./online.js";
 
 const storage=(()=>{try{return window.localStorage;}catch{return null;}})();
 const WORKING_KEY="stimulus-builder.working";
@@ -222,6 +225,8 @@ const actions={
   calibrate:()=>{closeSettings();openCalibration();},
   resetView:()=>{closeSettings();resetView();},
   tour:()=>{closeSettings();startTour();},
+  connections:()=>{closeSettings();openConnections();},
+  describe:openDescribe,
   create:createShape,
   makeVariant,
   deselect,
@@ -251,7 +256,7 @@ $("viewDist").addEventListener("change",()=>{
 window.addEventListener("keydown",e=>{
   const tag=document.activeElement&&document.activeElement.tagName;
   if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
-  if(!$("run").hidden||!$("calib").hidden||!$("tour").hidden)return;
+  if(!$("run").hidden||!$("calib").hidden||!$("tour").hidden||document.querySelector(".modal:not([hidden])"))return;
   const mod=e.metaKey||e.ctrlKey;
   if(!mod)return;
   const k=e.key.toLowerCase();
@@ -270,9 +275,19 @@ initExperiment();
 refreshLibrary("");
 loadCalibration(storage);
 initHistory({snap:stateSnapshot,restore:restoreSnapshot,onChange:e=>{if(!e.baseline)setDirty(true);writeWorking();}});
-if(restoreWorking()){resetHistory();toast("restored your last session");}
-initTour({storage});
-const firstRun=!tourDone();
-initCalibration({storage,onDone:()=>{renderCanvas();$("shapeInput").focus();if(firstRun&&!tourDone())startTour();}});
-if(!calib.calibrated)openCalibration();   // first visit on this screen: calibrate, then the walkthrough
-else{$("shapeInput").focus();if(firstRun)startTour();}
+initCloud({storage,toast});
+initAssist({toast});
+const params=prolificParams(location.search);
+if(params.run){
+  /* a participant link: no builder, no walkthrough — the study flow drives the page */
+  let calibDone=null;
+  initCalibration({storage,onDone:()=>{const f=calibDone;calibDone=null;if(f)f();}});
+  startParticipant(params,{calibrate:cb=>{calibDone=cb;openCalibration();}});
+}else{
+  if(restoreWorking()){resetHistory();toast("restored your last session");}
+  initTour({storage});
+  const firstRun=!tourDone();
+  initCalibration({storage,onDone:()=>{renderCanvas();$("shapeInput").focus();if(firstRun&&!tourDone())startTour();}});
+  if(!calib.calibrated)openCalibration();   // first visit on this screen: calibrate, then the walkthrough
+  else{$("shapeInput").focus();if(firstRun)startTour();}
+}

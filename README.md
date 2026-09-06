@@ -47,6 +47,9 @@ reference — see *Verification* below).
 | `src/xlsx.js` | **pure** .xlsx writer (inline strings) for results and manifests |
 | `src/history.js` | **pure** undo/redo over injected snapshot/restore |
 | `src/stimexport.js`, `src/zip.js` | stimulus export (SVG + PNG + manifest) and a **pure** store-only zip writer |
+| `src/online.js`, `src/cloud.js` | **pure** Supabase REST client (publishing, sessions, trials, results) and its page wiring: connections dialog, publish, results, the participant flow |
+| `src/describe.js`, `src/assist.js` | **pure** "describe the experiment you want" request/plan/materialise, and its dialog |
+| `server/supabase/` | the database schema + policies and the Edge Function that holds the Anthropic key (see its README) |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
 | `src/questions.js` | grouping, rigid layout, ungroup/delete, group-variation commands |
 | `src/console.js` | the right-hand panels (creation, object, selection, question) and single-object commands |
@@ -58,6 +61,30 @@ reference — see *Verification* below).
 
 The pure modules never touch the DOM, so they import cleanly into Node for
 testing. Only `main.js` runs top-level initialisation.
+
+## Online participants (Prolific) and the AI function
+
+Both need a Supabase project of your own; the one-time setup is in
+[`server/supabase/README.md`](server/supabase/README.md). In the app,
+⚙ settings → **online & AI** takes the project URL, the anon key and your
+experimenter login.
+
+- **publish for participants** (experiment panel) freezes the experiment
+  and gives a self-contained participant link
+  (`?run=<id>&sb=<project>&key=<anon key>`; the anon key is the public
+  client key — row-level security is what protects the data). Paste it as
+  the Prolific study URL with the standard `PROLIFIC_PID`/`STUDY_ID`/
+  `SESSION_ID` parameters. Participants see instructions → bank-card
+  calibration → the trials → a completion screen that returns them to
+  Prolific. Every trial is stored the moment it is answered.
+- **fetch results** lists the sessions and downloads all of them as .csv or
+  .xlsx (the pilot columns plus session id, Prolific ids, completion).
+  **unpublish** closes the link; the data stays.
+- **describe…** (experiment strip) sends a description in words to Claude
+  and materialises the answer — shapes, questions as rotation triples, a
+  new experiment — on the canvas as one undo step. It runs through the
+  project's `describe` Edge Function (the API key stays on the server) or,
+  optionally, with your own key kept in the browser.
 
 ## Parameter model (the heart of the tool)
 

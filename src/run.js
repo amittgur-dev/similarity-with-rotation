@@ -16,6 +16,8 @@ import { CSV_COLUMNS } from "./experiment.js";
 import { renderCanvas, setHoverQuestion } from "./canvas.js";
 import { showPanel, deselect, openQPanel } from "./console.js";
 import { commit, commitSoon } from "./history.js";
+import { refreshOnlineSection } from "./cloud.js";
+import { openDescribe } from "./assist.js";
 
 const lastRuns=new Map();   // experiment id → {participant, rows, when}
 let participant="pilot";
@@ -55,6 +57,12 @@ export function refreshExpBar(){
   add.title="new experiment";
   add.onclick=()=>{const e=createExperiment();openExpPanel(e.id);commit();$("expName").focus();$("expName").select();};
   bar.appendChild(add);
+  const ai=document.createElement("button");
+  ai.className="chip ai";
+  ai.textContent="describe…";
+  ai.title="describe the experiment you want in words — the shapes and questions are built for you (AI)";
+  ai.onclick=openDescribe;
+  bar.appendChild(ai);
   bar.classList.toggle("empty",!experiments.length);
 }
 
@@ -142,6 +150,7 @@ export function refreshExpPanel(){
     });
   }
   refreshSummary(exp);
+  refreshOnlineSection(exp);
 }
 function duplicateExperiment(){
   const exp=findExperiment(sel.expId);
@@ -160,15 +169,32 @@ function deleteExperiment(){
   deselect();commit();
 }
 
-/* ---- runner ---- */
+/* ---- runner ----
+   One runner for two callers: the pilot (from the experiment panel, results
+   kept in memory) and a participant session (src/cloud.js: trials from a
+   published definition, every row posted as it is answered). cfg:
+   {exp, trials, settings, participant, canvas, mode:"pilot"|"participant",
+    intro, instructions, onRow(row,trial), onFinish(rows)} */
 const FIX_MS=500, ITI_MS=400;
-let trials=[],idx=0,rows=[],shownAt=0,accepting=false,opts={},runExp=null;
+let trials=[],idx=0,rows=[],shownAt=0,accepting=false,opts={},runExp=null,runCfg={};
 
-function setPhase(p){   // "start" | "fix" | "stim" | "blank" | "end"
+export function setPhase(p){   // "start" | "fix" | "stim" | "blank" | "end" | "msg" | "thanks"
   $("runStart").hidden=p!=="start";
   $("runFix").hidden=p!=="fix";
   $("runPrompt").hidden=p!=="stim";$("runStage").hidden=p!=="stim";$("runChoice").hidden=p!=="stim";
   $("runEnd").hidden=p!=="end";
+  $("runMsg").hidden=p!=="msg";
+  $("runThanks").hidden=p!=="thanks";
+}
+/* a plain screen inside the run overlay (loading, errors, instructions) */
+export function showMessage({title="",text="",button="",onClick=null,html=false}={}){
+  $("run").hidden=false;
+  $("runMsgTitle").textContent=title;
+  if(html)$("runMsgText").innerHTML=text;else $("runMsgText").textContent=text;
+  const b=$("runMsgBtn");
+  b.hidden=!button;b.textContent=button;b.onclick=onClick;
+  setPhase("msg");
+  if(button)b.focus();
 }
 function memberSizesMm(svg){
   const out={};
@@ -198,14 +224,23 @@ function respond(r){
   accepting=false;
   const rt=performance.now()-shownAt;
   const t=trials[idx];
-  rows.push(resultRow(t,{participant,canvas:$("canvasName").value.trim(),exp:runExp,response:r,rt,pxPerMm:calib.pxPerMm,calibrated:calib.calibrated,
+  const row=resultRow(t,{participant,canvas:runCfg.canvas||"",exp:runExp,response:r,rt,pxPerMm:calib.pxPerMm,calibrated:calib.calibrated,
                          timestamp:new Date().toISOString(),sizes:t.sizes,deg:mm=>visualAngleDeg(mm),
-                         distanceCm:calib.distanceCm,fixationMs:opts.fixation?FIX_MS:0}));
+                         distanceCm:calib.distanceCm,fixationMs:opts.fixation?FIX_MS:0});
+  rows.push(row);
+  if(runCfg.onRow)try{runCfg.onRow(row,t);}catch{}
   setPhase("blank");
   idx++;
   setTimeout(()=>{ if(idx<trials.length)showTrial(); else finish(); },ITI_MS);
 }
 function finish(){
+  $("runCount").textContent="";
+  leaveFullscreen();
+  if(runCfg.mode==="participant"){
+    setPhase("thanks");
+    if(runCfg.onFinish)runCfg.onFinish(rows);
+    return;
+  }
   lastRuns.set(runExp.id,{participant,rows,when:new Date().toISOString()});
   const tb=$("runTable");
   tb.innerHTML="<tr><th>#</th><th>question</th><th>B side</th><th>response</th><th>rt (ms)</th></tr>"+
@@ -216,30 +251,38 @@ function finish(){
   $("runSummary").textContent=`${experimentCode(runExp)} ${runExp.name} · ${rows.length} trials · B chosen ${Math.round(all.pB*100)}% overall`+
     (perQ.length>1?" (per question: "+perQ.map(q=>`${Math.round(q.pB*100)}%`).join(", ")+")":"")+
     ` · median RT ${Math.round(all.medianRt)} ms`;
-  $("runCount").textContent="";
   setPhase("end");
-  leaveFullscreen();
+  if(runCfg.onFinish)runCfg.onFinish(rows);
 }
 function leaveFullscreen(){if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}
-export function startPilot(){
-  const exp=findExperiment(sel.expId);
-  if(!exp)return;
-  participant=($("expPid").value.trim()||"pilot");
-  exp.settings=readSettings();
-  opts={...exp.settings};
-  trials=buildTrials(exp,questions,findItem);
-  if(!trials.length)return;
-  runExp=exp;idx=0;rows=[];
-  $("runIntro").textContent=`${experimentCode(exp)} ${exp.name} · participant ${participant} · ${trials.length} trial${trials.length===1?"":"s"}`;
+export function startRun(cfg){
+  runCfg=cfg;runExp=cfg.exp;participant=cfg.participant||"pilot";
+  opts=normalizeSettings(cfg.settings||{});
+  trials=cfg.trials;idx=0;rows=[];accepting=false;
+  document.body.classList.toggle("participantRun",cfg.mode==="participant");
+  $("runQuit").hidden=cfg.mode==="participant";
+  $("runIntro").textContent=cfg.intro||"";$("runIntro").hidden=!cfg.intro;
+  $("runInstructions").textContent=cfg.instructions||"";$("runInstructions").hidden=!cfg.instructions;
   $("run").hidden=false;
   setPhase("start");
   $("runBegin").focus();
+}
+export function startPilot(){
+  const exp=findExperiment(sel.expId);
+  if(!exp)return;
+  const pid=($("expPid").value.trim()||"pilot");
+  exp.settings=readSettings();
+  const list=buildTrials(exp,questions,findItem);
+  if(!list.length)return;
+  startRun({exp,trials:list,settings:exp.settings,participant:pid,canvas:$("canvasName").value.trim(),mode:"pilot",
+            intro:`${experimentCode(exp)} ${exp.name} · participant ${pid} · ${list.length} trial${list.length===1?"":"s"}`});
 }
 function begin(){
   if(opts.fullscreen&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});
   showTrial();
 }
 function quit(){
+  if(runCfg.mode==="participant")return;   // a participant session has no way out but the end
   accepting=false;
   $("run").hidden=true;
   leaveFullscreen();
@@ -247,23 +290,26 @@ function quit(){
 }
 /* results as .csv (one flat table) or .xlsx (results sheet + per-question summary sheet) */
 const SUMMARY_COLS=["question_id","title","n","pB","medianRt"];
-export function resultsFile(run,exp,format){
+export function resultsFile(run,exp,format,columns=CSV_COLUMNS){
   const stem=`${experimentCode(exp)}-${exp.name.replace(/\s+/g,"-")}-${run.participant}-${run.when.replace(/[:.]/g,"-")}`;
   if(format==="xlsx"){
     const summary=summarize(run.rows).map(s=>({...s,pB:+s.pB.toFixed(3)}));
-    return {name:`${stem}.xlsx`,blob:new Blob([buildXlsx([{name:"results",rows:run.rows,columns:CSV_COLUMNS},{name:"summary",rows:summary,columns:SUMMARY_COLS}])],
+    return {name:`${stem}.xlsx`,blob:new Blob([buildXlsx([{name:"results",rows:run.rows,columns},{name:"summary",rows:summary,columns:SUMMARY_COLS}])],
             {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})};
   }
-  return {name:`${stem}.csv`,blob:new Blob([toCSV(run.rows)],{type:"text/csv"})};
+  return {name:`${stem}.csv`,blob:new Blob([toCSV(run.rows,columns)],{type:"text/csv"})};
+}
+export function downloadBlob(name,blob){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  URL.revokeObjectURL(a.href);
 }
 export function downloadLastRun(format="csv"){
   const exp=findExperiment(sel.expId)||runExp;
   const run=exp&&lastRuns.get(exp.id);
   if(!run)return;
   const f=resultsFile(run,exp,format);
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(f.blob);a.download=f.name;a.click();
-  URL.revokeObjectURL(a.href);
+  downloadBlob(f.name,f.blob);
 }
 async function exportStimuliZip(){
   const exp=findExperiment(sel.expId);
@@ -273,9 +319,7 @@ async function exportStimuliZip(){
   try{
     const {blob,count}=await exportStimuli(exp,questions,findItem,{scale:2,canvas:$("canvasName").value.trim(),onProgress:(n,t)=>{b.textContent=`exporting ${n} / ${t}…`;}});
     const name=($("canvasName").value.trim()||"stimuli").replace(/\s+/g,"-");
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);a.download=`${name}-${experimentCode(exp)}-stimuli.zip`;a.click();
-    URL.revokeObjectURL(a.href);
+    downloadBlob(`${name}-${experimentCode(exp)}-stimuli.zip`,blob);
     $("expLast").textContent=`exported ${count} question${count===1?"":"s"} as SVG + PNG with manifest.csv`;
   }catch(err){
     alert("Could not export stimuli: "+err.message);
@@ -315,6 +359,7 @@ export function initExperiment(){
   window.addEventListener("keydown",e=>{
     if($("run").hidden)return;
     if(!$("runStart").hidden){if(e.key===" "||e.key==="Enter"){e.preventDefault();begin();}else if(e.key==="Escape")quit();return;}
+    if(!$("runMsg").hidden||!$("runThanks").hidden)return;
     if(e.key==="b"||e.key==="B")respond("B");
     else if(e.key==="c"||e.key==="C")respond("C");
     else if(e.key==="Escape")quit();

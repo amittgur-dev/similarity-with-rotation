@@ -19,7 +19,7 @@ const STEPS=[
   {target:"#saveRow",title:"Keep your work",
    text:"Your work is kept automatically in this browser and comes back when you return. Save (⌘/ctrl S) files it under a name in the library at the top left; export and import move canvases as files."},
   {target:"#expBar",title:"Run it as an experiment",
-   text:"An experiment is a named set of questions with its own run settings. Press “+ experiment” in the strip under the console, tick questions in the list or click the □ boxes on the canvas, then pilot it (fixation, shuffled order, B/C sides swapped at random) or export its stimuli as SVG + PNG with a parameter manifest. Each title shows the codes of the experiments it belongs to."},
+   text:"An experiment is a named set of questions with its own run settings. Press “+ experiment” in the strip under the console, tick questions in the list or click the □ boxes on the canvas, then pilot it (fixation, shuffled order, B/C sides swapped at random), export its stimuli as SVG + PNG with a parameter manifest, or publish it for online participants (e.g. from Prolific). “describe…” in the same strip builds a whole set of questions from a description in words. Each title shows the codes of the experiments it belongs to."},
   {target:"#settingsBtn",title:"Settings",
    text:"The ⚙ button at the bottom left re-calibrates the screen with a bank card and sets the viewing distance, so sizes are shown in millimetres and degrees of visual angle. It also replays this walkthrough."}
 ];

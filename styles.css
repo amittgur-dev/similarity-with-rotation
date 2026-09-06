@@ -418,3 +418,78 @@ html[data-text="larger"]{font-size:20px}
 .fnrow button.dl{font-family:var(--mono);font-size:0.72rem;border:1px solid var(--faint);background:#fff;color:var(--ink);padding:6px 10px;cursor:pointer}
 .fnrow button.dl:hover:not(:disabled){border-color:var(--ink)}
 .fnrow button.dl:disabled{color:#9a9a9a;cursor:not-allowed}
+
+/* ---- dialogs (online & AI, publish, describe) ---- */
+.modal[hidden]{display:none}
+.modal{
+  position:fixed;inset:0;z-index:40;background:rgba(255,255,255,0.62);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.modalCard{
+  width:min(480px,100%);max-height:92vh;overflow:auto;background:#fff;border:1px solid var(--ink);
+  padding:18px 22px 16px;box-shadow:0 14px 40px rgba(0,0,0,0.12);animation:tourIn .25s ease-out;
+  display:flex;flex-direction:column;gap:10px;
+}
+.modalCard.wide{width:min(560px,100%)}
+.modalHead{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.kicker{font-size:0.72rem;letter-spacing:0.14em;color:var(--grey);text-transform:uppercase}
+.modalCard h2{font-size:0.95rem;font-weight:700;letter-spacing:0.01em;margin:6px 0 0}
+.modalText{font-size:0.8rem;line-height:1.65;color:#333;margin:0;white-space:pre-line}
+.modalText code,.modalCard label code{font-size:0.75rem;background:#f3f3f3;padding:1px 4px}
+.modalCard .x{border:1px solid var(--faint);background:#fff;color:var(--grey);font-family:var(--mono);font-size:1rem;line-height:1;width:26px;height:26px;cursor:pointer;align-self:center}
+.modalCard .x:hover{border-color:var(--ink);color:var(--ink)}
+.field{display:flex;flex-direction:column;gap:3px}
+.field>span{font-size:0.7rem;letter-spacing:0.1em;color:var(--grey);text-transform:uppercase}
+.field input,.field textarea,#describeText{
+  width:100%;border:none;border-bottom:1px solid var(--faint);font-family:var(--mono);font-size:0.85rem;padding:4px 0;outline:none;background:transparent;color:var(--ink);
+}
+.field textarea,#describeText{border:1px solid var(--faint);padding:8px;line-height:1.55;resize:vertical}
+.field input:focus,.field textarea:focus,#describeText:focus{border-color:var(--ink)}
+.fieldRow{display:flex;gap:14px}
+.fieldRow .field{flex:1;min-width:0}
+.modalRow{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:4px}
+.modalRow .note{flex:1;margin:0;text-align:left}
+.modalRow button{
+  font-family:var(--mono);font-size:0.745rem;letter-spacing:0.08em;border:1px solid var(--ink);
+  background:#fff;color:var(--ink);padding:7px 12px;cursor:pointer;
+}
+.modalRow button:hover:not(:disabled){background:var(--ink);color:#fff}
+.modalRow button:disabled{border-color:var(--faint);color:#9a9a9a;cursor:not-allowed}
+.modalRow button.ghost{border-color:var(--faint);color:var(--grey)}
+.modalRow button.ghost:hover:not(:disabled){background:#fff;color:var(--ink);border-color:var(--ink)}
+.modalCard label.check{align-items:flex-start;line-height:1.5}
+.modalCard label.check input{margin-top:3px}
+#describeText::placeholder{color:#9a9a9a}
+#describeForm,#describeResult{display:flex;flex-direction:column;gap:8px}
+#describeForm[hidden],#describeResult[hidden],#aiKeyField[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.modalCard{animation:none}}
+
+/* ---- participants online (experiment panel) ---- */
+.linkRow{display:flex;gap:6px;margin-top:8px}
+.linkRow input{flex:1;min-width:0;border:1px solid var(--faint);font-family:var(--mono);font-size:0.72rem;padding:5px 6px;color:var(--grey);outline:none;background:#fafafa}
+.linkRow input:focus{border-color:var(--ink);color:var(--ink)}
+.linkRow button{font-family:var(--mono);font-size:0.72rem;border:1px solid var(--ink);background:#fff;color:var(--ink);padding:4px 10px;cursor:pointer}
+.linkRow button:hover{background:var(--ink);color:#fff}
+#onlinePublished[hidden]{display:none}
+table.sessions{border-collapse:collapse;font-size:0.72rem;margin-top:8px;width:100%;font-variant-numeric:tabular-nums}
+table.sessions th,table.sessions td{text-align:left;padding:3px 6px 3px 0;border-bottom:1px solid var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+table.sessions th{font-size:0.66rem;letter-spacing:0.1em;color:var(--grey);text-transform:uppercase;font-weight:400}
+#expBar .chip.ai{border-style:dashed;color:var(--grey);margin-left:auto}
+#expBar .chip.ai:hover{color:var(--ink);border-color:var(--ink)}
+#expBar .chip.ai::before{content:"✦ ";color:#c9a227}
+
+/* ---- participant mode (?run=<id>): only the run overlay and the calibration card ---- */
+body.participant #canvas,body.participant #emptyHint,body.participant #gestureHint,body.participant #zoomBar,
+body.participant #settings,body.participant #libBar,body.participant #splitter,body.participant #console,
+body.participant #toast,body.participant #updateNote,body.participant #tour{display:none}
+body.participant #calib{background:#fff;z-index:60}
+body.participantRun #runQuit{display:none}
+.runScreen{display:flex;flex-direction:column;gap:14px;max-width:min(92vw,560px)}
+.runScreen[hidden]{display:none}
+.runScreen>label{font-size:0.725rem;letter-spacing:0.14em;color:var(--grey);text-transform:uppercase}
+.runScreen p{font-size:0.905rem;line-height:1.7;color:#333;white-space:pre-line}
+.runScreen .steprow{max-width:260px}
+.runScreen .steprow button{font-family:var(--mono);font-size:0.745rem;letter-spacing:0.08em;border:1px solid var(--ink);background:#fff;color:var(--ink);padding:8px 12px;cursor:pointer;flex:1}
+.runScreen .steprow button:hover{background:var(--ink);color:#fff}
+.runScreen .steprow button[hidden]{display:none}
+#runInstructions[hidden],#runIntro[hidden]{display:none}

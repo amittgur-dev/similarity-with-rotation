@@ -13,7 +13,10 @@ export function normalizeSettings(s={}){
   return {repeats:Math.max(1,Math.min(50,parseInt(s.repeats)||1)),
           shuffle:s.shuffle!==false,swapSides:s.swapSides!==false,fixation:s.fixation!==false,fullscreen:s.fullscreen!==false};
 }
-/* n is a creation ordinal that is never renumbered; the code E<n> is what
+/* online (optional): {id, when, active, instructions, completionUrl, completionCode}
+   once the experiment has been published for participants (src/online.js);
+   the id is the slug in the participant link and the key of the stored data.
+   n is a creation ordinal that is never renumbered; the code E<n> is what
    appears on the canvas and in every CSV row, so renaming keeps joins intact */
 export function newExperiment(id,n,name,questionIds=[]){
   return {id,n,name:name||`experiment ${n}`,questions:[...questionIds],settings:{...DEFAULT_SETTINGS}};
@@ -45,7 +48,8 @@ export function loadExperiments(data,questions){
   if(Array.isArray(data.experiments)){
     list=data.experiments.filter(e=>e&&typeof e==="object").map((e,i)=>({
       id:e.id,n:e.n||i+1,name:String(e.name||`experiment ${e.n||i+1}`),
-      questions:(e.questions||[]).filter(id=>valid.has(id)),settings:normalizeSettings(e.settings)}));
+      questions:(e.questions||[]).filter(id=>valid.has(id)),settings:normalizeSettings(e.settings),
+      ...(e.online&&typeof e.online==="object"&&typeof e.online.id==="string"?{online:{...e.online}}:{})}));
   }else{
     const starred=questions.filter(q=>q.inExp).map(q=>q.id);
     if(starred.length)list=[{id:null,n:1,name:"experiment 1",questions:starred,settings:{...DEFAULT_SETTINGS}}];
@@ -81,14 +85,25 @@ export function questionTrial(q,findItem){
 /* options: repeats (each question N times), shuffle, swapSides (B and C
    exchange left/right at random — counterbalances a side bias; labels
    stay with their objects, the record says which side B was on) */
-export function buildTrials(exp,questions,findItem,{rng=Math.random,shuffle,repeats,swapSides}={}){
-  const s=normalizeSettings(exp?exp.settings:{});
-  shuffle=shuffle??s.shuffle;repeats=repeats??s.repeats;swapSides=swapSides??s.swapSides;
+export function buildTrials(exp,questions,findItem,opts={}){
   const base=experimentQuestions(exp,questions).map((q,i)=>{const t=questionTrial(q,findItem);return t&&{...t,questionIndex:i+1};}).filter(Boolean);
+  return buildTrialsFromRecords(base,exp?exp.settings:{},opts);
+}
+/* records: self-contained trial records (questionTrial output + questionIndex),
+   e.g. from a published experiment definition */
+export function buildTrialsFromRecords(records,settings,{rng=Math.random,shuffle,repeats,swapSides}={}){
+  const s=normalizeSettings(settings||{});
+  shuffle=shuffle??s.shuffle;repeats=repeats??s.repeats;swapSides=swapSides??s.swapSides;
   let list=[];
-  for(let r=1;r<=Math.max(1,repeats|0);r++)list.push(...base.map(t=>({...t,repeat:r})));
+  for(let r=1;r<=Math.max(1,repeats|0);r++)list.push(...records.map(t=>({...t,repeat:r})));
   if(shuffle)list=shuffled(list,rng);
   return list.map((t,i)=>({...t,trial:i+1,swapped:swapSides?rng()<0.5:false}));
+}
+/* the frozen, self-contained definition of an experiment as published for participants */
+export function publishedDefinition(exp,questions,findItem,{canvas="",instructions="",completionUrl="",completionCode="",pxPerMmRequired=true}={}){
+  const records=experimentQuestions(exp,questions).map((q,i)=>{const t=questionTrial(q,findItem);return t&&{...t,questionIndex:i+1};}).filter(Boolean);
+  return {version:1,canvas,experiment:{id:exp.id,n:exp.n,code:experimentCode(exp),name:exp.name,settings:normalizeSettings(exp.settings)},
+          prompt:PROMPT,instructions,completionUrl,completionCode,calibrate:pxPerMmRequired,records};
 }
 
 /* geometry of one trial at 1:1 canvas pixels (zoom 100%), so the calibrated

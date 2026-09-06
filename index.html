@@ -32,6 +32,7 @@
       </div>
       <button data-action="resetView">reset view</button>
       <button data-action="tour">show walkthrough</button>
+      <button data-action="connections" title="your Supabase project (participants' data) and the AI function">online &amp; AI…</button>
       <div class="note" id="keysNote">⌘/ctrl Z undo · ⇧Z redo · S save · arrows nudge · esc deselect</div>
       <div class="note" id="buildId">build __BUILD__</div>
     </div>
@@ -214,6 +215,27 @@
           <button class="ghost dl" id="expDownloadX" disabled title="results workbook: results + per-question summary sheets">.xlsx</button>
         </div>
       </div>
+      <div class="fn" id="onlineFn">
+        <div class="fnlabel">Participants online</div>
+        <div class="note" id="onlineStatus" style="margin-top:0"></div>
+        <div class="steprow" style="margin-top:8px">
+          <button id="publishBtn" title="freeze this experiment and get a link for participants (e.g. a Prolific study URL)">publish for participants</button>
+        </div>
+        <div id="onlinePublished" hidden>
+          <div class="linkRow"><input type="text" id="onlineLink" readonly title="the participant link — paste it as the study URL"><button id="copyLinkBtn" title="copy the participant link">copy</button></div>
+          <div class="fnrow" style="margin-top:8px;gap:8px">
+            <button class="ghost dl" id="fetchBtn" style="flex:1" title="load the sessions recorded so far">fetch results</button>
+            <button class="ghost dl" id="onlineCsv" disabled title="all sessions as one flat CSV table">.csv</button>
+            <button class="ghost dl" id="onlineXlsx" disabled title="all sessions as a workbook: results + per-question summary">.xlsx</button>
+          </div>
+          <div class="note" id="onlineCount" style="margin-top:6px"></div>
+          <div id="onlineSessions"></div>
+          <div class="steprow" style="margin-top:8px">
+            <button class="ghost" id="unpublishBtn" title="close the link; the results stay">unpublish</button>
+            <button class="ghost" id="republishBtn" title="publish the experiment as it is now under a new link">publish again</button>
+          </div>
+        </div>
+      </div>
       <div class="fn">
         <div class="fnlabel">Stimuli</div>
         <p class="note" style="margin-top:0">SVG + PNG of every question in this experiment and a manifest.csv with the full parameter record, in one zip.</p>
@@ -258,6 +280,58 @@
   </div>
 </div>
 
+<!-- online & AI connections -->
+<div id="connect" class="modal" hidden>
+  <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
+    <div class="modalHead"><span class="kicker">Online &amp; AI</span><button class="x" id="connectClose" title="close">×</button></div>
+    <h2 id="connectTitle">Your Supabase project</h2>
+    <p class="modalText">Participants' responses are stored in your own Supabase project, and the AI function can run there too. One-time setup: run <code>server/supabase/schema.sql</code> in the SQL editor and add yourself as a user — the steps are in <code>server/supabase/README.md</code>.</p>
+    <label class="field"><span>project URL</span><input type="text" id="sbUrl" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off" spellcheck="false"></label>
+    <label class="field"><span>anon public key</span><input type="text" id="sbKey" placeholder="eyJ… or sb_publishable_…" autocomplete="off" spellcheck="false"></label>
+    <div class="fieldRow">
+      <label class="field"><span>email</span><input type="email" id="sbEmail" autocomplete="username"></label>
+      <label class="field"><span>password</span><input type="password" id="sbPass" autocomplete="current-password"></label>
+    </div>
+    <div class="modalRow"><span class="note" id="sbStatus"></span><button id="sbSignIn">sign in</button><button class="ghost" id="sbSignOut" hidden>sign out</button></div>
+    <h2>AI</h2>
+    <p class="modalText">“describe…” in the experiment strip turns a description of the experiment you want into shapes and questions on the canvas.</p>
+    <label class="check"><input type="radio" name="aiMode" value="supabase"> through my Supabase project — the API key stays on the server (deploy the <code>describe</code> function once)</label>
+    <label class="check"><input type="radio" name="aiMode" value="direct"> with my own Anthropic API key, kept in this browser only</label>
+    <label class="field" id="aiKeyField" hidden><span>API key</span><input type="password" id="aiKey" placeholder="sk-ant-…" autocomplete="off"></label>
+    <div class="modalRow"><span class="note" id="aiStatus"></span><button id="connectDone">done</button></div>
+  </div>
+</div>
+
+<!-- publish for participants -->
+<div id="publishDlg" class="modal" hidden>
+  <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="pubTitle">
+    <div class="modalHead"><span class="kicker">Publish for participants</span></div>
+    <h2 id="pubTitle"></h2>
+    <p class="modalText" id="pubSummary"></p>
+    <label class="field"><span>instructions shown to participants</span><textarea id="pubInstructions" rows="5"></textarea></label>
+    <label class="field"><span>Prolific completion URL</span><input type="text" id="pubUrl" placeholder="https://app.prolific.com/submissions/complete?cc=XXXXXXXX" autocomplete="off" spellcheck="false"></label>
+    <label class="field"><span>or just the completion code</span><input type="text" id="pubCode" placeholder="XXXXXXXX" autocomplete="off" spellcheck="false"></label>
+    <div class="modalRow"><span class="note" id="pubStatus"></span><button class="ghost" id="pubCancel">cancel</button><button id="pubGo">publish</button></div>
+  </div>
+</div>
+
+<!-- describe the experiment you want (AI) -->
+<div id="describeDlg" class="modal" hidden>
+  <div class="modalCard wide" role="dialog" aria-modal="true" aria-labelledby="describeTitle">
+    <div class="modalHead"><span class="kicker" id="describeTitle">Describe the experiment you want</span><span class="note" id="describeMode" style="margin:0"></span></div>
+    <div id="describeForm">
+      <textarea id="describeText" rows="7" placeholder="e.g. Eight questions with a hexagon of triangles. In each, B rotates the whole figure by 30° and C rotates only the sub-shapes by 30°; four in the screen frame and four in the vertex frame, from different starting orientations. Two repeats, shuffled."></textarea>
+      <p class="note">Claude turns this into shapes, similarity questions (as rotation triples) and a new experiment on the canvas. Everything stays editable, and ⌘/ctrl Z removes it all. ⌘/ctrl Enter generates.</p>
+      <div class="err" id="describeErr"></div>
+      <div class="modalRow"><span class="note" id="describeStatus"></span><button class="ghost" id="describeSetup" title="connect a project or enter a key">set up…</button><button class="ghost" id="describeCancel">cancel</button><button id="describeGo">generate</button><button class="ghost" id="describeStop" hidden>stop</button></div>
+    </div>
+    <div id="describeResult" hidden>
+      <p class="modalText" id="describeResultText"></p>
+      <div class="modalRow"><button id="describeClose">close</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- pilot run -->
 <div id="run" hidden>
   <div id="runCount"></div>
@@ -265,6 +339,7 @@
   <div id="runStart" hidden>
     <label>Similarity judgement</label>
     <p id="runIntro"></p>
+    <p id="runInstructions" hidden></p>
     <p>On each trial you will see three figures. Decide whether <b>A</b> is more similar to <b>B</b> or to <b>C</b>, and answer with the <b>B</b> or <b>C</b> key (or the buttons). Answer as accurately as you can; there are no right or wrong answers.</p>
     <div class="steprow"><button id="runBegin">begin · space</button></div>
   </div>
@@ -272,6 +347,16 @@
   <div id="runPrompt"></div>
   <div id="runStage"><svg id="runSvg"></svg></div>
   <div id="runChoice"><button data-r="B">B</button><button data-r="C">C</button></div>
+  <div id="runMsg" class="runScreen" hidden>
+    <label id="runMsgTitle"></label>
+    <p id="runMsgText"></p>
+    <div class="steprow"><button id="runMsgBtn" hidden></button></div>
+  </div>
+  <div id="runThanks" class="runScreen" hidden>
+    <label>Session complete</label>
+    <p id="thanksText"></p>
+    <div class="steprow" id="thanksRow" hidden><button id="thanksBtn"></button></div>
+  </div>
   <div id="runEnd" hidden>
     <label>Run complete</label>
     <div class="note" id="runSummary"></div>
