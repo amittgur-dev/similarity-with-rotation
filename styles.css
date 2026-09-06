@@ -234,7 +234,11 @@ body.consoleCollapsed #console{width:0}
 #expBar.empty{color:#bbb}
 #expBar:hover{color:var(--ink);background:#fafafa}
 #expBar .expArrow{color:#bbb}
-.expRow{display:flex;align-items:center;gap:8px;font-size:0.68rem;padding:5px 0;border-bottom:1px solid var(--faint)}
+.expRow{display:flex;align-items:center;gap:8px;font-size:0.68rem;padding:5px 0;border-bottom:1px solid var(--faint);cursor:pointer}
+.expRow input{accent-color:var(--ink);margin:0}
+.expTools{display:flex;justify-content:space-between;align-items:center;margin:4px 0 2px}
+.expTools button{font-family:var(--mono);font-size:0.56rem;letter-spacing:0.08em;border:1px solid var(--faint);background:#fff;color:var(--grey);padding:2px 7px;cursor:pointer}
+.expTools button:hover{border-color:var(--ink);color:var(--ink)}
 .expRow .n{color:var(--grey);font-size:0.6rem;flex:0 0 1.4em}
 .expRow .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .expRow button{border:none;background:none;color:var(--grey);cursor:pointer;font-family:var(--mono);font-size:0.8rem;line-height:1}

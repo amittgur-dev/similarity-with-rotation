@@ -32,24 +32,43 @@ export function refreshExpBar(){
 }
 
 /* ---- panel ---- */
+/* the panel lists every question on the canvas; ticking one includes it */
+function refreshPilotState(){
+  const n=experimentQuestions(questions).length;
+  const reps=Math.max(1,parseInt($("expRepeats").value)||1);
+  $("pilotBtn").disabled=!n;
+  $("pilotHint").textContent=!questions.length?"":
+    !n?"tick at least one question above to run it":
+    `${n} question${n===1?"":"s"} × ${reps} = ${n*reps} trial${n*reps===1?"":"s"}`;
+}
 export function openExpPanel(){
   sel.id=null;sel.ids=[];sel.qId=null;
   renderCanvas();
   const list=$("expList");
   list.innerHTML="";
-  const qs=experimentQuestions(questions);
-  if(!qs.length){
-    list.innerHTML='<p class="note">no questions yet — open a question and press “☆ include in experiment”.</p>';
+  if(!questions.length){
+    list.innerHTML='<p class="note">no questions on the canvas yet — place three objects, select them and press “make similarity question”.</p>';
+  }else{
+    const tools=document.createElement("div");
+    tools.className="expTools";
+    const all=experimentQuestions(questions).length===questions.length;
+    tools.innerHTML=`<span class="note" style="margin:0">tick the questions to run</span><button type="button">${all?"none":"all"}</button>`;
+    tools.querySelector("button").onclick=()=>{questions.forEach(q=>q.inExp=!all);renderCanvas();refreshExpBar();openExpPanel();commit();};
+    list.appendChild(tools);
   }
-  qs.forEach((q,i)=>{
-    const row=document.createElement("div");
+  questions.forEach((q,i)=>{
+    const row=document.createElement("label");
     row.className="expRow";
-    row.innerHTML=`<span class="n">${i+1}</span><span class="t"></span><button title="remove from experiment">×</button>`;
+    row.innerHTML=`<input type="checkbox" ${q.inExp?"checked":""}><span class="n">${i+1}</span><span class="t"></span>`;
     row.querySelector(".t").textContent=q.title;
-    row.querySelector("button").onclick=()=>{q.inExp=false;renderCanvas();refreshExpBar();openExpPanel();commit();};
+    row.title=q.title;
+    row.querySelector("input").addEventListener("change",e=>{
+      q.inExp=e.target.checked;renderCanvas();refreshExpBar();refreshPilotState();commit();
+      const t=list.querySelector(".expTools button");if(t)t.textContent=experimentQuestions(questions).length===questions.length?"none":"all";
+    });
     list.appendChild(row);
   });
-  $("pilotBtn").disabled=!qs.length;
+  refreshPilotState();
   $("expDownload").disabled=!lastRun;
   $("expLast").textContent=lastRun?`last run: ${lastRun.participant}, ${lastRun.rows.length} trials`:"";
   showPanel("expPanel");
@@ -175,6 +194,7 @@ export function initExperiment(){
   $("runEndClose").addEventListener("click",quit);
   $("runQuit").addEventListener("click",quit);
   $("runBegin").addEventListener("click",begin);
+  $("expRepeats").addEventListener("input",refreshPilotState);
   $("expExport").addEventListener("click",exportStimuliZip);
   document.querySelectorAll("#runChoice button").forEach(b=>b.addEventListener("click",()=>respond(b.dataset.r)));
   window.addEventListener("keydown",e=>{

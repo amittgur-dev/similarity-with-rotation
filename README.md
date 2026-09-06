@@ -170,7 +170,8 @@ screen or browser zoom — those change the pixel size and the app cannot tell.
 
 Open a question and press **☆ include in experiment**; the question gets a ★
 on the canvas and the footer under the tray counts the included questions.
-Click that footer for the experiment panel: the trial list, participant id,
+Click that footer for the experiment panel: every question on the canvas
+with a checkbox (tick to include; "all"/"none"), participant id,
 repeats, and options for shuffled order, **swapping B/C sides at random**
 (counterbalances a side bias; the record says which side B was on), a 500 ms
 fixation cross and full screen. **pilot the experiment** opens a start
