@@ -163,6 +163,39 @@ function openSettings(){
 function closeSettings(){$("settingsMenu").hidden=true;$("settingsBtn").classList.remove("on");}
 function toggleSettings(){($("settingsMenu").hidden?openSettings:closeSettings)();}
 
+/* ---- newer build published? ----
+   GitHub Pages caches the page itself for 10 minutes, so a bookmark or a link
+   can bring back an older build. version.txt is written at deploy time; when
+   it no longer matches the build this page was stamped with, offer a reload.
+   (The working copy is autosaved, so nothing is lost by reloading.) */
+const BUILD=($("buildId").textContent.match(/build (\S+)/)||[])[1];
+async function checkForNewerBuild(){
+  if(!BUILD||BUILD==="__BUILD__")return;            // local / unstamped copy
+  try{
+    const r=await fetch(`version.txt?t=${Date.now()}`,{cache:"no-store"});
+    if(!r.ok)return;
+    const live=(await r.text()).trim();
+    if(live&&live!==BUILD)$("updateNote").hidden=false;
+  }catch{}
+}
+$("updateNote").addEventListener("click",()=>{writeWorking();location.reload();});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkForNewerBuild();});
+checkForNewerBuild();
+
+/* ---- text size ---- */
+const TEXT_KEY="stimulus-builder.text";
+function applyTextSize(v){
+  if(v==="normal")document.documentElement.removeAttribute("data-text");
+  else document.documentElement.setAttribute("data-text",v);
+  document.querySelectorAll("#textSize button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+  renderCanvas();
+}
+document.querySelectorAll("#textSize button").forEach(b=>b.addEventListener("click",()=>{
+  applyTextSize(b.dataset.v);
+  try{storage&&storage.setItem(TEXT_KEY,b.dataset.v);}catch{}
+}));
+try{const v=storage&&storage.getItem(TEXT_KEY);if(v&&v!=="normal")applyTextSize(v);}catch{}
+
 /* ---- files ---- */
 function exportCanvas(){
   const name=canvasFileName($("canvasName").value);

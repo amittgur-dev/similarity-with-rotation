@@ -22,7 +22,7 @@ let hoverId=null, hoverTimer=null, hoverCandidate=null;   // dwell-to-measure
 function dimensionMarkup(it,bb,hover,boxed){
   const z=view.z, s=it.scale, sel=boxed?BASE_R*1.25*s:-Infinity;   // clear the selection box when there is one
   const x0=it.x+bb.x*s, x1=x0+bb.width*s, y0=it.y+bb.y*s, y1=y0+bb.height*s;
-  const tick=5/z, w=1/z, f=10.5/z;
+  const tick=5/z, w=1/z, f=12/z;
   const wy=Math.max(y1,it.y+sel)+9/z;          // width line: below the figure (and the selection box)
   const hx=Math.max(x1,it.x+sel)+9/z;          // height line: right of them
   const mmW=(calib.calibrated?"":"≈ ")+formatMm(pxToMm(bb.width*s*z));
@@ -30,9 +30,9 @@ function dimensionMarkup(it,bb,hover,boxed){
   const ln=(a,b,c,d)=>`<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="#9a9a9a" stroke-width="${w}"/>`;
   return `<g class="dim${hover?" dimHover":""}" pointer-events="none">`+
     ln(x0,wy,x1,wy)+ln(x0,wy-tick,x0,wy+tick)+ln(x1,wy-tick,x1,wy+tick)+
-    `<text x="${(x0+x1)/2}" y="${wy+13/z}" text-anchor="middle" font-family="monospace" font-size="${f}" fill="#7a7a7a">${mmW}</text>`+
+    `<text x="${(x0+x1)/2}" y="${wy+14/z}" text-anchor="middle" font-family="monospace" font-size="${f}" fill="#555">${mmW}</text>`+
     ln(hx,y0,hx,y1)+ln(hx-tick,y0,hx+tick,y0)+ln(hx-tick,y1,hx+tick,y1)+
-    `<text x="${hx+7/z}" y="${(y0+y1)/2+f*0.35}" text-anchor="start" font-family="monospace" font-size="${f}" fill="#7a7a7a">${mmH}</text>`+
+    `<text x="${hx+7/z}" y="${(y0+y1)/2+f*0.35}" text-anchor="start" font-family="monospace" font-size="${f}" fill="#555">${mmH}</text>`+
     `</g>`;
 }
 
@@ -50,7 +50,7 @@ export function renderCanvas(){
     if(!A)return;
     const ty=A.y-BASE_R*1.25*A.scale-26;
     const selQ=q.id===sel.qId;
-    out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="13" fill="#111" style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${q.inExp?"★ ":""}${escapeXML(q.title)}</text>`;
+    out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="14" fill="#111" style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${q.inExp?"★ ":""}${escapeXML(q.title)}</text>`;
     if(selQ){
       const dx=BASE_R*Q_DX*q.s+BASE_R*1.4*q.s, dy=BASE_R*Q_DY*q.s+BASE_R*LABEL_GAP*q.s+30;
       out+=`<rect x="${q.cx-dx}" y="${q.cy-dy-14}" width="${2*dx}" height="${2*dy+14}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;
@@ -62,20 +62,20 @@ export function renderCanvas(){
          shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO)+`</g>`;
     if(it.label){
       const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
-      out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">${it.label}</text>`;
+      out+=`<text x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${it.label}</text>`;
     }
     const inMulti=sel.ids.includes(it.id);
     // measurement: pinned, or the selected object (or a member of the selected question), or after dwelling on one
     const chosen=it.id===sel.id||(sel.qId!=null&&it.qId===sel.qId);
     if(it.showMm||chosen||it.id===hoverId)dimItems.push({it,hover:!it.showMm&&!chosen,boxed:it.id===sel.id||inMulti});
     if(it.id===sel.id||inMulti){
-      const b=BASE_R*1.25*it.scale, hs=6/view.z;
+      const b=BASE_R*1.25*it.scale, hs=7/view.z;
       out+=`<g transform="translate(${it.x},${it.y})">`+
         `<rect x="${-b}" y="${-b}" width="${2*b}" height="${2*b}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${4/view.z} ${3/view.z}"/>`;
       if(it.id===sel.id&&!it.qId){
         out+=`<rect data-h="scale" x="${b-hs}" y="${b-hs}" width="${2*hs}" height="${2*hs}" fill="#fff" stroke="#4a90d9" stroke-width="${1/view.z}" style="cursor:nwse-resize"/>`+
              `<line x1="0" y1="${-b}" x2="0" y2="${-b-22/view.z}" stroke="#4a90d9" stroke-width="${1/view.z}"/>`+
-             `<circle data-h="rot" cx="0" cy="${-b-27/view.z}" r="${5/view.z}" fill="#fff" stroke="#4a90d9" stroke-width="${1/view.z}" style="cursor:crosshair"/>`;
+             `<circle data-h="rot" cx="0" cy="${-b-28/view.z}" r="${6.5/view.z}" fill="#fff" stroke="#4a90d9" stroke-width="${1.25/view.z}" style="cursor:crosshair"/>`;
       }
       out+=`</g>`;
     }

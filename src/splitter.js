@@ -5,7 +5,7 @@
 import { $ } from "./dom.js";
 
 export const CONSOLE_KEY="stimulus-builder.console";
-const DEFAULT_W=270, MIN_OPEN=120, COLLAPSE_BELOW=60;
+const DEFAULT_W=300, MIN_OPEN=140, COLLAPSE_BELOW=60;
 
 let storage=null, width=DEFAULT_W, collapsed=false;
 

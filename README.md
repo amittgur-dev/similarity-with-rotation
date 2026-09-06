@@ -129,6 +129,17 @@ Other documented decisions:
   the configuration IS the sub-shapes (no outlines, ever — these are stimuli)
 - stimuli render strictly black on white; only the surrounding UI is styled
 
+## Deployment and versions
+
+`.github/workflows/pages.yml` runs the unit tests, stamps every module and
+stylesheet URL with the commit (`?v=<sha>`), writes `version.txt` and fills
+the build id shown at the bottom of ⚙ settings. GitHub Pages caches files
+for 10 minutes; the stamps keep a page and its modules from ever mixing
+builds, and the app probes `version.txt` on load and when the tab becomes
+visible, offering "new version available · click to reload" when a newer
+build exists. The deploy fails if any local script or stylesheet reference
+escaped the stamp.
+
 ## Working safely: undo, autosave, keyboard
 
 Every edit is undoable: ⌘/ctrl Z undoes, ⌘/ctrl ⇧Z or ⌘/ctrl Y redoes

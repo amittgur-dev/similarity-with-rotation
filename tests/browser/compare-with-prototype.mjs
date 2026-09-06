@@ -151,7 +151,7 @@ cmp("save.json",a.json,b.json);
 // A/B/C labels deliberately sit lower than in the prototype: drop their y before comparing
 // dwell-to-measure dimension lines and their console toggle do not exist in the prototype
 const stripDims=s=>s.replace(/<g class="dim[^"]*" pointer-events="none">.*?<\/g>/g,"").replace(/<label class="check mini mmRow">.*?<\/label>/g,"");
-const stripLabelY=s=>stripDims(s).replace(/(<text x="[^"]*") y="[^"]*"( text-anchor="middle" font-family="monospace" font-size="15")/g,"$1$2");
+const stripLabelY=s=>stripDims(s).replace(/font-size="1[3-7]"/g,'font-size="X"').replace(/<rect data-h="scale"[^>]*>/g,"").replace(/<circle data-h="rot"[^>]*>/g,"").replace(/(<text x="[^"]*") y="[^"]*"( text-anchor="middle" font-family="monospace" font-size="(?:15|17|X)")/g,"$1$2");
 // the question panel's size rows were restacked (one field per row); compare them by their inputs only
 const restack=s=>s.replace(/<div class="qRows">.*?<\/div>\s*<\/div>/s,m=>(m.match(/<input[^>]*>/g)||[]).join(""))
                  .replace(/<div class="fnrow" style="margin-top:12px">.*?<\/div>/s,m=>(m.match(/<input[^>]*>/g)||[]).join(""));

@@ -26,6 +26,10 @@
       <div class="note" id="calibStatus"></div>
       <button data-action="calibrate">re-calibrate screen</button>
       <label class="menuRow" title="distance from the eyes to the screen — sizes are also shown in degrees of visual angle"><span>viewing distance</span><input type="number" id="viewDist" min="10" max="500" step="1"> cm</label>
+      <div class="menuRow"><span>text size</span></div>
+      <div class="seg" id="textSize" title="size of the interface text (stimuli are unaffected)">
+        <button data-v="normal" class="on">normal</button><button data-v="large">large</button><button data-v="larger">larger</button>
+      </div>
       <button data-action="resetView">reset view</button>
       <button data-action="tour">show walkthrough</button>
       <div class="note" id="keysNote">⌘/ctrl Z undo · ⇧Z redo · S save · arrows nudge · esc deselect</div>
@@ -228,6 +232,7 @@
 
 <div id="ghost"></div>
 <div id="toast" hidden></div>
+<button id="updateNote" hidden title="a newer build of the app has been published">new version available · click to reload</button>
 
 <!-- walkthrough -->
 <div id="tour" hidden>

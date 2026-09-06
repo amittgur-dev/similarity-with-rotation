@@ -33,8 +33,15 @@ jobs:
           set -e
           V="${GITHUB_SHA::7}"
           sed -i "s|src=\"src/main.js\"|src=\"src/main.js?v=$V\"|; s|href=\"styles.css\"|href=\"styles.css?v=$V\"|; s|__BUILD__|$V|" index.html
-          sed -i -E "s|from \"(\./[a-z]+\.js)\"|from \"\1?v=$V\"|g" src/*.js
-          test "$(grep -c "?v=$V" index.html)" = 2 && grep -c "?v=$V" src/main.js
+          # every static import form: from "./x.js" / import "./x.js" / import("./x.js"), single or double quotes
+          sed -i -E "s#(from|import)([[:space:]]*\(?[[:space:]]*)([\"'])(\./[^\"'?]+\.js)\3#\1\2\3\4?v=$V\3#g" src/*.js
+          printf '%s\n' "$V" > version.txt
+          echo "index.html stamps: $(grep -c "?v=$V" index.html) · main.js stamps: $(grep -c "?v=$V" src/main.js)"
+          test "$(grep -c "?v=$V" index.html)" = 2
+          # fail the deploy on any local .js/.css reference that escaped the stamp
+          ! grep -nE '(src|href)="[^"?:]+\.(js|css)"' index.html || { echo "unstamped reference in index.html"; exit 1; }
+          ! grep -nE "[\"'](\./|src/)[^\"'?]+\.js[\"']" src/*.js || { echo "unstamped import in src/"; exit 1; }
+          ! grep -nE 'new Worker\(|fetch\([\"'"'"']\./' src/*.js || { echo "unstamped runtime reference in src/"; exit 1; }
       - uses: actions/configure-pages@v5
         with:
           enablement: true

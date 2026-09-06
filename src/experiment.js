@@ -65,7 +65,7 @@ export function stimulusMarkup(t){
     const [x,y]=g.positions[slot];
     out+=`<g data-m="${k}" transform="translate(${x},${y}) scale(${p.scale})">`+
          shapeMarkup(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio)+`</g>`+
-         `<text x="${x}" y="${y+g.labelY}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">${k}</text>`;
+         `<text x="${x}" y="${y+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${k}</text>`;
   }
   return out;
 }

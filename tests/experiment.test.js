@@ -70,7 +70,7 @@ test("repeats and side counterbalancing", ()=>{
   const m=stimulusMarkup({...t[0],swapped:true});
   const g=trialGeometry(t[0]);
   assert.ok(m.includes(`<g data-m="B" transform="translate(${g.positions.C[0]},${g.positions.C[1]})`));
-  assert.ok(m.includes(`<text x="${g.positions.C[0]}" y="${g.positions.C[1]+g.labelY}" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#111">B</text>`));
+  assert.ok(m.includes(`<text x="${g.positions.C[0]}" y="${g.positions.C[1]+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">B</text>`));
   assert.equal(resultRow({...t[0]},{participant:"p",response:"C",rt:1,pxPerMm:5,calibrated:true,timestamp:""}).B_side,"right");
 });
 
