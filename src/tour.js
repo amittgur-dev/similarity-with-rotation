@@ -15,13 +15,13 @@ const STEPS=[
   {target:"#tray",title:"Your shapes land in the tray",
    text:"Drag a shape from the tray at the bottom right onto the canvas, as many times as you need. Each copy can be rotated and sized on its own."},
   {target:"#canvas",title:"Build a similarity question",
-   text:"Place three objects, click one and shift-click the other two, then press “make similarity question”: A goes on top, B and C below. Drag empty space to move around; scroll to pan; ctrl+scroll or +/− to zoom."},
+   text:"Place three objects, click one and shift-click the other two, then press “make similarity question”: A goes on top, B and C below. Drag empty space to move around, arrows nudge a selection, and ⌘/ctrl Z undoes anything."},
   {target:"#saveRow",title:"Keep your work",
-   text:"Save stores the canvas in this browser; the dropdown at the top left of the canvas reopens it. Export and import move canvases as files."},
+   text:"Your work is kept automatically in this browser and comes back when you return. Save (⌘/ctrl S) files it under a name in the library at the top left; export and import move canvases as files."},
   {target:"#expBar",title:"Run it as an experiment",
-   text:"Mark questions with “☆ include in experiment”, then open the experiment bar under the console to pilot them: “Is A more similar to B or C?”, with answers and reaction times exported as CSV."},
+   text:"Mark questions with “☆ include in experiment”, then open the experiment bar under the console to pilot them (fixation, shuffled order, B/C sides swapped at random) or to export every stimulus as SVG + PNG with a parameter manifest."},
   {target:"#settingsBtn",title:"Settings",
-   text:"The ⚙ button at the bottom left re-calibrates the screen with a bank card, so sizes are shown in millimetres, and replays this walkthrough."}
+   text:"The ⚙ button at the bottom left re-calibrates the screen with a bank card and sets the viewing distance, so sizes are shown in millimetres and degrees of visual angle. It also replays this walkthrough."}
 ];
 
 let storage=null, i=-1;

@@ -43,7 +43,9 @@ reference — see *Verification* below).
 | `src/calibration.js`, `src/calibrate.js` | **pure** px-per-mm model + storage, and the card-outline overlay |
 | `src/splitter.js` | resizable / collapsible console |
 | `src/tour.js` | first-run walkthrough |
-| `src/experiment.js`, `src/run.js` | **pure** trial model, stimulus markup and CSV; the experiment panel and pilot runner |
+| `src/experiment.js`, `src/run.js` | **pure** trial model, stimulus markup, CSV and summary; the experiment panel and pilot runner |
+| `src/history.js` | **pure** undo/redo over injected snapshot/restore |
+| `src/stimexport.js`, `src/zip.js` | stimulus export (SVG + PNG + manifest) and a **pure** store-only zip writer |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
 | `src/questions.js` | grouping, rigid layout, ungroup/delete, group-variation commands |
 | `src/console.js` | the right-hand panels (creation, object, selection, question) and single-object commands |
@@ -127,6 +129,16 @@ Other documented decisions:
   the configuration IS the sub-shapes (no outlines, ever — these are stimuli)
 - stimuli render strictly black on white; only the surrounding UI is styled
 
+## Working safely: undo, autosave, keyboard
+
+Every edit is undoable: ⌘/ctrl Z undoes, ⌘/ctrl ⇧Z or ⌘/ctrl Y redoes
+(`src/history.js` keeps state snapshots; edits made while typing are
+coalesced). The working canvas is autosaved to this browser after every
+edit and restored on the next visit ("restored your last session"); a blue
+dot on **save** marks changes not yet saved to the library. Keyboard:
+⌘/ctrl S saves, arrow keys nudge the selected object or question (⇧ ×10),
+Esc deselects, Delete removes, ⌘/ctrl D duplicates.
+
 ## First-run walkthrough
 
 After the calibration on a first visit, a seven-step walkthrough appears as
@@ -142,8 +154,9 @@ On the first visit the app shows a card-shaped outline: hold a bank card
 until it matches, and confirm. That measures CSS pixels per millimetre for
 this screen and is stored in the browser (`src/calibration.js`). Object and
 question panels then show the drawn figure's on-screen width × height in
-mm (the base radius is 70 canvas units, so vertices of an object at size
-100% and zoom 100% lie on a 140 px circle).
+mm and in degrees of visual angle at the viewing distance set in ⚙ settings
+(default 57 cm, where 1 cm ≈ 1°). The base radius is 70 canvas units, so
+vertices of an object at size 100% and zoom 100% lie on a 140 px circle.
 Selecting a shape (or a question) shows dimension lines with the drawn
 figure's width and height in mm, sub-shapes included (≈ when
 uncalibrated); resting the pointer on any other shape for 1.2 s shows its
@@ -157,15 +170,24 @@ screen or browser zoom — those change the pixel size and the app cannot tell.
 
 Open a question and press **☆ include in experiment**; the question gets a ★
 on the canvas and the footer under the tray counts the included questions.
-Click that footer for the experiment panel: the trial list, a participant
-id, a shuffle option and **pilot the experiment**. A run shows one question
-per trial as "Is A more similar to B or C?" — the stimulus is drawn from the
-same objects as the canvas, at 1:1 pixels (so the calibrated mm readouts
-apply), with A/B/C labels and two answer buttons (keys B / C also work,
-Esc quits). Response and reaction time are recorded; the run ends with a
-table and a CSV download whose columns carry every stimulus parameter
-(`src/experiment.js`, pure and unit-tested). The inclusion flag is saved
-with the canvas.
+Click that footer for the experiment panel: the trial list, participant id,
+repeats, and options for shuffled order, **swapping B/C sides at random**
+(counterbalances a side bias; the record says which side B was on), a 500 ms
+fixation cross and full screen. **pilot the experiment** opens a start
+screen with instructions (space begins), then one question per trial as
+"Is A more similar to B or C?" — the stimulus is drawn from the same objects
+as the canvas at 1:1 pixels (so the calibrated sizes apply), with A/B/C
+labels and two answer buttons (keys B / C also work, Esc quits), 400 ms
+blank between trials. The run ends with a summary (proportion B, median
+RT), a table and a CSV whose columns carry every stimulus parameter, each
+member's width/height in mm and degrees, B side, repeat, px/mm, viewing
+distance and fixation (`src/experiment.js`, pure and unit-tested). The
+inclusion flag is saved with the canvas.
+
+**export stimuli (zip)** writes every included question (or all questions
+if none is included) as `<title>.svg` and `<title>.png` (2× raster) with a
+`manifest.csv` mapping file → full parameter record, all client-side
+(`src/stimexport.js`, `src/zip.js`).
 
 ## Saving: library and files
 
@@ -204,17 +226,11 @@ node tests/browser/compare-with-prototype.mjs http://localhost:8765 /tmp/out
 ## Roadmap
 
 See `HANDOFF.md`. Phase 0 is done and the Phase 1 canvas library is in;
-the Phase 3 pilot runner exists in a first form; next are undo/redo, Phase 2 (SVG/PNG + batch export with manifest)
-and Phase 3 (experiment run mode).
+undo/redo, stimulus export and the pilot runner are in. Next: a participant-facing run URL with results posted to an endpoint, and jsPsych export as an alternative backend.
 
 ## Known rough edges (unchanged from the prototype, fix opportunistically)
 
-- Rubber-band selection tests object centers only (not bounding boxes).
 - Vary-grid placement can overlap existing objects.
-- Removing a tray tile (×) only removes the tile: instances on the canvas keep
-  working and the entry is still written to the save file, so it reappears on
-  load.
-- No undo. Add command-pattern undo/redo early in Phase 1.
 - Question selection rectangle is approximate at extreme sizes.
 - A stray text selection on the canvas can turn a drag into a native
   browser drag, which cancels the pointer gesture (rubber band gets stuck

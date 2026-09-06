@@ -3,7 +3,8 @@
   --grey:#999;
   --faint:#e8e8e8;
   --sel:#4a90d9;
-  --mono:"SF Mono","Cascadia Mono",Consolas,monospace;
+  --mono:"IBM Plex Mono","SF Mono","Cascadia Mono",Consolas,monospace;
+  --ease:.14s ease;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -199,8 +200,13 @@ body.consoleCollapsed #console{width:0}
 #calibBox .steprow button.ghost{border-color:var(--faint);color:var(--grey)}
 #calibBox .steprow button.ghost:hover{background:#fff;color:var(--ink);border-color:var(--ink)}
 .mmReadout{font-size:0.62rem;color:var(--grey);white-space:nowrap}
-#qPanel>.mmRow{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px}
-#qPanel>.mmRow>span:first-child{font-size:0.58rem;letter-spacing:0.1em;color:var(--grey);text-transform:uppercase}
+.qRows{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.qRows .fnrow{justify-content:space-between}
+.qRows .lbl,.spec .frow.mmRow span:first-child{font-size:0.58rem;letter-spacing:0.1em;color:var(--grey);text-transform:uppercase}
+.qRows .unit{font-size:0.7rem;color:var(--grey)}
+.qRows .lbl{flex:1}
+.qRows .mmRow,.spec .frow.mmRow{flex-direction:column;align-items:flex-start;gap:2px}
+.qRows .mmRow .mmReadout,.spec .frow.mmRow .mmReadout{white-space:normal;line-height:1.5}
 .mmReadout.uncal{color:#c9a227}
 
 /* ---- sub-shape nudge: the next stage after naming a shape ---- */
@@ -324,3 +330,61 @@ label.check.mini:hover{color:var(--ink)}
 #tourCard button:disabled{visibility:hidden}
 .tourTarget{outline:1.5px dashed #4a90d9;outline-offset:5px}
 @media (prefers-reduced-motion:reduce){#tourCard{animation:none}}
+
+/* ---- upgrade: keyboard focus, cursors, dirty dot, toast ---- */
+:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+#canvas g.item{cursor:move}
+#saveBtn{position:relative}
+#saveBtn.dirty::after{content:"";position:absolute;top:-4px;right:-4px;width:7px;height:7px;border-radius:50%;background:var(--sel)}
+#toast[hidden]{display:none}
+#toast{
+  position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:45;
+  font-family:var(--mono);font-size:0.62rem;letter-spacing:0.06em;color:#fff;background:var(--ink);
+  padding:7px 12px;pointer-events:none;animation:toastIn .2s ease-out;
+}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,4px)}to{opacity:1;transform:translateX(-50%)}}
+#settingsMenu .menuRow{display:flex;align-items:baseline;gap:6px;font-size:0.6rem;color:var(--ink);letter-spacing:0.04em}
+#settingsMenu .menuRow span{flex:1;color:var(--grey)}
+#settingsMenu .menuRow input{width:52px;border:none;border-bottom:1px solid var(--faint);font-family:var(--mono);font-size:0.68rem;text-align:right;outline:none;background:transparent}
+#settingsMenu .menuRow input:focus{border-bottom-color:var(--ink)}
+#keysNote{font-size:0.52rem;color:#ccc;letter-spacing:0.06em;margin-top:2px}
+.titleRow{display:flex;align-items:flex-end;gap:6px}
+.titleRow input{flex:1;min-width:0}
+#qTitleRegen{border:1px solid var(--faint);background:#fff;color:var(--grey);font-family:var(--mono);font-size:0.8rem;line-height:1;padding:4px 7px;cursor:pointer}
+#qTitleRegen:hover{border-color:var(--ink);color:var(--ink)}
+.checks{display:flex;flex-direction:column;gap:5px}
+.trayItem.inUse{border-color:#c0392b}
+.trayItem.inUse .x{color:#c0392b;border-color:#c0392b;display:block}
+#runStart{display:flex;flex-direction:column;gap:14px;max-width:min(92vw,560px)}
+#runStart[hidden]{display:none}
+#runStart>label{font-size:0.6rem;letter-spacing:0.14em;color:var(--grey);text-transform:uppercase}
+#runStart p{font-size:0.78rem;line-height:1.7;color:#333}
+#runStart .steprow{max-width:260px}
+#runStart .steprow button{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.08em;border:1px solid var(--ink);background:#fff;color:var(--ink);padding:8px 12px;cursor:pointer;flex:1}
+#runStart .steprow button:hover{background:var(--ink);color:#fff}
+#runFix[hidden]{display:none}
+#runFix{font-size:2.2rem;font-weight:400;color:var(--ink);line-height:1}
+#runSummary{margin-top:0;color:var(--grey)}
+
+/* ---- finesse ---- */
+button{transition:border-color var(--ease),color var(--ease),background var(--ease),transform .08s ease}
+button:active:not(:disabled){transform:translateY(0.5px)}
+#steps,#tray{scrollbar-width:thin;scrollbar-color:#ddd transparent}
+#steps::-webkit-scrollbar,#tray::-webkit-scrollbar{width:6px}
+#steps::-webkit-scrollbar-thumb,#tray::-webkit-scrollbar-thumb{background:#ddd}
+.panel>label{margin-bottom:12px}
+.spec{transition:border-color var(--ease)}
+.spec:focus-within{border-color:#cfcfcf}
+.trayItem{transition:border-color var(--ease),box-shadow var(--ease)}
+.trayItem:hover{box-shadow:0 2px 10px rgba(0,0,0,0.05)}
+#libBar select,#libBar button,#zoomBar button,#zoomBadge,#saveRow button,#settingsBtn{height:24px;line-height:1}
+#libBar select{padding-top:0;padding-bottom:0}
+#emptyHint{max-width:34ch;line-height:1.8}
+.steprow button,#calibBox .steprow button,#runEnd .steprow button,#runStart .steprow button,#tourCard button{letter-spacing:0.08em}
+.note{color:#aaa}
+.err:empty{display:none}
+.seg button{transition:background var(--ease),color var(--ease)}
+#expBar{transition:background var(--ease),color var(--ease)}
+#runChoice button{transition:background var(--ease),color var(--ease),transform .08s ease}
+#runChoice button:active{transform:scale(0.97)}
+#runPrompt{font-weight:500}

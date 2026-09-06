@@ -5,9 +5,10 @@ import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, vertCount 
 import { rotateParams, parseVary } from "./variants.js";
 import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem } from "./state.js";
 import { $ } from "./dom.js";
-import { calib, pxToMm, formatMm } from "./calibration.js";
+import { calib, pxToMm, visualAngleDeg, formatDeg } from "./calibration.js";
+import { commit, commitSoon } from "./history.js";
 import { renderCanvas } from "./canvas.js";
-import { layoutQuestion, renderQStruct } from "./questions.js";
+import { layoutQuestion, renderQStruct, regenerateTitle } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
 import { syncExpToggle } from "./run.js";
 
@@ -41,9 +42,9 @@ export function buildSpecRows(container, target, cfg){
         `<div class="frow"><span>${cfg.anchor.name} × ${vertCount(cfg.def)}</span></div>`+
         (orientable?`<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.anchorRot)}" data-f="anchorRot">°</div>`:"")+
         (cfg.showRatio===false?"":`<div class="frow"><span>relative size</span><input type="number" step="2" min="5" max="60" value="${Math.round((target.anchorRatio||DEFAULT_RATIO)*100)}" data-f="anchorRatio">%</div>`)+
-        `<div class="seg" data-f="frame">`+
-          `<button data-v="screen" class="${target.frame==="screen"?"on":""}">screen</button>`+
-          `<button data-v="vertex" class="${target.frame==="vertex"?"on":""}">vertex</button>`+
+        `<div class="seg" data-f="frame" title="frame of the sub-shapes">`+
+          `<button data-v="screen" class="${target.frame==="screen"?"on":""}" title="screen frame: sub-shapes keep their absolute orientation when the base rotates">screen</button>`+
+          `<button data-v="vertex" class="${target.frame==="vertex"?"on":""}" title="vertex frame: sub-shapes point outward from the center and co-rotate with the base">vertex</button>`+
         `</div>`+
       `</div>`;
     wrap.appendChild(row2);
@@ -57,19 +58,21 @@ export function buildSpecRows(container, target, cfg){
       else if(f==="anchorRatio"){target.anchorRatio=Math.max(0.05,Math.min(0.6,v/100));}
       else{target[f]=norm(v);}
       cfg.onChange();
+      commitSoon();
       const pvs=wrap.querySelectorAll(".pv");
       if(pvs[0])pvs[0].innerHTML=miniSVG(cfg.def,target.baseRot);
       if(pvs[1])pvs[1].innerHTML=miniSVG(cfg.anchor,target.anchorRot,true);
     });
   });
   wrap.querySelectorAll('input[data-f="showMm"]').forEach(cb=>{
-    cb.addEventListener("change",()=>{target.showMm=cb.checked;cfg.onChange();});
+    cb.addEventListener("change",()=>{target.showMm=cb.checked;cfg.onChange();commit();});
   });
   wrap.querySelectorAll('.seg[data-f="frame"] button').forEach(b=>{
     b.onclick=()=>{
       target.frame=b.dataset.v;
       b.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
       cfg.onChange();
+      commit();
     };
   });
   container.appendChild(wrap);
@@ -149,6 +152,7 @@ export function createShape(){
   $("anchorSection").style.display="none";$("createRow").style.display="none";
   resetDraft();
   $("shapeInput").focus();
+  commit();
 }
 
 /* ================= panels ================= */
@@ -178,7 +182,7 @@ export function openSelPanel(){
       b.onclick=()=>{
         it.label=b.dataset.v||null;
         document.querySelectorAll("#labelSeg button").forEach(x=>x.classList.toggle("on",x===b));
-        renderCanvas();
+        renderCanvas();commit();
       };
     });
     $("varyInput").value="";$("errVary").textContent="";
@@ -228,7 +232,7 @@ export function syncSelPanelNumbers(){
 /* ================= single-object ops ================= */
 export function deleteSelected(){
   removeItem(sel.id);
-  deselect();
+  deselect();commit();
 }
 export function deleteMulti(){
   sel.ids.forEach(id=>{
@@ -236,7 +240,7 @@ export function deleteMulti(){
     if(it&&it.qId)return; // grouped objects are deleted via their question
     removeItem(id);
   });
-  deselect();
+  deselect();commit();
 }
 export function duplicateSelected(){
   const it=findItem(sel.id);
@@ -244,7 +248,7 @@ export function duplicateSelected(){
   const copy={...it,id:nextId(),x:it.x+30/view.z,y:it.y+30/view.z,label:null,qId:null};
   items.push(copy);
   sel.id=copy.id;
-  renderCanvas();openSelPanel();
+  renderCanvas();openSelPanel();commit();
 }
 export function makeVariant(){
   const it=findItem(sel.id);
@@ -254,7 +258,7 @@ export function makeVariant(){
   const v={...rotateParams(it,ui.rvScope,d),id:nextId(),x:it.x+BASE_R*2.6*it.scale,label:null,qId:null};
   items.push(v);
   sel.id=v.id;
-  renderCanvas();openSelPanel();
+  renderCanvas();openSelPanel();commit();
 }
 export function applyVary(){
   const it=findItem(sel.id);
@@ -271,7 +275,7 @@ export function applyVary(){
                   x:it.x+gap*(ci+1),y:it.y+gap*ri,label:null,qId:null});
     });
   });
-  renderCanvas();
+  renderCanvas();commit();
 }
 
 /* ================= absolute size readouts =================
@@ -290,7 +294,9 @@ export function updateMmReadouts(){
     if(el.dataset.item)f=figure(parseInt(el.dataset.item));
     else if(el.id==="qMm"){const q=findQuestion(sel.qId);if(q)f=figure(q.a);}
     if(!f){el.textContent="";return;}
-    el.textContent=formatMm(pxToMm(f.w))+" × "+formatMm(pxToMm(f.h))+suffix+(calib.calibrated?"":" · uncalibrated");
+    const wmm=pxToMm(f.w), hmm=pxToMm(f.h);
+    el.textContent=`${wmm.toFixed(1)} × ${hmm.toFixed(1)} mm · ${formatDeg(visualAngleDeg(wmm))} × ${formatDeg(visualAngleDeg(hmm))}`+suffix+(calib.calibrated?"":" · uncalibrated");
+    el.title=`width × height of the drawn figure on screen, in mm and in degrees of visual angle at ${calib.distanceCm} cm`;
     el.classList.toggle("uncal",!calib.calibrated);
   });
 }
@@ -319,7 +325,13 @@ export function initConsole(){
 
   $("qTitle").addEventListener("input",()=>{
     const q=findQuestion(sel.qId);
-    if(q){q.title=$("qTitle").value;renderCanvas();}
+    if(q){q.title=$("qTitle").value;renderCanvas();commitSoon();}
+  });
+  $("qTitleRegen").addEventListener("click",()=>{
+    const q=findQuestion(sel.qId);
+    if(!q)return;
+    regenerateTitle(q);
+    $("qTitle").value=q.title;renderCanvas();commit();
   });
   $("qSize").addEventListener("input",()=>{
     const q=findQuestion(sel.qId);
@@ -327,7 +339,7 @@ export function initConsole(){
     if(!q||isNaN(v))return;
     q.s=Math.max(0.2,Math.min(4,v/100));
     layoutQuestion(q);
-    renderCanvas();
+    renderCanvas();commitSoon();
   });
   $("qRatio").addEventListener("input",()=>{
     const q=findQuestion(sel.qId);
@@ -335,7 +347,7 @@ export function initConsole(){
     if(!q||isNaN(v))return;
     q.anchorRatio=Math.max(0.05,Math.min(0.6,v/100));
     layoutQuestion(q);
-    renderCanvas();
+    renderCanvas();commitSoon();
     // sync per-member ratio fields in the panel
     document.querySelectorAll('#qMembers input[data-f="anchorRatio"]').forEach(inp=>{
       if(document.activeElement!==inp)inp.value=Math.round(q.anchorRatio*100);

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   CARD_MM, CARD_RATIO, NOMINAL_PX_PER_MM, CALIBRATION_KEY, calib,
   pxPerMmFromCardWidth, cardWidthPxFor, pxToMm, mmToPx, formatMm,
-  readCalibration, writeCalibration, clearCalibration, loadCalibration
+  readCalibration, writeCalibration, clearCalibration, loadCalibration,
+  visualAngleDeg, formatDeg, readDistance, writeDistance, DEFAULT_DISTANCE_CM
 } from "../src/calibration.js";
 
 function fakeStorage(init={}){
@@ -49,4 +50,17 @@ test("storage: write, read, load, clear; defaults when absent or corrupt", ()=>{
   assert.equal(readCalibration(fakeStorage({[CALIBRATION_KEY]:"nope"})),null);
   assert.equal(readCalibration(fakeStorage({[CALIBRATION_KEY]:'{"pxPerMm":-1}'})),null);
   assert.equal(readCalibration(null),null);
+});
+
+test("visual angle: 1 cm at 57 cm ≈ 1°; distance is stored and loaded", ()=>{
+  close(visualAngleDeg(10,57),1.005,0.01);
+  close(visualAngleDeg(20,114),1.005,0.01);
+  assert.equal(formatDeg(1.0049),"1.00°");assert.equal(formatDeg(12.34),"12.3°");
+  const s=fakeStorage();
+  assert.equal(readDistance(s),DEFAULT_DISTANCE_CM);
+  writeDistance(s,80);
+  assert.equal(readDistance(s),80);
+  loadCalibration(s);assert.equal(calib.distanceCm,80);
+  assert.throws(()=>writeDistance(s,-1),/positive/);
+  assert.equal(readDistance(fakeStorage({"stimulus-builder.viewing":"junk"})),DEFAULT_DISTANCE_CM);
 });

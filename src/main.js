@@ -8,19 +8,29 @@ import { makeQuestion, makeGroupVariation, ungroupQuestion, deleteQuestion, layo
 import { addTrayItem, clearTrayDOM } from "./tray.js";
 import { serializeCanvas, deserializeCanvas, canvasFileName, downloadJSON, readJSONFile } from "./io.js";
 import { listCanvases, saveToLibrary, loadFromLibrary, removeFromLibrary } from "./library.js";
-import { loadCalibration, readCalibration, calib } from "./calibration.js";
+import { loadCalibration, readCalibration, calib, writeDistance } from "./calibration.js";
+import { initHistory, commit, undo, redo, resetHistory } from "./history.js";
 import { initCalibration, openCalibration } from "./calibrate.js";
 import { initSplitter } from "./splitter.js";
 import { initTour, startTour, tourDone } from "./tour.js";
 import { initExperiment, refreshExpBar } from "./run.js";
 
 const storage=(()=>{try{return window.localStorage;}catch{return null;}})();
+const WORKING_KEY="stimulus-builder.working";
+
+/* ---- small notice at the bottom of the canvas ---- */
+let toastTimer=null;
+export function toast(msg){
+  const t=$("toast");t.textContent=msg;t.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},2200);
+}
 
 /* ---- canvas contents ---- */
 function currentData(name){
   return serializeCanvas({name,view,tray,items,questions});
 }
-function applyLoaded(loaded){
+/* replace the canvas contents; keepView leaves the viewport and name alone (undo/redo) */
+function applyState(loaded,{keepView=false}={}){
   tray.length=0;items.length=0;questions.length=0;
   clearSelection();
   clearTrayDOM();
@@ -29,10 +39,18 @@ function applyLoaded(loaded){
   questions.push(...loaded.questions);
   bumpId(loaded.maxId);
   questions.forEach(q=>layoutQuestion(q));
-  if(loaded.view)Object.assign(view,loaded.view);
-  $("canvasName").value=loaded.name;
+  if(!keepView){
+    if(loaded.view)Object.assign(view,loaded.view);
+    $("canvasName").value=loaded.name;
+  }
   renderCanvas();showPanel("createPanel");
   refreshExpBar();
+}
+function applyLoaded(loaded){
+  applyState(loaded);
+  resetHistory();
+  setDirty(false);
+  writeWorking();
 }
 function newCanvas(){
   tray.length=0;items.length=0;questions.length=0;
@@ -43,7 +61,36 @@ function newCanvas(){
   renderCanvas();showPanel("createPanel");
   refreshExpBar();
   refreshLibrary("");
+  resetHistory();
+  setDirty(false);
+  try{storage&&storage.removeItem(WORKING_KEY);}catch{}
   $("shapeInput").focus();
+}
+
+/* ---- undo / redo + autosave of the working copy ---- */
+function stateSnapshot(){
+  const d=serializeCanvas({name:"",view:{tx:0,ty:0,z:1},tray,items,questions});
+  delete d.view;delete d.name;
+  return JSON.stringify(d);
+}
+function restoreSnapshot(s){
+  applyState(deserializeCanvas(JSON.parse(s)),{keepView:true});
+}
+let dirty=false;
+function setDirty(v){dirty=v;$("saveBtn").classList.toggle("dirty",v);$("saveBtn").title=v?"unsaved changes — save to this browser's canvas library (⌘/ctrl S)":"save to this browser's canvas library (⌘/ctrl S)";}
+function writeWorking(){
+  try{storage&&storage.setItem(WORKING_KEY,JSON.stringify({name:$("canvasName").value,data:currentData($("canvasName").value)}));}catch{}
+}
+function restoreWorking(){
+  try{
+    const w=storage&&JSON.parse(storage.getItem(WORKING_KEY)||"null");
+    if(!w||!w.data||!((w.data.items&&w.data.items.length)||(w.data.tray&&w.data.tray.length)))return false;
+    applyState(deserializeCanvas(w.data));
+    $("canvasName").value=w.name||"";
+    const saved=w.name?loadFromLibrary(storage,w.name):null;
+    setDirty(!(saved&&JSON.stringify(saved)===JSON.stringify(currentData(w.name))));
+    return true;
+  }catch{return false;}
 }
 
 /* ---- library (this browser) ---- */
@@ -76,6 +123,7 @@ function saveCanvas(){
   }
   saveToLibrary(storage,name,currentData(name));
   refreshLibrary(name);
+  setDirty(false);writeWorking();
   const b=$("saveBtn");
   b.textContent="saved";b.classList.add("saved");
   setTimeout(()=>{b.textContent="save";b.classList.remove("saved");},1200);
@@ -109,6 +157,7 @@ function calibStatusText(){
 }
 function openSettings(){
   $("calibStatus").textContent=calibStatusText();
+  $("viewDist").value=calib.distanceCm;
   $("settingsMenu").hidden=false;$("settingsBtn").classList.add("on");
 }
 function closeSettings(){$("settingsMenu").hidden=true;$("settingsBtn").classList.remove("on");}
@@ -158,6 +207,24 @@ $("loadFile").addEventListener("change",e=>{
   if(f)importCanvasFile(f).then(()=>{e.target.value="";});
 });
 $("libSelect").addEventListener("change",openFromLibrary);
+$("canvasName").addEventListener("input",()=>{setDirty(true);writeWorking();});
+$("viewDist").addEventListener("change",()=>{
+  const v=parseFloat($("viewDist").value);
+  if(v>0){writeDistance(storage,v);renderCanvas();toast(`viewing distance ${v} cm`);}
+  else $("viewDist").value=calib.distanceCm;
+});
+/* keyboard: undo / redo / save (not while typing, not under an overlay) */
+window.addEventListener("keydown",e=>{
+  const tag=document.activeElement&&document.activeElement.tagName;
+  if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
+  if(!$("run").hidden||!$("calib").hidden||!$("tour").hidden)return;
+  const mod=e.metaKey||e.ctrlKey;
+  if(!mod)return;
+  const k=e.key.toLowerCase();
+  if(k==="z"&&!e.shiftKey){e.preventDefault();if(!undo())toast("nothing to undo");}
+  else if((k==="z"&&e.shiftKey)||k==="y"){e.preventDefault();if(!redo())toast("nothing to redo");}
+  else if(k==="s"){e.preventDefault();saveCanvas();}
+});
 $("settingsBtn").addEventListener("click",e=>{e.stopPropagation();toggleSettings();});
 document.addEventListener("pointerdown",e=>{if(!$("settingsMenu").hidden&&!e.target.closest("#settings"))closeSettings();});
 window.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsMenu").hidden)closeSettings();});
@@ -168,6 +235,8 @@ initCanvas();
 initExperiment();
 refreshLibrary("");
 loadCalibration(storage);
+initHistory({snap:stateSnapshot,restore:restoreSnapshot,onChange:e=>{if(!e.baseline)setDirty(true);writeWorking();}});
+if(restoreWorking()){resetHistory();toast("restored your last session");}
 initTour({storage});
 const firstRun=!tourDone();
 initCalibration({storage,onDone:()=>{renderCanvas();$("shapeInput").focus();if(firstRun&&!tourDone())startTour();}});

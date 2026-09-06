@@ -15,7 +15,8 @@ async function run(url,tag){
   const page=await browser.newPage({viewport:{width:1200,height:800}});
   const errors=[];
   page.on("pageerror",e=>errors.push(String(e)));
-  page.on("console",m=>{if(m.type()==="error")errors.push(m.text());});
+  // resource-load failures (e.g. the web font when offline) are not app errors; script errors still surface via pageerror
+  page.on("console",m=>{if(m.type()==="error"&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
   await page.goto(url);
   // native drag of a stray text selection cancels pointer sequences in both versions (see README rough edges)
   await page.evaluate(()=>document.addEventListener("dragstart",e=>e.preventDefault()));
@@ -98,7 +99,7 @@ async function run(url,tag){
   const sc=await page.locator('[data-h="scale"]').boundingBox();
   await dragCanvas(sc.x+sc.width/2,sc.y+sc.height/2,sc.x+30,sc.y+30);
   // multi-select + delete all (includes grouped members, which must survive)
-  await dragCanvas(560,80,915,760,true);
+  await dragCanvas(560,80,860,700,true);
   await btn("delete all").click();
   // click question title text → selects; ungroup the second question
   await page.click('text[data-qid="12"]');
@@ -151,7 +152,10 @@ cmp("save.json",a.json,b.json);
 // dwell-to-measure dimension lines and their console toggle do not exist in the prototype
 const stripDims=s=>s.replace(/<g class="dim[^"]*" pointer-events="none">.*?<\/g>/g,"").replace(/<label class="check mini mmRow">.*?<\/label>/g,"");
 const stripLabelY=s=>stripDims(s).replace(/(<text x="[^"]*") y="[^"]*"( text-anchor="middle" font-family="monospace" font-size="15")/g,"$1$2");
-const stripHandlers=s=>stripDims(s).replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<div class="frow mmRow">.*?<\/div>/g,"").replace(/<span class="mmReadout[^"]*" id="qMm">[^<]*<\/span>/g,"").replace(/<button id="qExpToggle"[^>]*>[^<]*<\/button>/g,"").replace(/>\s+</g,"><").replace(/<p class="note">to build a question[^<]*<\/p>/,"").replace(/ class="nudge"/g,"").replace(/ class=""/g,"").replace(/placeholder="next: /g,'placeholder="').replace(/<!--[^>]*-->/g,"").replace(/>\s+</g,"><").trim();
+// the question panel's size rows were restacked (one field per row); compare them by their inputs only
+const restack=s=>s.replace(/<div class="qRows">.*?<\/div>\s*<\/div>/s,m=>(m.match(/<input[^>]*>/g)||[]).join(""))
+                 .replace(/<div class="fnrow" style="margin-top:12px">.*?<\/div>/s,m=>(m.match(/<input[^>]*>/g)||[]).join(""));
+const stripHandlers=s=>restack(stripDims(s)).replace(/<div class="titleRow">(<input[^>]*>)<button id="qTitleRegen"[^>]*>[^<]*<\/button><\/div>/g,"$1").replace(/ title="[^"]*"/g,"").replace(/ onclick="[^"]*"/g,"").replace(/ data-action="[^"]*"/g,"").replace(/<div class="frow mmRow">.*?<\/div>/g,"").replace(/<span class="mmReadout[^"]*" id="qMm">[^<]*<\/span>/g,"").replace(/<button id="qExpToggle"[^>]*>[^<]*<\/button>/g,"").replace(/>\s+</g,"><").replace(/<p class="note">to build a question[^<]*<\/p>/,"").replace(/ class="nudge"/g,"").replace(/ class=""/g,"").replace(/placeholder="next: /g,'placeholder="').replace(/<!--[^>]*-->/g,"").replace(/>\s+</g,"><").trim();
 for(const k of Object.keys(a.snap))cmp("snap."+k,stripLabelY(stripHandlers(String(a.snap[k]))),stripLabelY(stripHandlers(String(b.snap[k]))));
 for(const k of Object.keys(a.after))cmp("after."+k,stripLabelY(String(a.after[k])),stripLabelY(String(b.after[k])));
 console.log("errors original:",a.errors,"\nerrors modular:",b.errors);

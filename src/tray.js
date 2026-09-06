@@ -1,7 +1,8 @@
 /* The tray of created shapes and drag-to-canvas placement. */
 
 import { DEFAULT_RATIO, shapeMarkup } from "./geometry.js";
-import { items, sel, nextId } from "./state.js";
+import { items, sel, tray, nextId } from "./state.js";
+import { commit } from "./history.js";
 import { $ } from "./dom.js";
 import { renderCanvas, toWorld } from "./canvas.js";
 import { openSelPanel } from "./console.js";
@@ -13,9 +14,21 @@ export function addTrayItem(entry){
   const d=document.createElement("div");
   d.className="trayItem";d.dataset.id=entry.id;
   d.innerHTML=trayPreviewSVG(entry,74)+`<span class="x" title="remove">×</span>`;
-  // removes the tile only: instances on the canvas keep their live trayRef
-  // and the entry stays in the save file (see README, known rough edges)
-  d.querySelector(".x").onclick=e=>{e.stopPropagation();d.remove();};
+  // remove the shape from the tray — unless objects on the canvas still use it
+  d.querySelector(".x").onclick=e=>{
+    e.stopPropagation();
+    const used=items.filter(i=>i.trayRef===entry).length;
+    if(used){
+      d.classList.add("inUse");
+      d.title=`used by ${used} object${used===1?"":"s"} on the canvas — delete those first`;
+      setTimeout(()=>{d.classList.remove("inUse");d.title="";},1600);
+      return;
+    }
+    const i=tray.indexOf(entry);
+    if(i>-1)tray.splice(i,1);
+    d.remove();
+    commit();
+  };
   d.addEventListener("pointerdown",e=>startTrayDrag(e,entry));
   $("tray").appendChild(d);
 }
@@ -49,7 +62,7 @@ function dropGhost(e){
               anchorRatio:dragEntry.anchorRatio||DEFAULT_RATIO,label:null,qId:null};
     items.push(it);
     sel.id=it.id;sel.ids=[];sel.qId=null;
-    renderCanvas();openSelPanel();
+    renderCanvas();openSelPanel();commit();
   }
   dragEntry=null;
 }

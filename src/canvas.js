@@ -7,6 +7,7 @@ import { $, escapeXML } from "./dom.js";
 import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers, updateMmReadouts } from "./console.js";
 import { calib, pxToMm, formatMm } from "./calibration.js";
 import { layoutQuestion, deleteQuestion } from "./questions.js";
+import { commit, commitSoon } from "./history.js";
 
 const LABEL_GAP=1.55;   // label distance below an object center, × BASE_R × scale
 
@@ -40,6 +41,7 @@ export function toWorld(px,py){return {x:(px-view.tx)/view.z, y:(py-view.ty)/vie
 export function renderCanvas(){
   if(!svg)return;
   $("emptyHint").style.display=items.length?"none":"block";
+  $("emptyHint").textContent=document.querySelector(".trayItem")?"drag a shape here":"name a shape in the console to begin →";
   $("zoomBadge").textContent=Math.round(view.z*100)+"%";
   const dimItems=[];
   let out=`<g transform="translate(${view.tx},${view.ty}) scale(${view.z})">`;
@@ -230,8 +232,8 @@ function onPointerUp(){
   if(mode==="rubber"&&rubber){
     const x0=Math.min(rubber.x0,rubber.x1), x1=Math.max(rubber.x0,rubber.x1);
     const y0=Math.min(rubber.y0,rubber.y1), y1=Math.max(rubber.y0,rubber.y1);
-    // tests object centers only (known rough edge)
-    const caught=items.filter(i=>i.x>=x0&&i.x<=x1&&i.y>=y0&&i.y<=y1).map(i=>i.id);
+    // an object is caught when its box overlaps the band
+    const caught=items.filter(i=>{const b=BASE_R*1.25*i.scale;return i.x+b>=x0&&i.x-b<=x1&&i.y+b>=y0&&i.y-b<=y1;}).map(i=>i.id);
     rubber=null;
     if(caught.length===0){deselect();}
     else if(caught.length===1){
@@ -241,6 +243,7 @@ function onPointerUp(){
     }
     else{sel.ids=caught;renderCanvas();openMultiPanel();}
   }
+  if(mode==="move"||mode==="moveQ"||mode==="scale"||mode==="rot")commit();
   mode=null;dragIt=null;dragQ=null;svg.classList.remove("panning");
 }
 function onDblClick(e){
@@ -271,8 +274,23 @@ function onWheel(e){
   renderCanvas();
 }
 function onKeyDown(e){
-  if(e.code==="Space"&&document.activeElement.tagName!=="INPUT"){spaceHeld=true;}
-  if((e.key==="Backspace"||e.key==="Delete")&&document.activeElement.tagName!=="INPUT"){
+  const typing=["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
+  const covered=!$("run").hidden||!$("calib").hidden||!$("tour").hidden;
+  if(typing||covered)return;
+  if(e.code==="Space"){spaceHeld=true;}
+  if(e.key==="Escape"&&(sel.id!=null||sel.ids.length||sel.qId!=null)){deselect();return;}
+  // arrow keys nudge the selection (shift: ×10); screen pixels, so it feels the same at any zoom
+  const arrow={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+  if(arrow){
+    const step=(e.shiftKey?10:1)/view.z;
+    const it=sel.id!=null?findItem(sel.id):null;
+    const q=sel.qId!=null?findQuestion(sel.qId):null;
+    if(it&&!it.qId){it.x+=arrow[0]*step;it.y+=arrow[1]*step;}
+    else if(q){q.cx+=arrow[0]*step;q.cy+=arrow[1]*step;layoutQuestion(q);}
+    else return;
+    e.preventDefault();renderCanvas();commitSoon();return;
+  }
+  if(e.key==="Backspace"||e.key==="Delete"){
     if(sel.id!=null)deleteSelected();
     else if(sel.ids.length)deleteMulti();
     else if(sel.qId!=null)deleteQuestion();

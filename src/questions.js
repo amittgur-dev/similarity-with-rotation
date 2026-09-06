@@ -7,6 +7,7 @@ import { items, questions, sel, ui, nextId, findItem, findQuestion, removeItem }
 import { $ } from "./dom.js";
 import { renderCanvas } from "./canvas.js";
 import { openQPanel, deselect } from "./console.js";
+import { commit } from "./history.js";
 
 /* Invariants: fixed triangle (A top-center, B bottom-left, C bottom-right),
    one scale and one sub-shape relative size for all members, labels A/B/C.
@@ -28,6 +29,12 @@ export function layoutQuestion(q,list=items){
 export function qDefaultTitle(A,B,C){
   return questionTitle(questions.length+1,A,B,C);
 }
+/* rebuild the systematic title from the current rotations (titles never regenerate on their own) */
+export function regenerateTitle(q){
+  const A=findItem(q.a),B=findItem(q.b),C=findItem(q.c);
+  if(!A||!B||!C)return;
+  q.title=questionTitle(questions.indexOf(q)+1,A,B,C);
+}
 
 export function makeQuestion(){
   const selected=sel.ids.map(findItem).filter(Boolean);
@@ -48,6 +55,7 @@ export function makeQuestion(){
   sel.ids=[];sel.id=null;sel.qId=q.id;
   renderCanvas();
   openQPanel();
+  commit();
 }
 export function ungroupQuestion(){
   const q=findQuestion(sel.qId);
@@ -58,7 +66,7 @@ export function ungroupQuestion(){
     });
     questions.splice(questions.indexOf(q),1);
   }
-  deselect();
+  deselect();commit();
 }
 export function deleteQuestion(){
   const q=findQuestion(sel.qId);
@@ -66,7 +74,7 @@ export function deleteQuestion(){
     [q.a,q.b,q.c].forEach(removeItem);
     questions.splice(questions.indexOf(q),1);
   }
-  deselect();
+  deselect();commit();
 }
 
 export function structureOf(q){
@@ -120,4 +128,5 @@ export function makeGroupVariation(){
   sel.qId=nq.id;
   renderCanvas();
   openQPanel();
+  commit();
 }

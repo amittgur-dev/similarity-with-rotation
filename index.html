@@ -4,13 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stimulus Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <div id="canvasWrap">
   <svg id="canvas"></svg>
-  <div id="emptyHint">drag a shape here</div>
+  <div id="emptyHint">name a shape in the console to begin →</div>
   <div id="gestureHint">drag to move around · shift-click objects to select several · shift-drag to box-select · scroll to pan · ⌘/ctrl+scroll to zoom</div>
   <div id="zoomBar">
     <button data-action="zoomOut" title="zoom out">−</button>
@@ -22,8 +25,10 @@
       <div class="menuHead">Settings</div>
       <div class="note" id="calibStatus"></div>
       <button data-action="calibrate">re-calibrate screen</button>
+      <label class="menuRow" title="distance from the eyes to the screen — sizes are also shown in degrees of visual angle"><span>viewing distance</span><input type="number" id="viewDist" min="10" max="500" step="1"> cm</label>
       <button data-action="resetView">reset view</button>
       <button data-action="tour">show walkthrough</button>
+      <div class="note" id="keysNote">⌘/ctrl Z undo · ⇧Z redo · S save · arrows nudge · esc deselect</div>
       <div class="note" id="buildId">build __BUILD__</div>
     </div>
     <button id="settingsBtn" title="settings">⚙</button>
@@ -140,17 +145,13 @@
     <!-- selection: question group -->
     <div class="panel" id="qPanel">
       <label>Similarity question</label>
-      <input type="text" id="qTitle" autocomplete="off">
+      <div class="titleRow"><input type="text" id="qTitle" autocomplete="off"><button id="qTitleRegen" title="regenerate the systematic title from the current rotations">↻</button></div>
       <button id="qExpToggle" class="expToggle" title="use this question as a trial">☆ include in experiment</button>
-      <div class="fnrow" style="margin-top:12px">
-        <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">SIZE</span>
-        <input type="number" id="qSize" step="5" min="20" max="400">
-        <span style="font-size:0.7rem;color:var(--grey)">%</span>
-        <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em;margin-left:10px">SUB-SHAPE RELATIVE SIZE</span>
-        <input type="number" id="qRatio" step="2" min="5" max="60">
-        <span style="font-size:0.7rem;color:var(--grey)">%</span>
+      <div class="qRows">
+        <div class="fnrow"><span class="lbl">size</span><input type="number" id="qSize" step="5" min="20" max="400"><span class="unit">%</span></div>
+        <div class="fnrow"><span class="lbl">sub-shape relative size</span><input type="number" id="qRatio" step="2" min="5" max="60"><span class="unit">%</span></div>
+        <div class="fnrow mmRow"><span class="lbl">on screen (A)</span><span class="mmReadout" id="qMm"></span></div>
       </div>
-      <div class="frow mmRow"><span>on screen (A)</span><span class="mmReadout" id="qMm"></span></div>
       <div id="qMembers"></div>
 
       <div class="fn">
@@ -187,11 +188,27 @@
           <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">PARTICIPANT</span>
           <input type="text" id="expPid" value="pilot" autocomplete="off" style="flex:1;font-size:0.72rem">
         </div>
-        <label class="check"><input type="checkbox" id="expShuffle"> shuffle order</label>
+        <div class="fnrow" style="margin-bottom:8px">
+          <span style="font-size:0.58rem;color:var(--grey);letter-spacing:0.1em">REPEATS</span>
+          <input type="number" id="expRepeats" value="1" min="1" max="20" step="1">
+        </div>
+        <div class="checks">
+          <label class="check" title="present the trials in random order"><input type="checkbox" id="expShuffle" checked> shuffle order</label>
+          <label class="check" title="show B on the right half of the time (recorded as B_side) to cancel a side bias"><input type="checkbox" id="expSwap" checked> swap B/C sides at random</label>
+          <label class="check" title="a 500 ms fixation cross before each stimulus"><input type="checkbox" id="expFix" checked> fixation cross</label>
+          <label class="check" title="run in full screen (Esc quits)"><input type="checkbox" id="expFull" checked> full screen</label>
+        </div>
         <div class="steprow" style="margin-top:10px">
           <button id="pilotBtn">pilot the experiment</button>
         </div>
         <div class="note" id="expLast"></div>
+      </div>
+      <div class="fn">
+        <div class="fnlabel">Stimuli</div>
+        <p class="note" style="margin-top:0">SVG + PNG of every included question and a manifest.csv with the full parameter record, in one zip.</p>
+        <div class="steprow" style="margin-top:8px">
+          <button id="expExport">export stimuli (zip)</button>
+        </div>
       </div>
       <div class="steprow">
         <button class="ghost" id="expDone">done</button>
@@ -209,6 +226,7 @@
 </div>
 
 <div id="ghost"></div>
+<div id="toast" hidden></div>
 
 <!-- walkthrough -->
 <div id="tour" hidden>
@@ -231,11 +249,19 @@
 <div id="run" hidden>
   <div id="runCount"></div>
   <button id="runQuit" title="stop the run (Esc)">quit</button>
+  <div id="runStart" hidden>
+    <label>Similarity judgement</label>
+    <p id="runIntro"></p>
+    <p>On each trial you will see three figures. Decide whether <b>A</b> is more similar to <b>B</b> or to <b>C</b>, and answer with the <b>B</b> or <b>C</b> key (or the buttons). Answer as accurately as you can; there are no right or wrong answers.</p>
+    <div class="steprow"><button id="runBegin">begin · space</button></div>
+  </div>
+  <div id="runFix" hidden>+</div>
   <div id="runPrompt"></div>
   <div id="runStage"><svg id="runSvg"></svg></div>
   <div id="runChoice"><button data-r="B">B</button><button data-r="C">C</button></div>
   <div id="runEnd" hidden>
     <label>Run complete</label>
+    <div class="note" id="runSummary"></div>
     <table id="runTable"></table>
     <div class="steprow">
       <button class="ghost" id="runEndClose">close</button>
