@@ -25,9 +25,10 @@ the Anthropic API key never reaches the browser.
        supabase login
        supabase link --project-ref <your-project-ref>
        supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-       supabase functions deploy describe --no-verify-jwt
+       supabase functions deploy describe --no-verify-jwt --workdir server
 
-   (`--no-verify-jwt` lets the function check the session itself, which it
+   (`--workdir server` points the CLI at the `server/supabase` folder;
+   `--no-verify-jwt` lets the function check the session itself, which it
    does; Supabase's gateway check rejects the anon key otherwise.) The
    function uses `claude-opus-5` and only answers signed-in experimenters.
    Alternatively choose "use my own key" in ⚙ settings → *AI*; the key then

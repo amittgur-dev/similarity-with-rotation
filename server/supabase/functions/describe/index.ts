@@ -3,7 +3,7 @@
 // checks that the caller is a signed-in experimenter, forwards the request
 // body prepared by src/describe.js (model, system, messages, output_config)
 // to the Messages API and returns the response. Deploy with
-// `supabase functions deploy describe`.
+// `supabase functions deploy describe --no-verify-jwt --workdir server` (run from the repository root).
 import Anthropic from "npm:@anthropic-ai/sdk";
 
 const ALLOWED_MODELS = new Set(["claude-opus-5", "claude-sonnet-5", "claude-opus-4-8"]);
