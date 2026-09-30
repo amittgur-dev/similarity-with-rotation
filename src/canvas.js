@@ -40,6 +40,25 @@ function dimensionMarkup(it,bb,hover,boxed){
     `</g>`;
 }
 
+/* The object under a pointer event. A texture has gaps between its
+   elements; a press inside the extent of a textured object counts as a
+   press on it (topmost first), so it can be picked up anywhere. */
+function itemElementAt(e){
+  const g=e.target.closest&&e.target.closest("g.item");
+  if(g||!svg||(e.target.closest&&e.target.closest("text")))return g;
+  const rect=svg.getBoundingClientRect();
+  const pt=toWorld(e.clientX-rect.left,e.clientY-rect.top);
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];
+    if(!it.texture)continue;
+    const el=svg.querySelector(`g.item[data-id="${it.id}"]`);
+    if(!el)continue;
+    const bb=el.getBBox(), s=it.scale;
+    if(pt.x>=it.x+bb.x*s&&pt.x<=it.x+(bb.x+bb.width)*s&&pt.y>=it.y+bb.y*s&&pt.y<=it.y+(bb.y+bb.height)*s)return el;
+  }
+  return null;
+}
+
 export function toWorld(px,py){return {x:(px-view.tx)/view.z, y:(py-view.ty)/view.z};}
 
 export function renderCanvas(){
@@ -71,7 +90,7 @@ export function renderCanvas(){
     const e=it.trayRef;
     const fade=it.qId!=null&&faded.has(it.qId)?' class="lensOut"':"";
     out+=`<g class="item${fade?" lensOut":""}" data-id="${it.id}" transform="translate(${it.x},${it.y}) scale(${it.scale})">`+
-         shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO)+`</g>`;
+         shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO,it.texture||0)+`</g>`;
     if(it.label){
       const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
       out+=`<text${fade} x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${escapeXML(it.label)}</text>`;
@@ -127,7 +146,7 @@ function onPointerDown(e){
   const h=t.dataset&&t.dataset.h;
   const tEl=t.closest&&t.closest("text[data-qid]");   // the code tspan inside a title counts as the title
   const qid=tEl?tEl.dataset.qid:undefined;
-  const gEl=t.closest&&t.closest("g.item");
+  const gEl=itemElementAt(e);
   const rect=svg.getBoundingClientRect();
   const px=e.clientX-rect.left, py=e.clientY-rect.top;
   const pt=toWorld(px,py);
@@ -197,7 +216,7 @@ function onPointerDown(e){
 /* dwell 1.2 s over an object → show its dimension; any movement elsewhere hides it */
 const DWELL_MS=1200;
 function trackHover(e){
-  const gEl=e.target.closest&&e.target.closest("g.item");
+  const gEl=itemElementAt(e);
   const id=gEl?parseInt(gEl.dataset.id):null;
   if(id!==hoverCandidate){
     hoverCandidate=id;
@@ -268,7 +287,7 @@ function onPointerUp(){
   mode=null;dragIt=null;dragQ=null;svg.classList.remove("panning");
 }
 function onDblClick(e){
-  const gEl=e.target.closest&&e.target.closest("g.item");
+  const gEl=itemElementAt(e);
   if(!gEl)return;
   const id=parseInt(gEl.dataset.id);
   const it=findItem(id);

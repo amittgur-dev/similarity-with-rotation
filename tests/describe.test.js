@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildRequestBody, parsePlan, materializePlan, PLAN_SCHEMA, MODEL, requestPlanDirect } from "../src/describe.js";
-import { parseShape, norm, BASE_R, Q_DX, Q_DY } from "../src/geometry.js";
+import { parseShape, norm, BASE_R, Q_DX, Q_DY, textureRatio } from "../src/geometry.js";
 import { questionTitle } from "../src/variants.js";
 import { newExperiment, nextOrdinal } from "../src/experiment.js";
 import { layoutQuestion } from "../src/questions.js";
@@ -55,4 +55,24 @@ test("materializePlan: shapes dedupe, questions laid out, experiment created, pr
   assert.equal(r.questions[0].cx,100);assert.equal(r.questions[1].cx,100+2*BASE_R*Q_DX+BASE_R*2.4);
   assert.equal(r.questions[2].cy,200,"three per row");
   assert.ok(items.every(i=>i.qId!=null&&i.label));
+});
+
+test("materializePlan: textures get a density at or above the minimum and a size that follows it", ()=>{
+  const tray=[],items=[],questions=[],experiments=[];let id=1;
+  const ctx={tray,items,questions,experiments,nextId:()=>id++,parseShape,norm,layoutQuestion:q=>layoutQuestion(q,items),questionTitle,newExperiment,nextOrdinal,BASE_R,Q_DX,Q_DY,origin:{x:0,y:0}};
+  const plan={experiment:{name:"texture",rationale:""},
+    shapes:[{key:"t",base:"square",sub:"square",frame:"screen",subRatio:0.18,arrangement:"texture",density:6},
+            {key:"c",base:"circle",sub:"square",frame:"vertex",subRatio:0.18,arrangement:"texture",density:2},
+            {key:"v",base:"square",sub:"square",frame:"screen",subRatio:0.18,arrangement:"vertices",density:0}],
+    questions:[{shape:"t",A:{baseRot:0,subRot:0},B:{baseRot:0,subRot:45},C:{baseRot:45,subRot:0},note:""},
+               {shape:"c",A:{baseRot:0,subRot:0},B:{baseRot:0,subRot:45},C:{baseRot:45,subRot:0},note:""},
+               {shape:"v",A:{baseRot:0,subRot:0},B:{baseRot:0,subRot:45},C:{baseRot:45,subRot:0},note:""}],
+    settings:{repeats:1,shuffle:true,swapSides:true,fixation:true}};
+  const r=materializePlan(plan,ctx);
+  assert.deepEqual(tray.map(t=>t.texture||0),[6,6,0],"circle density raised to its minimum (6)");
+  assert.ok(Math.abs(tray[0].anchorRatio-textureRatio(parseShape("square"),6))<1e-9);
+  const A=items.find(i=>i.id===r.questions[0].a);
+  assert.equal(A.texture,6);assert.equal(r.questions[0].anchorRatio,tray[0].anchorRatio);
+  assert.ok(r.questions[0].title.includes("square/square texture 6"));
+  assert.ok(!("texture" in items.find(i=>i.id===r.questions[2].a)));
 });

@@ -122,6 +122,41 @@ Text input grammar: a shape name optionally followed by a rotation
 (4–12 points), `circle`, `none`. A trailing number is always a rotation, so
 `star 5` is a five-point star turned 5°, not a 5-star.
 
+## Textures
+
+Sub-shapes can sit on the vertices of the base shape (the default) or fill
+it as a **texture**: in the sub-shape row choose *on vertices* / *texture*.
+A texture is a square lattice, aligned with the screen at base orientation
+0°, clipped to the outline and turning with the base orientation. All
+rotation parameters keep their meaning:
+
+| what turns | how |
+|------------|-----|
+| the elements only | sub-shape *orient* (or rotational variant, scope *sub-shapes*) |
+| the lattice only, elements keep their orientation | base *orient*, screen frame |
+| everything together | base *orient*, vertex frame (elements co-rotate) |
+
+Three texture variables are linked by one relation,
+`size = fill × shape width / density`:
+
+- **density**: elements per row, which sets the count
+- **relative size**: element size relative to the whole shape
+- **fill**: element size relative to the spacing (100%: the elements touch)
+
+One of them is **held** (the *hold* toggles); editing another moves the
+third. Hold fill and raise density for more, smaller elements; hold size and
+raise density to pack the same elements closer; hold density and enlarge the
+elements to shrink the gaps. Density never drops below the shape's contour
+minimum and fill never exceeds 100% (no overlap); when a change is limited
+the panel says why.
+
+The contour minimum (`minTexture` in `geometry.js`) is the first density at
+which the silhouette of the textured cells matches the true outline with an
+intersection over union of at least 0.85 (0.78 for stars) and which has at
+least three elements per corner of the outline: square 4, hexagon 5,
+circle 6, pentagon/7-gon/octagon 7, triangle 8, stars 11–13. Every trial
+record carries `arrangement` and `density` per member.
+
 ## Question (group) model
 
 A question = `{a, b, c, cx, cy, s, anchorRatio, title}` referencing three items.

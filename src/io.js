@@ -7,7 +7,7 @@
      · v2 `trials` → `questions` (center/scale derived from member positions)
      · v3 `inExp` stars → one experiment "experiment 1" */
 
-import { DEFAULT_RATIO } from "./geometry.js";
+import { DEFAULT_RATIO, clampTexture } from "./geometry.js";
 import { loadExperiments, normalizeSettings } from "./experiment.js";
 
 export const SAVE_VERSION=4;
@@ -17,10 +17,10 @@ export function serializeCanvas({name,view,tray,items,questions,experiments=[],n
     version:SAVE_VERSION,
     name,
     view:{...view},
-    tray:tray.map(t=>({id:t.id,def:t.def,anchor:t.anchor,baseRot:t.baseRot,anchorRot:t.anchorRot,frame:t.frame,anchorRatio:t.anchorRatio||DEFAULT_RATIO})),
+    tray:tray.map(t=>({id:t.id,def:t.def,anchor:t.anchor,baseRot:t.baseRot,anchorRot:t.anchorRot,frame:t.frame,anchorRatio:t.anchorRatio||DEFAULT_RATIO,...(t.texture?{texture:t.texture}:{})})),
     items:items.map(i=>({id:i.id,trayId:i.trayRef.id,x:i.x,y:i.y,scale:i.scale,
                          baseRot:i.baseRot,anchorRot:i.anchorRot,frame:i.frame,anchorRatio:i.anchorRatio||DEFAULT_RATIO,
-                         label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{})})),
+                         label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{}),...(i.texture?{texture:i.texture}:{})})),
     questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO})),
     experiments:experiments.map(e=>({id:e.id,n:e.n,name:e.name,questions:[...e.questions],settings:normalizeSettings(e.settings),...(e.online?{online:{...e.online}}:{})})),
     ...(nextExperimentN>0?{nextExperimentN}:{})
@@ -37,7 +37,7 @@ export function deserializeCanvas(data){
     maxId=Math.max(maxId,t.id);
     return {id:t.id,def:t.def,anchor:t.anchor||t.sub,baseRot:t.baseRot||0,
             anchorRot:(t.anchorRot!=null?t.anchorRot:t.subRot)||0,frame:t.frame||"screen",
-            anchorRatio:t.anchorRatio||t.subRatio||DEFAULT_RATIO};
+            anchorRatio:t.anchorRatio||t.subRatio||DEFAULT_RATIO,...(t.texture?{texture:clampTexture(t.texture)}:{})};
   });
   const items=[];
   data.items.forEach(i=>{
@@ -47,7 +47,7 @@ export function deserializeCanvas(data){
     items.push({id:i.id,trayRef:ref,x:i.x,y:i.y,scale:i.scale,
                 baseRot:i.baseRot,anchorRot:(i.anchorRot!=null?i.anchorRot:i.subRot)||0,frame:i.frame,
                 anchorRatio:i.anchorRatio||i.subRatio||DEFAULT_RATIO,
-                label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{})});
+                label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{}),...(i.texture?{texture:clampTexture(i.texture)}:{})});
   });
   const qs=data.questions||(data.trials||[]).map(t=>{
     const A=data.items.find(i=>i.id===t.a),B=data.items.find(i=>i.id===t.b),C=data.items.find(i=>i.id===t.c);

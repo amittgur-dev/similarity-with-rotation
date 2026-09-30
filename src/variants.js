@@ -87,7 +87,7 @@ export function questionTitle(n,A,B,C){
   const sig=it=>{
     const d=it.trayRef.def.name;
     const s=it.trayRef.anchor&&!it.trayRef.anchor.none?"/"+it.trayRef.anchor.name:"";
-    return d+s;
+    return d+s+(s&&it.texture?` texture ${it.texture}`:"");
   };
   const f=it=>`(${norm(it.baseRot)},${norm(it.anchorRot)})`;
   if(sig(A)===sig(B)&&sig(A)===sig(C)){

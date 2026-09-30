@@ -65,7 +65,8 @@ export function paramRecord(it){
     defName:it.trayRef.def.name,
     subName:it.trayRef.anchor&&!it.trayRef.anchor.none?it.trayRef.anchor.name:"none",
     baseRot:it.baseRot, anchorRot:it.anchorRot, frame:it.frame,
-    anchorRatio:it.anchorRatio||DEFAULT_RATIO, scale:it.scale
+    anchorRatio:it.anchorRatio||DEFAULT_RATIO, scale:it.scale,
+    texture:it.texture||0
   };
 }
 
@@ -126,14 +127,14 @@ export function stimulusMarkup(t){
     const slot=t.swapped?({A:"A",B:"C",C:"B"})[k]:k;   // swapped: B drawn at C's place and vice versa
     const [x,y]=g.positions[slot];
     out+=`<g data-m="${k}" transform="translate(${x},${y}) scale(${p.scale})">`+
-         shapeMarkup(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio)+`</g>`+
+         shapeMarkup(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio,p.texture||0)+`</g>`+
          `<text x="${x}" y="${y+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${k}</text>`;
   }
   return out;
 }
 
 /* ---- records ---- */
-const MEMBER_COLS=["shape","sub","baseRot","subRot","frame","subRatio","scale","width_mm","height_mm","width_deg","height_deg"];
+const MEMBER_COLS=["shape","sub","arrangement","density","baseRot","subRot","frame","subRatio","scale","width_mm","height_mm","width_deg","height_deg"];
 export const CSV_COLUMNS=["participant","canvas","experiment_id","experiment_code","experiment_name","trial","repeat","question_index","question_id","question_title","response","rt_ms","B_side",
   ...["A","B","C"].flatMap(k=>MEMBER_COLS.map(c=>`${k}_${c}`)),
   "px_per_mm","calibrated","viewing_distance_cm","fixation_ms","timestamp"];
@@ -143,7 +144,9 @@ export function paramColumns(t,sizes={},deg=null){
   const row={};
   for(const k of ["A","B","C"]){
     const p=t[k], z=sizes[k]||{};
-    Object.assign(row,{[`${k}_shape`]:p.defName,[`${k}_sub`]:p.subName,[`${k}_baseRot`]:p.baseRot,[`${k}_subRot`]:p.anchorRot,
+    Object.assign(row,{[`${k}_shape`]:p.defName,[`${k}_sub`]:p.subName,
+                       [`${k}_arrangement`]:p.texture?"texture":"vertices",[`${k}_density`]:p.texture||"",
+                       [`${k}_baseRot`]:p.baseRot,[`${k}_subRot`]:p.anchorRot,
                        [`${k}_frame`]:p.frame,[`${k}_subRatio`]:+p.anchorRatio.toFixed(4),[`${k}_scale`]:+p.scale.toFixed(4),
                        [`${k}_width_mm`]:z.w!=null?+z.w.toFixed(2):"",[`${k}_height_mm`]:z.h!=null?+z.h.toFixed(2):"",
                        [`${k}_width_deg`]:z.w!=null&&deg?+deg(z.w).toFixed(3):"",[`${k}_height_deg`]:z.h!=null&&deg?+deg(z.h).toFixed(3):""});

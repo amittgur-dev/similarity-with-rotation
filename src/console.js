@@ -1,7 +1,7 @@
 /* Right-hand console: the creation panel, the three selection panels and
    the single-object operations they expose. */
 
-import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, vertCount } from "./geometry.js";
+import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, clampTexture, textureRatio, relinkTexture, textureWidth, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
 import { rotateParams, parseVary } from "./variants.js";
 import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem } from "./state.js";
 import { $, escapeXML } from "./dom.js";
@@ -36,15 +36,28 @@ export function buildSpecRows(container, target, cfg){
     const row2=document.createElement("div");
     row2.className="spec";
     const orientable=!cfg.anchor.circle;
+    const tex=target.texture||0, minTex=minTexture(cfg.def);
     row2.innerHTML=
       `<div class="pv">${miniSVG(cfg.anchor,target.anchorRot,true)}</div>`+
       `<div class="fields">`+
-        `<div class="frow"><span>${escapeXML(cfg.anchor.name)} × ${vertCount(cfg.def)}</span></div>`+
+        `<div class="frow"><span>${subLabel(cfg,tex)}</span></div>`+
         (orientable?`<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.anchorRot)}" data-f="anchorRot">°</div>`:"")+
-        (cfg.showRatio===false?"":`<div class="frow"><span>relative size</span><input type="number" step="2" min="5" max="60" value="${Math.round((target.anchorRatio||DEFAULT_RATIO)*100)}" data-f="anchorRatio">%</div>`)+
+        (cfg.showRatio===false?"":`<div class="frow"><span>relative size</span><input type="number" step="1" min="2" max="60" value="${pctText(target.anchorRatio||DEFAULT_RATIO)}" data-f="anchorRatio">%${holdBtn("size",tex)}</div>`)+
         `<div class="seg" data-f="frame" title="frame of the sub-shapes">`+
           `<button data-v="screen" class="${target.frame==="screen"?"on":""}" title="screen frame: sub-shapes keep their absolute orientation when the base rotates">screen</button>`+
           `<button data-v="vertex" class="${target.frame==="vertex"?"on":""}" title="vertex frame: sub-shapes point outward from the center and co-rotate with the base">vertex</button>`+
+        `</div>`+
+        `<div class="seg" data-f="arrange" title="where the sub-shapes go">`+
+          `<button data-v="vertices" class="${tex?"":"on"}" title="on the corners of the base shape">on vertices</button>`+
+          `<button data-v="texture" class="${tex?"on":""}" title="filling the base shape as a texture; the density sets how many and how large">texture</button>`+
+        `</div>`+
+        `<div class="texBox"${tex?"":' style="display:none"'}>`+
+          `<div class="frow" title="sub-shapes per row across the shape. Below ${minTex} the elements no longer carry the contour of a ${escapeXML(cfg.def.name)}">`+
+            `<span>density</span><input type="number" step="1" min="${minTex}" max="16" value="${tex||Math.max(minTex,4)}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`+
+          (cfg.showRatio===false?"":
+          `<div class="frow" title="element size relative to the spacing between elements: 100% and they touch">`+
+            `<span>fill</span><input type="number" step="5" min="${Math.round(FILL_MIN*200)}" max="${FILL_MAX*200}" value="${fillPct(cfg.def,target)}" data-f="fill">%${holdBtn("fill",tex)}</div>`+
+          `<div class="note texNote"></div>`)+
         `</div>`+
       `</div>`;
     wrap.appendChild(row2);
@@ -54,8 +67,10 @@ export function buildSpecRows(container, target, cfg){
       const f=inp.dataset.f;
       const v=parseFloat(inp.value);
       if(isNaN(v))return;
+      if(f==="texture"||f==="fill")return;   // applied on change (see below), so typing "12" does not pass through "1"
+      if(f==="anchorRatio"&&target.texture&&cfg.showRatio!==false)return;   // linked: applied on change
       if(f==="size"){target.scale=Math.max(0.2,Math.min(4,v/100));}
-      else if(f==="anchorRatio"){target.anchorRatio=Math.max(0.05,Math.min(0.6,v/100));}
+      else if(f==="anchorRatio"){target.anchorRatio=Math.max(0.02,Math.min(0.6,v/100));}
       else{target[f]=norm(v);}
       cfg.onChange();
       commitSoon();
@@ -67,6 +82,100 @@ export function buildSpecRows(container, target, cfg){
   wrap.querySelectorAll('input[data-f="showMm"]').forEach(cb=>{
     cb.addEventListener("change",()=>{target.showMm=cb.checked;cfg.onChange();commit();});
   });
+  // arrangement, density, size and fill: one of the last three is held, editing another moves the third
+  const texInput=wrap.querySelector('input[data-f="texture"]');
+  const fillInput=wrap.querySelector('input[data-f="fill"]');
+  const LIMIT={contour:()=>`density stays at ${texInput.min} or more so the elements still carry the ${cfg.def.name} contour`,
+               overlap:()=>"limited so the elements do not overlap",sparse:()=>"limited: the elements would be too sparse to form a texture",
+               max:()=>"limited to the highest density (16 per row)"};
+  // what the app last wrote into a field: a change event that still carries it is not an edit
+  const show=(inp,v)=>{inp.value=v;shown.set(inp,inp.value);};
+  const edited=inp=>inp.value!==shown.get(inp);
+  function showTexture(except){
+    const n=target.texture||0;
+    if(texInput&&texInput!==except&&n)show(texInput,n);
+    const ri=wrap.querySelector('input[data-f="anchorRatio"]');
+    if(ri&&ri!==except)show(ri,pctText(target.anchorRatio));
+    if(fillInput&&fillInput!==except&&n)show(fillInput,fillPct(cfg.def,target));
+    const lbl=wrap.querySelectorAll(".spec")[1].querySelector(".frow span");
+    if(lbl)lbl.innerHTML=subLabel(cfg,n);
+    syncHolds();
+  }
+  function syncHolds(){
+    const sizeInput=wrap.querySelector('input[data-f="anchorRatio"]');
+  if(sizeInput)sizeInput.addEventListener("change",()=>{
+    if(!target.texture||cfg.showRatio===false||!edited(sizeInput))return;
+    const v=parseFloat(sizeInput.value);
+    if(isNaN(v)){showTexture(null);return;}
+    relink("size",v/100,null);
+  });
+  wrap.querySelectorAll("button.hold").forEach(b=>{
+      const on=b.dataset.hold===ui.texHold;
+      b.classList.toggle("on",on);b.textContent=on?"held":"hold";
+      b.style.display=target.texture?"":"none";
+    });
+    const held={density:texInput,size:wrap.querySelector('input[data-f="anchorRatio"]'),fill:fillInput}[ui.texHold];
+    [texInput,fillInput,wrap.querySelector('input[data-f="anchorRatio"]')].forEach(i=>{if(i&&cfg.showRatio!==false)i.disabled=!!target.texture&&i===held;});
+  }
+  function relink(edited,value,inp){
+    if(cfg.showRatio===false){                            // a question member: density only, the group holds the size
+      target.texture=Math.max(+texInput.min,clampTexture(value));
+    }else{
+      const r=relinkTexture(cfg.def,{n:target.texture,size:target.anchorRatio},ui.texHold,edited,value);
+      target.texture=r.n;target.anchorRatio=r.size;
+      const note=wrap.querySelector(".texNote");
+      if(note)note.textContent=r.limited?LIMIT[r.limited]():"";
+    }
+    showTexture(inp);
+    if(cfg.onTexture)cfg.onTexture(target);
+    cfg.onChange();
+    commitSoon();
+  }
+  function setTexture(n){
+    target.texture=n;
+    if(cfg.showRatio!==false){
+      target.anchorRatio=n?textureRatio(cfg.def,n):DEFAULT_RATIO;
+      const ri=wrap.querySelector('input[data-f="anchorRatio"]');
+      if(ri)ri.value=Math.round(target.anchorRatio*100);
+    }
+    showTexture(null);
+    if(cfg.onTexture)cfg.onTexture(target);
+    cfg.onChange();
+    commitSoon();
+  }
+  if(texInput)texInput.addEventListener("change",()=>{
+    if(!edited(texInput))return;
+    const v=parseFloat(texInput.value);
+    if(isNaN(v)){showTexture(null);return;}
+    relink("density",v,null);
+  });
+  if(fillInput)fillInput.addEventListener("change",()=>{
+    if(!edited(fillInput))return;
+    const v=parseFloat(fillInput.value);
+    if(isNaN(v)){showTexture(null);return;}
+    relink("fill",v/200,null);
+  });
+  const sizeInput=wrap.querySelector('input[data-f="anchorRatio"]');
+  if(sizeInput)sizeInput.addEventListener("change",()=>{
+    if(!target.texture||cfg.showRatio===false)return;
+    const v=parseFloat(sizeInput.value);
+    if(isNaN(v)){showTexture(null);return;}
+    relink("size",v/100,null);
+  });
+  wrap.querySelectorAll("button.hold").forEach(b=>{
+    b.onclick=()=>{ui.texHold=b.dataset.hold;syncHolds();};
+  });
+  syncHolds();
+  [texInput,fillInput,sizeInput].forEach(i=>{if(i)shown.set(i,i.value);});
+  wrap.querySelectorAll('.seg[data-f="arrange"] button').forEach(b=>{
+    b.onclick=()=>{
+      const on=b.dataset.v==="texture";
+      b.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+      wrap.querySelector(".texBox").style.display=on?"":"none";
+      setTexture(on?Math.max(+texInput.min,clampTexture(texInput.value)):0);
+      commit();
+    };
+  });
   wrap.querySelectorAll('.seg[data-f="frame"] button').forEach(b=>{
     b.onclick=()=>{
       target.frame=b.dataset.v;
@@ -77,6 +186,18 @@ export function buildSpecRows(container, target, cfg){
   });
   container.appendChild(wrap);
   updateMmReadouts();
+}
+
+function holdBtn(k,tex){
+  const on=ui.texHold===k;
+  return `<button type="button" class="hold${on?" on":""}" data-hold="${k}" title="hold the ${k}: changing another of density / size / fill moves the third"${tex?"":' style="display:none"'}>${on?"held":"hold"}</button>`;
+}
+const shown=new WeakMap();   // field → the value the app last wrote into it
+/* sizes below 10% keep one decimal, so what is shown is what is used */
+const pctText=r=>{const v=r*100;return v<10?+v.toFixed(1):Math.round(v);};
+const fillPct=(def,t)=>t.texture?Math.round(200*(t.anchorRatio||DEFAULT_RATIO)*t.texture/textureWidth(def)):Math.round(TEXTURE_FILL*200);
+function subLabel(cfg,tex){
+  return `${escapeXML(cfg.anchor.name)} × ${subCount(cfg.def,tex)}`+(tex?` · texture ${tex}`:"");
 }
 
 /* ================= creation ================= */
@@ -119,7 +240,8 @@ function onAnchorInput(){
 export function createShape(){
   if(!draft.shape)return;
   const entry={id:nextId(),def:draft.shape,anchor:draft.anchor,
-               baseRot:draft.baseRot,anchorRot:draft.anchorRot,frame:draft.frame,anchorRatio:draft.anchorRatio};
+               baseRot:draft.baseRot,anchorRot:draft.anchorRot,frame:draft.frame,anchorRatio:draft.anchorRatio,
+               ...(draft.texture&&!draft.anchor.none?{texture:draft.texture}:{})};
   tray.push(entry);
   // where the flight starts: the preview in the creation spec row
   const srcPv=document.querySelector("#shapeSpec .pv");
@@ -216,7 +338,13 @@ export function openQPanel(){
     const h=document.createElement("div");
     h.className="memberHead";h.textContent=lab;
     container.appendChild(h);
-    buildSpecRows(container,it,{def:it.trayRef.def,anchor:it.trayRef.anchor,showSize:false,showRatio:false,onChange:()=>{renderCanvas();renderQStruct(q);}});
+    buildSpecRows(container,it,{def:it.trayRef.def,anchor:it.trayRef.anchor,showSize:false,showRatio:false,onChange:()=>{renderCanvas();renderQStruct(q);},
+      onTexture:()=>{
+        const ms=[q.a,q.b,q.c].map(findItem).filter(Boolean), n=ms[0].texture||0;
+        if(!ms.every(m=>(m.texture||0)===n)||(n&&ui.texHold==="size"))return;   // holding size: density packs the same elements tighter
+        q.anchorRatio=n?textureRatio(it.trayRef.def,n):DEFAULT_RATIO;
+        layoutQuestion(q);$("qRatio").value=Math.round(q.anchorRatio*100);
+      }});
   });
   renderQStruct(q);
   updateMmReadouts();
@@ -349,7 +477,7 @@ export function initConsole(){
     const q=findQuestion(sel.qId);
     const v=parseFloat($("qRatio").value);
     if(!q||isNaN(v))return;
-    q.anchorRatio=Math.max(0.05,Math.min(0.6,v/100));
+    q.anchorRatio=Math.max(0.02,Math.min(0.6,v/100));
     layoutQuestion(q);
     renderCanvas();commitSoon();
     // sync per-member ratio fields in the panel

@@ -494,3 +494,13 @@ body.participantRun #runQuit{display:none}
 .runScreen .steprow button[hidden]{display:none}
 .steprow[hidden]{display:none}
 #runInstructions[hidden],#runIntro[hidden]{display:none}
+
+/* ---- texture: density / size / fill with a hold toggle ---- */
+.spec .frow button.hold{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.06em;border:1px solid var(--faint);background:#fff;color:var(--grey);padding:1px 5px;margin-left:4px;cursor:pointer;line-height:1.4}
+.spec .frow button.hold:hover{border-color:var(--ink);color:var(--ink)}
+.spec .frow button.hold.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.spec input:disabled{color:#9a9a9a;border-bottom-style:dotted}
+.texBox{display:flex;flex-direction:column;gap:5px;margin-top:2px}
+.texBox .texNote{margin-top:0;font-size:0.68rem;color:#b07b00}
+.texBox .texNote:empty{display:none}
+.spec .seg[data-f="arrange"]{margin-top:2px}

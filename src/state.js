@@ -3,9 +3,10 @@
 
 import { DEFAULT_RATIO } from "./geometry.js";
 
-export const draft={shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO};
+export const draft={shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO,texture:0};
 export const tray=[];        // {id, def, anchor, baseRot, anchorRot, frame, anchorRatio}
-export const items=[];       // {id, trayRef, x,y, scale, baseRot, anchorRot, frame, anchorRatio, label, qId}
+export const items=[];       // {id, trayRef, x,y, scale, baseRot, anchorRot, frame, anchorRatio, texture, label, qId}
+                             // texture: sub-shapes per row when they tile the shape, 0 = on the vertices
 export const questions=[];   // {id, title, a,b,c, cx,cy, s, anchorRatio}
 export const experiments=[]; // {id, n, name, questions:[qId…], settings:{repeats,shuffle,swapSides,fixation,fullscreen}}
 export const counters={expN:0};   // highest experiment ordinal ever issued on this canvas (codes are never reused)
@@ -16,14 +17,14 @@ export const sel={id:null,ids:[],qId:null,expId:null};
 export const view={tx:0,ty:0,z:1};
 
 /* panel toggles that persist across selections */
-export const ui={rvScope:"whole",gvMode:"relation"};
+export const ui={rvScope:"whole",gvMode:"relation",texHold:"fill"};   // texHold: which of density / size / fill stays put
 
 let uid=1;
 export function nextId(){return uid++;}
 export function bumpId(id){uid=Math.max(uid,id+1);}
 
 export function resetDraft(){
-  Object.assign(draft,{shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO});
+  Object.assign(draft,{shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO,texture:0});
 }
 export function clearSelection(){sel.id=null;sel.ids=[];sel.qId=null;sel.expId=null;}
 export const findExperiment=id=>experiments.find(e=>e.id===id);

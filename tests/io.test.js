@@ -112,3 +112,15 @@ test("canvasFileName", ()=>{
   assert.equal(canvasFileName("  "),"untitled-canvas");
   assert.equal(canvasFileName("pilot  study 2"),"pilot-study-2");
 });
+
+test("textures round-trip; plain canvases carry no texture field", ()=>{
+  const src=sampleCanvas();
+  const plain=serializeCanvas(src);
+  assert.ok(plain.tray.every(t=>!("texture" in t))&&plain.items.every(i=>!("texture" in i)));
+  src.tray[0].texture=4;src.items[1].texture=7;
+  const data=serializeCanvas(src);
+  assert.equal(data.tray[0].texture,4);assert.equal(data.items[1].texture,7);assert.ok(!("texture" in data.items[0]));
+  const back=deserializeCanvas(JSON.parse(JSON.stringify({...data,items:data.items.map((i,k)=>k===2?{...i,texture:99}:i)})));
+  assert.equal(back.tray[0].texture,4);assert.equal(back.items[1].texture,7);
+  assert.equal(back.items[2].texture,16,"out-of-range densities are clamped on load");
+});
