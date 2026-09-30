@@ -102,3 +102,10 @@ test("assignABC: unique labels win, otherwise topmost = A, then left = B, right 
   // duplicate labels → fall back to geometry
   assert.deepEqual(assignABC([{...a,label:"A"},{...b,label:"A"},{...c,label:"B"}]).map(i=>i.id),[1,2,3]);
 });
+
+test("four objects: the topmost is A, the rest are B, C, D from left to right; titles list D", ()=>{
+  const A=item(1,SQ,DI,0,0,100,0), B=item(2,SQ,DI,45,0,0,200), C=item(3,SQ,DI,0,45,100,200), D=item(4,SQ,DI,45,45,200,200);
+  assert.deepEqual(assignABC([C,D,A,B]).map(i=>i.id),[1,2,3,4]);
+  assert.equal(questionTitle(3,A,B,C,D),"Q3 · square/diamond · A(0,0) B(45,0) C(0,45) D(45,45)");
+  assert.equal(questionTitle(1,A,B,C),"Q1 · square/diamond · A(0,0) B(45,0) C(0,45)","three members unchanged");
+});

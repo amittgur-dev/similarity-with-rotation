@@ -1,14 +1,14 @@
 /* Right-hand console: the creation panel, the three selection panels and
    the single-object operations they expose. */
 
-import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, clampTexture, textureRatio, relinkTexture, textureWidth, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
+import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, defaultTexture, clampTexture, textureRatio, relinkTexture, textureSpan, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
 import { rotateParams, parseVary } from "./variants.js";
 import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem } from "./state.js";
 import { $, escapeXML } from "./dom.js";
 import { calib, pxToMm, visualAngleDeg, formatDeg } from "./calibration.js";
 import { commit, commitSoon } from "./history.js";
 import { renderCanvas } from "./canvas.js";
-import { layoutQuestion, renderQStruct, regenerateTitle } from "./questions.js";
+import { layoutQuestion, renderQStruct, regenerateTitle, memberIds, LABELS } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
 import { syncExpChips, refreshExpBar } from "./run.js";
 
@@ -52,11 +52,11 @@ export function buildSpecRows(container, target, cfg){
           `<button data-v="texture" class="${tex?"on":""}" title="filling the base shape as a texture; the density sets how many and how large">texture</button>`+
         `</div>`+
         `<div class="texBox"${tex?"":' style="display:none"'}>`+
-          `<div class="frow" title="sub-shapes per row across the shape. Below ${minTex} the elements no longer carry the contour of a ${escapeXML(cfg.def.name)}">`+
-            `<span>density</span><input type="number" step="1" min="${minTex}" max="16" value="${tex||Math.max(minTex,4)}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`+
+          `<div class="frow" title="${cfg.def.circle?"elements across the circle":"elements along each side"}; at least ${minTex} so the elements carry the contour of the ${escapeXML(cfg.def.name)}">`+
+            `<span>density · ${cfg.def.circle?"across":"per side"}</span><input type="number" step="1" min="${minTex}" max="16" value="${tex||defaultTexture(cfg.def)}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`+
           (cfg.showRatio===false?"":
           `<div class="frow" title="element size relative to the spacing between elements: 100% and they touch">`+
-            `<span>fill</span><input type="number" step="5" min="${Math.round(FILL_MIN*200)}" max="${FILL_MAX*200}" value="${fillPct(cfg.def,target)}" data-f="fill">%${holdBtn("fill",tex)}</div>`+
+            `<span>fill</span><input type="number" step="5" min="${Math.round(FILL_MIN*200)}" max="${Math.round(FILL_MAX*200)}" value="${fillPct(cfg.def,target)}" data-f="fill">%${holdBtn("fill",tex)}</div>`+
           `<div class="note texNote"></div>`)+
         `</div>`+
       `</div>`;
@@ -85,7 +85,7 @@ export function buildSpecRows(container, target, cfg){
   // arrangement, density, size and fill: one of the last three is held, editing another moves the third
   const texInput=wrap.querySelector('input[data-f="texture"]');
   const fillInput=wrap.querySelector('input[data-f="fill"]');
-  const LIMIT={contour:()=>`density stays at ${texInput.min} or more so the elements still carry the ${cfg.def.name} contour`,
+  const LIMIT={contour:()=>cfg.def.circle?`at least ${texInput.min} across, so the rim is a clear circle`:`at least ${texInput.min} per side — it takes three elements to read as a straight edge`,
                overlap:()=>"limited so the elements do not overlap",sparse:()=>"limited: the elements would be too sparse to form a texture",
                max:()=>"limited to the highest density (16 per row)"};
   // what the app last wrote into a field: a change event that still carries it is not an edit
@@ -195,7 +195,7 @@ function holdBtn(k,tex){
 const shown=new WeakMap();   // field → the value the app last wrote into it
 /* sizes below 10% keep one decimal, so what is shown is what is used */
 const pctText=r=>{const v=r*100;return v<10?+v.toFixed(1):Math.round(v);};
-const fillPct=(def,t)=>t.texture?Math.round(200*(t.anchorRatio||DEFAULT_RATIO)*t.texture/textureWidth(def)):Math.round(TEXTURE_FILL*200);
+const fillPct=(def,t)=>t.texture?Math.round(200*(t.anchorRatio||DEFAULT_RATIO)*(t.texture-1)/textureSpan(def)):Math.round(TEXTURE_FILL*200);
 function subLabel(cfg,tex){
   return `${escapeXML(cfg.anchor.name)} × ${subCount(cfg.def,tex)}`+(tex?` · texture ${tex}`:"");
 }
@@ -316,11 +316,11 @@ export function openSelPanel(){
 export function openMultiPanel(){
   $("multiInfo").textContent=sel.ids.length+" objects selected";
   const free=sel.ids.filter(id=>{const it=findItem(id);return it&&!it.qId;});
-  const ok=sel.ids.length===3&&free.length===3;
+  const n=sel.ids.length, ok=(n===3||n===4)&&free.length===n;
   $("makeQBtn").disabled=!ok;
   $("errMulti").textContent=
-    sel.ids.length!==3?"a question needs exactly 3 objects":
-    free.length!==3?"some objects already belong to a question":"";
+    n!==3&&n!==4?"a question needs 3 objects (4 for three comparisons)":
+    free.length!==n?"some objects already belong to a question":"";
   showPanel("multiPanel");
 }
 export function openQPanel(){
@@ -332,7 +332,7 @@ export function openQPanel(){
   $("qRatio").value=Math.round((q.anchorRatio||DEFAULT_RATIO)*100);
   const container=$("qMembers");
   container.innerHTML="";
-  [["A",q.a],["B",q.b],["C",q.c]].forEach(([lab,id])=>{
+  memberIds(q).map((id,i)=>[LABELS[i],id]).forEach(([lab,id])=>{
     const it=findItem(id);
     if(!it)return;
     const h=document.createElement("div");
@@ -340,7 +340,7 @@ export function openQPanel(){
     container.appendChild(h);
     buildSpecRows(container,it,{def:it.trayRef.def,anchor:it.trayRef.anchor,showSize:false,showRatio:false,onChange:()=>{renderCanvas();renderQStruct(q);},
       onTexture:()=>{
-        const ms=[q.a,q.b,q.c].map(findItem).filter(Boolean), n=ms[0].texture||0;
+        const ms=memberIds(q).map(findItem).filter(Boolean), n=ms[0].texture||0;
         if(!ms.every(m=>(m.texture||0)===n)||(n&&ui.texHold==="size"))return;   // holding size: density packs the same elements tighter
         q.anchorRatio=n?textureRatio(it.trayRef.def,n):DEFAULT_RATIO;
         layoutQuestion(q);$("qRatio").value=Math.round(q.anchorRatio*100);

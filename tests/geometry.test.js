@@ -125,21 +125,34 @@ test("shapeMarkup: screen vs vertex frame differ only in sub-shape rotation", ()
   assert.equal(screen.replace(/rotate\([^)]*\)/g,""),vertex.replace(/rotate\([^)]*\)/g,""));
 });
 
-import { texturePoints, minTexture, textureRatio, subCount, clampTexture } from "../src/geometry.js";
+import { texturePoints, minTexture, defaultTexture, textureRatio, textureSpacing, subCount, clampTexture, relinkTexture, textureSpan, FILL_MAX } from "../src/geometry.js";
 
-test("texture: lattice inside the shape, turning with baseRot", ()=>{
+const key=p=>p.map(v=>v.toFixed(6)).join(",");
+test("texture: the contour is explicit — corners and straight rows along every edge", ()=>{
   const sq=parseShape("square");
   const p=texturePoints(sq,70,4,0);
-  assert.equal(p.length,16,"4 per row in a square is a 4 × 4 grid");
-  const xs=[...new Set(p.map(q=>q[0].toFixed(6)))];
-  assert.equal(xs.length,4);
-  const half=70/Math.SQRT2, step=2*half/4;
-  close(Math.min(...p.map(q=>q[0])),-half+step/2,1e-9);       // cell centres, inset half a cell
-  const r45=texturePoints(sq,70,4,45);
-  assert.equal(r45.length,16);
-  close(Math.max(...r45.map(q=>q[1])),Math.hypot(1.5*step,1.5*step),1e-9);   // the rotated grid stands on a corner (panel d)
+  assert.equal(p.length,16,"4 per side in a square is a 4 × 4 grid");
+  const half=70/Math.SQRT2, set=new Set(p.map(key));
+  for(const c of [[half,half],[-half,half],[half,-half],[-half,-half]])assert.ok(set.has(key(c)),"every corner holds an element");
+  assert.equal(new Set(p.map(q=>q[0].toFixed(6))).size,4,"four straight columns");
+  // triangles: exact triangular arrangements, 1+2+…+n elements, n on the base
+  const tri=parseShape("triangle");
+  for(const n of [3,4,5,7]){
+    const t=texturePoints(tri,70,n);
+    assert.equal(t.length,n*(n+1)/2,`triangle ${n}: triangular number`);
+    const baseY=Math.max(...t.map(q=>q[1]));
+    assert.equal(t.filter(q=>Math.abs(q[1]-baseY)<1e-6).length,n,"n elements on the base");
+  }
+  // hexagons: centred hexagonal numbers (the triangular lattice fills them exactly)
+  assert.equal(texturePoints(parseShape("hexagon"),70,3).length,19);
+  assert.equal(texturePoints(parseShape("hexagon"),70,4).length,37);
+  assert.equal(texturePoints(parseShape("diamond"),70,4).length,16,"a diamond is a turned square grid");
+  // a circle: an even rim plus the inside
   const circ=texturePoints(parseShape("circle"),70,6);
-  assert.ok(circ.every(([x,y])=>Math.hypot(x,y)<=70+1e-9),"all inside the circle");
+  assert.ok(circ.every(([x,y])=>Math.hypot(x,y)<=70+1e-9));
+  assert.ok(circ.filter(([x,y])=>Math.abs(Math.hypot(x,y)-70)<1e-6).length>=12);
+  // turning keeps the count
+  assert.equal(texturePoints(tri,70,5,60).length,15);
   assert.equal(subCount(sq,4),16);assert.equal(subCount(sq,0),4);
   assert.equal(clampTexture(1),2);assert.equal(clampTexture(99),16);assert.equal(clampTexture("x"),4);
 });
@@ -147,57 +160,42 @@ test("texture: lattice inside the shape, turning with baseRot", ()=>{
 test("texture: frames keep their meaning (panels a–d)", ()=>{
   const sq=parseShape("square");
   const rots=m=>[...m.matchAll(/rotate\(([-\d.]+)\)/g)].map(x=>+x[1]);
-  // screen frame: the lattice turns, the elements keep their orientation (d)
-  assert.ok(rots(shapeMarkup(sq,70,sq,"screen",45,0,0.12,4)).every(r=>r===0));
-  // vertex frame: elements co-rotate with the lattice (c)
-  assert.ok(rots(shapeMarkup(sq,70,sq,"vertex",45,0,0.12,4)).every(r=>r===45));
-  // only the elements turn (b)
-  assert.ok(rots(shapeMarkup(sq,70,sq,"screen",0,45,0.12,4)).every(r=>r===45));
+  assert.ok(rots(shapeMarkup(sq,70,sq,"screen",45,0,0.12,4)).every(r=>r===0),"d: the lattice turns, the elements do not");
+  assert.ok(rots(shapeMarkup(sq,70,sq,"vertex",45,0,0.12,4)).every(r=>r===45),"c: the elements co-rotate");
+  assert.ok(rots(shapeMarkup(sq,70,sq,"screen",0,45,0.12,4)).every(r=>r===45),"b: only the elements turn");
   assert.equal((shapeMarkup(sq,70,sq,"screen",0,0,0.12,4).match(/<path/g)||[]).length,16);
-  // texture 0 is the vertex arrangement, unchanged
-  assert.equal(shapeMarkup(sq,70,sq,"screen",0,0,0.18,0),shapeMarkup(sq,70,sq,"screen",0,0,0.18));
+  assert.equal(shapeMarkup(sq,70,sq,"screen",0,0,0.18,0),shapeMarkup(sq,70,sq,"screen",0,0,0.18),"texture 0 is the vertex arrangement, unchanged");
 });
 
-test("texture: element size follows density; minimum density keeps the contour", ()=>{
-  const sq=parseShape("square");
-  close(textureRatio(sq,8),textureRatio(sq,4)/2,1e-3);
-  assert.equal(minTexture(sq),4);
-  assert.equal(minTexture(parseShape("circle")),6,"a 3 × 3 circle reads as a square");
-  assert.ok(minTexture(parseShape("5 star"))>=minTexture(parseShape("pentagon")),"stars need more elements");
-  for(const s of ["triangle","square","hexagon","circle","6 star","9"]){
-    const d=parseShape(s), n=minTexture(d);
-    assert.ok(texturePoints(d,70,n).length>=9,`${s}: enough elements at the minimum`);
-  }
+test("texture: minimum and default density are set by the clarity of the shape", ()=>{
+  for(const s of ["triangle","square","hexagon","pentagon","5 star"])assert.equal(minTexture(parseShape(s)),3,`${s}: three per side make a straight edge`);
+  const c=minTexture(parseShape("circle"));
+  assert.ok(texturePoints(parseShape("circle"),1,c).filter(([x,y])=>Math.abs(Math.hypot(x,y)-1)<1e-9).length>=12,"a circle needs 12 on its rim");
+  assert.equal(defaultTexture(parseShape("square")),4);
+  assert.equal(defaultTexture(parseShape("triangle")),5,"a triangle starts at 15 elements");
+  close(textureRatio(parseShape("square"),7),textureRatio(parseShape("square"),4)/2,1e-3);   // spacing halves from 4 to 7 per side
 });
-
-import { relinkTexture, textureWidth, FILL_MAX } from "../src/geometry.js";
 
 test("density, size and fill: hold one, change another, the third follows", ()=>{
-  const sq=parseShape("square"), w=textureWidth(sq);
-  const start={n:4,size:textureRatio(sq,4)};                    // fill 0.35
-  // hold fill: more elements, smaller
-  let r=relinkTexture(sq,start,"fill","density",8);
-  assert.equal(r.n,8);close(r.size,start.size/2,1e-3);close(r.fill,0.35,1e-2);
-  // hold size: denser packs the same elements tighter
-  r=relinkTexture(sq,start,"size","density",5);
-  assert.equal(r.n,5);assert.equal(r.size,start.size);close(r.fill,start.size*5/w,1e-9);
-  // hold size, too dense: stops where the elements would overlap
-  r=relinkTexture(sq,start,"size","density",16);
+  const sq=parseShape("square"), L=textureSpan(sq);
+  close(textureSpacing(sq,4),L/3,1e-12);
+  const start={n:4,size:textureRatio(sq,4)};                     // fill 0.3
+  let r=relinkTexture(sq,start,"fill","density",7);              // hold fill: more, smaller
+  assert.equal(r.n,7);close(r.size,start.size/2,1e-3);close(r.fill,0.3,1e-2);
+  r=relinkTexture(sq,start,"size","density",5);                  // hold size: packed closer
+  assert.equal(r.n,5);assert.equal(r.size,start.size);close(r.fill,start.size*4/L,1e-9);
+  r=relinkTexture(sq,start,"size","density",16);                 // …until they would overlap
   assert.ok(r.fill<=FILL_MAX+1e-9);assert.equal(r.limited,"overlap");
-  // hold density: larger elements, smaller gaps; capped at touching
-  r=relinkTexture(sq,start,"density","size",start.size*1.2);
-  assert.equal(r.n,4);close(r.fill,0.42,1e-2);
+  r=relinkTexture(sq,start,"density","size",start.size*1.2);     // hold density: smaller gaps
+  assert.equal(r.n,4);close(r.fill,0.36,1e-2);
   r=relinkTexture(sq,start,"density","size",0.6);
   close(r.fill,FILL_MAX,1e-3);assert.equal(r.limited,"overlap");
-  // hold fill, change size: bigger elements, fewer of them — never below the contour minimum
-  r=relinkTexture(sq,{n:8,size:textureRatio(sq,8)},"fill","size",textureRatio(sq,8)*2);
+  r=relinkTexture(sq,{n:7,size:textureRatio(sq,7)},"fill","size",textureRatio(sq,7)*2);   // hold fill: bigger, fewer
   assert.equal(r.n,4);
-  r=relinkTexture(sq,start,"fill","size",0.5);
-  assert.equal(r.n,minTexture(sq));assert.equal(r.limited,"contour");
-  // density below the minimum is refused with a reason
+  r=relinkTexture(sq,start,"fill","size",0.55);
+  assert.equal(r.n,3);assert.equal(r.limited,"contour");
   r=relinkTexture(sq,start,"fill","density",2);
-  assert.equal(r.n,4);assert.equal(r.limited,"contour");
-  // hold size, change fill: tighter fill packs more elements in
-  r=relinkTexture(sq,{n:6,size:textureRatio(sq,6)},"size","fill",0.35*1.5);
-  assert.equal(r.n,9);
+  assert.equal(r.n,3);assert.equal(r.limited,"contour");
+  r=relinkTexture(sq,{n:4,size:textureRatio(sq,4)},"size","fill",0.4);   // hold size: tighter fill packs more in
+  assert.equal(r.n,5);
 });

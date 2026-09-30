@@ -504,3 +504,5 @@ body.participantRun #runQuit{display:none}
 .texBox .texNote{margin-top:0;font-size:0.68rem;color:#b07b00}
 .texBox .texNote:empty{display:none}
 .spec .seg[data-f="arrange"]{margin-top:2px}
+
+#runChoice button[hidden]{display:none}

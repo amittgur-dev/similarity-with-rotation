@@ -196,7 +196,7 @@
         </div>
         <div class="checks">
           <label class="check" title="present the trials in random order"><input type="checkbox" id="expShuffle" checked> shuffle order</label>
-          <label class="check" title="show B on the right half of the time (recorded as B_side) to cancel a side bias"><input type="checkbox" id="expSwap" checked> swap B/C sides at random</label>
+          <label class="check" title="place the comparisons on random sides (recorded as B_side and order) to cancel a side bias"><input type="checkbox" id="expSwap" checked> swap comparison sides at random</label>
           <label class="check" title="a 500 ms fixation cross before each stimulus"><input type="checkbox" id="expFix" checked> fixation cross</label>
           <label class="check" title="run in full screen (Esc quits)"><input type="checkbox" id="expFull" checked> full screen</label>
         </div>
@@ -340,13 +340,13 @@
     <label>Similarity judgement</label>
     <p id="runIntro"></p>
     <p id="runInstructions" hidden></p>
-    <p>On each trial you will see three figures. Decide whether <b>A</b> is more similar to <b>B</b> or to <b>C</b>, and answer with the <b>B</b> or <b>C</b> key (or the buttons). Answer as accurately as you can; there are no right or wrong answers.</p>
+    <p id="runHow">On each trial you will see three figures. Decide whether <b>A</b> is more similar to <b>B</b> or to <b>C</b>, and answer with the <b>B</b> or <b>C</b> key (or the buttons). Answer as accurately as you can; there are no right or wrong answers.</p>
     <div class="steprow"><button id="runBegin">begin · space</button></div>
   </div>
   <div id="runFix" hidden>+</div>
   <div id="runPrompt"></div>
   <div id="runStage"><svg id="runSvg"></svg></div>
-  <div id="runChoice"><button data-r="B">B</button><button data-r="C">C</button></div>
+  <div id="runChoice"><button data-r="B">B</button><button data-r="C">C</button><button data-r="D" hidden>D</button></div>
   <div id="runMsg" class="runScreen" hidden>
     <label id="runMsgTitle"></label>
     <p id="runMsgText"></p>

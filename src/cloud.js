@@ -119,7 +119,7 @@ function openPublish(){
   const o=exp.online||{};
   const n=exp.questions.length,s=normalizeSettings(exp.settings);
   $("pubTitle").textContent=`${experimentCode(exp)} ${exp.name}`;
-  $("pubSummary").textContent=`${n} question${n===1?"":"s"} × ${s.repeats} = ${n*s.repeats} trials per participant`+(s.shuffle?", shuffled":"")+(s.swapSides?", B/C sides swapped":"")+(s.fixation?", fixation cross":"")+
+  $("pubSummary").textContent=`${n} question${n===1?"":"s"} × ${s.repeats} = ${n*s.repeats} trials per participant`+(s.shuffle?", shuffled":"")+(s.swapSides?", comparison sides swapped":"")+(s.fixation?", fixation cross":"")+
     `. The definition is frozen as it is now; later edits on the canvas do not change it. Participants calibrate their screen with a bank card first, so every response carries the true stimulus size.`;
   $("pubInstructions").value=o.instructions||"Thank you for taking part. On each trial you will see three figures. Decide whether A is more similar to B or to C, and answer with the B or C key. There are no right or wrong answers — go with your impression. The session takes a few minutes.";
   $("pubUrl").value=o.completionUrl||"";$("pubCode").value=o.completionCode||"";

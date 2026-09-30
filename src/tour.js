@@ -15,11 +15,11 @@ const STEPS=[
   {target:"#tray",title:"Your shapes land in the tray",
    text:"Drag a shape from the tray at the bottom right onto the canvas, as many times as you need. Each copy can be rotated and sized on its own."},
   {target:"#canvas",title:"Build a similarity question",
-   text:"Place three objects, click one and shift-click the other two, then press “make similarity question”: A goes on top, B and C below. Drag empty space to move around, arrows nudge a selection, and ⌘/ctrl Z undoes anything."},
+   text:"Place three objects, click one and shift-click the other two, then press “make similarity question”: A goes on top, B and C below. Select four objects for a question with three comparisons (B, C, D). Drag empty space to move around, arrows nudge a selection, and ⌘/ctrl Z undoes anything."},
   {target:"#saveRow",title:"Keep your work",
    text:"Your work is kept automatically in this browser and comes back when you return. Save (⌘/ctrl S) files it under a name in the library at the top left; export and import move canvases as files."},
   {target:"#expBar",title:"Run it as an experiment",
-   text:"An experiment is a named set of questions with its own run settings. Press “+ experiment” in the strip under the console, tick questions in the list or click the □ boxes on the canvas, then pilot it (fixation, shuffled order, B/C sides swapped at random), export its stimuli as SVG + PNG with a parameter manifest, or publish it for online participants (e.g. from Prolific). “describe…” in the same strip builds a whole set of questions from a description in words. Each title shows the codes of the experiments it belongs to."},
+   text:"An experiment is a named set of questions with its own run settings. Press “+ experiment” in the strip under the console, tick questions in the list or click the □ boxes on the canvas, then pilot it (fixation, shuffled order, comparison sides swapped at random), export its stimuli as SVG + PNG with a parameter manifest, or publish it for online participants (e.g. from Prolific). “describe…” in the same strip builds a whole set of questions from a description in words. Each title shows the codes of the experiments it belongs to."},
   {target:"#settingsBtn",title:"Settings",
    text:"The ⚙ button at the bottom left re-calibrates the screen with a bank card and sets the viewing distance, so sizes are shown in millimetres and degrees of visual angle. It also replays this walkthrough."}
 ];

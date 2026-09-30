@@ -2,12 +2,12 @@
    (CSV) mapping file → full parameter record. All client-side. */
 
 import { calib, pxToMm, visualAngleDeg } from "./calibration.js";
-import { experimentQuestions, experimentCode, questionTrial, stimulusSVG, fileStem, paramColumns } from "./experiment.js";
+import { experimentQuestions, experimentCode, questionTrial, stimulusSVG, fileStem, paramColumns, MEMBER_COLS } from "./experiment.js";
 import { buildZip } from "./zip.js";
 import { buildXlsx } from "./xlsx.js";
 
-const MANIFEST_COLS=["file_svg","file_png","canvas","experiment_id","experiment_code","experiment_name","question_index","question_id","question_title","png_scale","px_per_mm","calibrated","viewing_distance_cm",
-  ...["A","B","C"].flatMap(k=>["shape","sub","baseRot","subRot","frame","subRatio","scale","width_mm","height_mm","width_deg","height_deg"].map(c=>`${k}_${c}`))];
+const MANIFEST_COLS=["file_svg","file_png","canvas","experiment_id","experiment_code","experiment_name","question_index","question_id","question_title","n_comparisons","png_scale","px_per_mm","calibrated","viewing_distance_cm",
+  ...["A","B","C","D"].flatMap(k=>MEMBER_COLS.map(c=>`${k}_${c}`))];
 
 function csv(rows,cols){
   const cell=v=>{const s=v==null?"":String(v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
@@ -36,7 +36,7 @@ function memberSizes(svgText){
   host.innerHTML=svgText;
   document.body.appendChild(host);
   const out={};
-  ["A","B","C"].forEach(k=>{
+  ["A","B","C","D"].forEach(k=>{
     const g=host.querySelector(`g[data-m="${k}"]`);
     if(g){const bb=g.getBBox();const s=parseFloat((g.getAttribute("transform").match(/scale\(([^)]+)\)/)||[0,1])[1]);
       out[k]={w:pxToMm(bb.width*s),h:pxToMm(bb.height*s)};}
@@ -62,7 +62,7 @@ export async function exportStimuli(exp,questions,findItem,{scale=2,canvas="",on
     const png=await svgToPng(svg,scale);
     files.push({name:`${stem}.svg`,data:svg},{name:`${stem}.png`,data:png});
     manifest.push({file_svg:`${stem}.svg`,file_png:`${stem}.png`,canvas,experiment_id:exp.id,experiment_code:experimentCode(exp),experiment_name:exp.name,
-                   question_index:n,question_id:q.id,question_title:q.title,png_scale:scale,
+                   question_index:n,question_id:q.id,question_title:q.title,n_comparisons:t.D?3:2,png_scale:scale,
                    px_per_mm:calib.pxPerMm,calibrated:calib.calibrated?1:0,viewing_distance_cm:calib.distanceCm,
                    ...paramColumns(t,memberSizes(svg),mm=>visualAngleDeg(mm))});
     onProgress(n,qs.length);

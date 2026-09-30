@@ -128,3 +128,42 @@ test("loadExperiments: v4 block validated, v3 stars become experiment 1, nothing
   assert.deepEqual(pub[0].online,{id:"abc123",when:"t",active:true});
   assert.ok(!("online" in pub[1]));
 });
+
+import { promptFor, sideOf, MEMBER_COLS } from "../src/experiment.js";
+
+test("three comparisons: a random left-to-right order, prompt, geometry and records", ()=>{
+  const its=[mk(31,0,0),mk(32,45,0),mk(33,0,45),mk(34,45,45)];
+  const f=id=>its.find(i=>i.id===id)||find(id);
+  const qs=[{id:40,title:"Q4 · four",a:31,b:32,c:33,d:34,s:1},{id:41,title:"Q1",a:1,b:2,c:3,s:1}];
+  const exp=newExperiment(50,1,"x",[40,41]);
+  const seq=[0.9,0.1,0.5,0.3];let i=0;
+  const t=buildTrials(exp,qs,f,{shuffle:false,rng:()=>seq[i++%seq.length]});
+  const four=t.find(x=>x.qId===40), two=t.find(x=>x.qId===41);
+  assert.equal(four.D.baseRot,45);assert.ok(!("D" in two));
+  assert.deepEqual([...four.order].sort(),["B","C","D"],"a permutation of the comparisons");
+  assert.equal(two.order.length,2);
+  assert.equal(promptFor(four),"Is A more similar to B, C or D?");assert.equal(promptFor(two),PROMPT);
+  // geometry: the three comparisons sit left / centre / right under A, in `order`
+  const g=trialGeometry(four);
+  assert.deepEqual(g.positions.C,[0,g.dy]);
+  const m=stimulusMarkup({...four,order:["D","B","C"]});
+  const x=k=>+m.match(new RegExp(`data-m="${k}" transform="translate\\(([-\\d.]+)`))[1];
+  assert.ok(x("D")<x("B")&&x("B")<x("C"),"drawn in the given order");
+  assert.equal(sideOf({...four,order:["D","B","C"]},"B"),"middle");
+  assert.equal(sideOf({B:1,C:1,swapped:true},"B"),"right","two comparisons unchanged");
+  // records: D columns filled for four-object questions, empty otherwise
+  const row4=resultRow({...four,order:["D","B","C"]},{participant:"p",exp,response:"D",rt:500,pxPerMm:4,calibrated:true,timestamp:"t"});
+  assert.equal(row4.n_comparisons,3);assert.equal(row4.order,"DBC");assert.equal(row4.B_side,"middle");assert.equal(row4.D_baseRot,45);
+  const row2=resultRow(two,{participant:"p",exp,response:"B",rt:500,pxPerMm:4,calibrated:true,timestamp:"t"});
+  assert.equal(row2.n_comparisons,2);assert.equal(row2.D_shape,"");assert.ok(MEMBER_COLS.every(c=>`D_${c}` in row2));
+  assert.ok(CSV_COLUMNS.includes("D_baseRot")&&CSV_COLUMNS.includes("order"));
+  const s=summarize([row4,{...row4,response:"B"},{...row4,response:"C"},{...row4,response:"D"}]);
+  assert.deepEqual([s[0].pB,s[0].pC,s[0].pD],[0.25,0.25,0.5]);
+});
+
+test("a four-object stimulus outside a run (export) draws B, C, D left to right", ()=>{
+  const t={qId:1,title:"x",s:1,A:paramRecord(mk(61,0,0)),B:paramRecord(mk(62,45,0)),C:paramRecord(mk(63,0,45)),D:paramRecord(mk(64,45,45))};
+  const m=stimulusSVG(t);
+  const x=k=>+m.match(new RegExp(`data-m="${k}" transform="translate\\(([-\\d.]+)`))[1];
+  assert.ok(x("B")<x("C")&&x("C")<x("D"));
+});

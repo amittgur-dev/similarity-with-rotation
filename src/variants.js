@@ -83,30 +83,35 @@ export function turnWhole(p,d){
 
 /* ---- systematic condition code ----
    `Q1 · square/diamond · A(0,0) B(45,0) C(0,45)` — pairs are (baseRot, anchorRot). */
-export function questionTitle(n,A,B,C){
+export function questionTitle(n,A,B,C,D=null){
   const sig=it=>{
     const d=it.trayRef.def.name;
     const s=it.trayRef.anchor&&!it.trayRef.anchor.none?"/"+it.trayRef.anchor.name:"";
     return d+s+(s&&it.texture?` texture ${it.texture}`:"");
   };
   const f=it=>`(${norm(it.baseRot)},${norm(it.anchorRot)})`;
-  if(sig(A)===sig(B)&&sig(A)===sig(C)){
-    return `Q${n} · ${sig(A)} · A${f(A)} B${f(B)} C${f(C)}`;
+  const ms=[["A",A],["B",B],["C",C],...(D?[["D",D]]:[])];
+  if(ms.every(([,it])=>sig(it)===sig(A))){
+    return `Q${n} · ${sig(A)} · `+ms.map(([l,it])=>`${l}${f(it)}`).join(" ");
   }
-  return `Q${n} · A ${sig(A)}${f(A)} B ${sig(B)}${f(B)} C ${sig(C)}${f(C)}`;
+  return `Q${n} · `+ms.map(([l,it])=>`${l} ${sig(it)}${f(it)}`).join(" ");
 }
 
 /* ---- A/B/C assignment for a 3-object selection ----
    labels win if present and unique; otherwise geometric:
    topmost = A; of the rest, leftmost = B, rightmost = C. */
+/* three or four objects → [A, B, C(, D)]: existing labels win when they
+   cover every member; otherwise the topmost is A and the others are the
+   comparisons from left to right */
 export function assignABC(sel){
+  const labs=["A","B","C","D"].slice(0,sel.length);
   const byLabel={};
   sel.forEach(it=>{if(it.label&&!byLabel[it.label])byLabel[it.label]=it;});
-  if(byLabel.A&&byLabel.B&&byLabel.C&&new Set([byLabel.A.id,byLabel.B.id,byLabel.C.id]).size===3){
-    return [byLabel.A,byLabel.B,byLabel.C];
+  if(labs.every(l=>byLabel[l])&&new Set(labs.map(l=>byLabel[l].id)).size===labs.length){
+    return labs.map(l=>byLabel[l]);
   }
   const sorted=[...sel].sort((p,q)=>p.y-q.y);
   const A=sorted[0];
   const rest=sorted.slice(1).sort((p,q)=>p.x-q.x);
-  return [A,rest[0],rest[1]];
+  return [A,...rest];
 }

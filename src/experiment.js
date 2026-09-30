@@ -5,6 +5,10 @@
 import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup } from "./geometry.js";
 
 export const PROMPT="Is A more similar to B or C?";
+export const PROMPT4="Is A more similar to B, C or D?";
+/* a trial's comparison labels, and its prompt */
+export const comparisons=t=>t.D?["B","C","D"]:["B","C"];
+export const promptFor=t=>t.D?PROMPT4:PROMPT;
 export const LABEL_GAP=1.55;   // same as the canvas
 
 /* ---- experiments: named subsets of a canvas's questions with their own run settings ---- */
@@ -79,9 +83,9 @@ export function shuffled(arr,rng=Math.random){
 /* trials in presentation order; each carries everything needed to draw
    and to report, independent of later canvas edits */
 export function questionTrial(q,findItem){
-  const A=findItem(q.a),B=findItem(q.b),C=findItem(q.c);
-  if(!A||!B||!C)return null;
-  return {qId:q.id,title:q.title,s:q.s,A:paramRecord(A),B:paramRecord(B),C:paramRecord(C)};
+  const A=findItem(q.a),B=findItem(q.b),C=findItem(q.c),D=q.d!=null?findItem(q.d):null;
+  if(!A||!B||!C||(q.d!=null&&!D))return null;
+  return {qId:q.id,title:q.title,s:q.s,A:paramRecord(A),B:paramRecord(B),C:paramRecord(C),...(D?{D:paramRecord(D)}:{})};
 }
 /* options: repeats (each question N times), shuffle, swapSides (B and C
    exchange left/right at random — counterbalances a side bias; labels
@@ -98,7 +102,14 @@ export function buildTrialsFromRecords(records,settings,{rng=Math.random,shuffle
   let list=[];
   for(let r=1;r<=Math.max(1,repeats|0);r++)list.push(...records.map(t=>({...t,repeat:r})));
   if(shuffle)list=shuffled(list,rng);
-  return list.map((t,i)=>({...t,trial:i+1,swapped:swapSides?rng()<0.5:false}));
+  /* sides: with two comparisons B and C swap at random (`swapped`); with
+     three, their left-to-right order is a random permutation. `order` is
+     the left-to-right order in both cases. */
+  return list.map((t,i)=>{
+    if(!t.D){const swapped=swapSides?rng()<0.5:false;return {...t,trial:i+1,swapped,order:swapped?["C","B"]:["B","C"]};}
+    const order=swapSides?shuffled(["B","C","D"],rng):["B","C","D"];
+    return {...t,trial:i+1,swapped:order[0]!=="B",order};
+  });
 }
 /* the frozen, self-contained definition of an experiment as published for participants */
 export function publishedDefinition(exp,questions,findItem,{canvas="",instructions="",completionUrl="",completionCode="",pxPerMmRequired=true}={}){
@@ -114,7 +125,7 @@ export function trialGeometry(t){
   const padX=BASE_R*1.4*s, top=BASE_R*1.3*s, labelY=BASE_R*LABEL_GAP*s+24;
   return {
     dx,dy,
-    positions:{A:[0,-dy],B:[-dx,dy],C:[dx,dy]},
+    positions:t.D?{A:[0,-dy],B:[-dx,dy],C:[0,dy],D:[dx,dy]}:{A:[0,-dy],B:[-dx,dy],C:[dx,dy]},
     viewBox:[-(dx+padX),-(dy+top),2*(dx+padX),2*dy+top+labelY+10],
     labelY
   };
@@ -122,9 +133,10 @@ export function trialGeometry(t){
 export function stimulusMarkup(t){
   const g=trialGeometry(t);
   let out="";
-  for(const k of ["A","B","C"]){
+  const order=orderOf(t), slots=comparisons(t);
+  for(const k of ["A",...slots]){
     const p=t[k];
-    const slot=t.swapped?({A:"A",B:"C",C:"B"})[k]:k;   // swapped: B drawn at C's place and vice versa
+    const slot=k==="A"?"A":slots[order.indexOf(k)];   // the k-th place from the left holds order[k]
     const [x,y]=g.positions[slot];
     out+=`<g data-m="${k}" transform="translate(${x},${y}) scale(${p.scale})">`+
          shapeMarkup(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio,p.texture||0)+`</g>`+
@@ -134,16 +146,29 @@ export function stimulusMarkup(t){
 }
 
 /* ---- records ---- */
-const MEMBER_COLS=["shape","sub","arrangement","density","baseRot","subRot","frame","subRatio","scale","width_mm","height_mm","width_deg","height_deg"];
-export const CSV_COLUMNS=["participant","canvas","experiment_id","experiment_code","experiment_name","trial","repeat","question_index","question_id","question_title","response","rt_ms","B_side",
-  ...["A","B","C"].flatMap(k=>MEMBER_COLS.map(c=>`${k}_${c}`)),
+/* left-to-right order of the comparisons: a trial's own, or the natural one
+   (a stimulus drawn outside a run, e.g. for export) */
+export function orderOf(t){
+  if(t.order)return t.order;
+  if(t.D)return ["B","C","D"];
+  return t.swapped?["C","B"]:["B","C"];
+}
+/* where a comparison was drawn: left / right, or left / middle / right */
+export function sideOf(t,k){
+  const order=orderOf(t), i=order.indexOf(k);
+  return order.length===3?["left","middle","right"][i]:(i?"right":"left");
+}
+export const MEMBER_COLS=["shape","sub","arrangement","density","baseRot","subRot","frame","subRatio","scale","width_mm","height_mm","width_deg","height_deg"];
+export const CSV_COLUMNS=["participant","canvas","experiment_id","experiment_code","experiment_name","trial","repeat","question_index","question_id","question_title","n_comparisons","response","rt_ms","B_side","order",
+  ...["A","B","C","D"].flatMap(k=>MEMBER_COLS.map(c=>`${k}_${c}`)),
   "px_per_mm","calibrated","viewing_distance_cm","fixation_ms","timestamp"];
 
 /* flat parameter columns for one trial; sizes = {A:{w,h},B:{...},C:{...}} in mm (optional) */
 export function paramColumns(t,sizes={},deg=null){
   const row={};
-  for(const k of ["A","B","C"]){
+  for(const k of ["A","B","C","D"]){
     const p=t[k], z=sizes[k]||{};
+    if(!p){MEMBER_COLS.forEach(c=>{row[`${k}_${c}`]="";});continue;}   // two-comparison question: no D
     Object.assign(row,{[`${k}_shape`]:p.defName,[`${k}_sub`]:p.subName,
                        [`${k}_arrangement`]:p.texture?"texture":"vertices",[`${k}_density`]:p.texture||"",
                        [`${k}_baseRot`]:p.baseRot,[`${k}_subRot`]:p.anchorRot,
@@ -156,7 +181,8 @@ export function paramColumns(t,sizes={},deg=null){
 export function resultRow(t,{participant,canvas,exp,response,rt,pxPerMm,calibrated,timestamp,sizes,deg,distanceCm,fixationMs}){
   return {participant,canvas:canvas??"",experiment_id:exp?exp.id:"",experiment_code:exp?experimentCode(exp):"",experiment_name:exp?exp.name:"",
           trial:t.trial,repeat:t.repeat||1,question_index:t.questionIndex??"",question_id:t.qId,question_title:t.title,response,rt_ms:Math.round(rt),
-          B_side:t.swapped?"right":"left",
+          n_comparisons:t.D?3:2,
+          B_side:sideOf(t,"B"),order:(orderOf(t)).join(""),
           ...paramColumns(t,sizes,deg),
           px_per_mm:pxPerMm,calibrated:calibrated?1:0,viewing_distance_cm:distanceCm??"",fixation_ms:fixationMs??0,timestamp};
 }
@@ -172,11 +198,11 @@ export function toCSV(rows,columns=CSV_COLUMNS){
 export function summarize(rows){
   const by=new Map();
   rows.forEach(r=>{
-    const e=by.get(r.question_id)||{question_id:r.question_id,title:r.question_title,n:0,b:0,rts:[]};
-    e.n++;if(r.response==="B")e.b++;e.rts.push(r.rt_ms);by.set(r.question_id,e);
+    const e=by.get(r.question_id)||{question_id:r.question_id,title:r.question_title,n:0,b:0,c:0,d:0,rts:[]};
+    e.n++;if(r.response==="B")e.b++;if(r.response==="C")e.c++;if(r.response==="D")e.d++;e.rts.push(r.rt_ms);by.set(r.question_id,e);
   });
   const median=a=>{const s=[...a].sort((x,y)=>x-y);const m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
-  return [...by.values()].map(e=>({question_id:e.question_id,title:e.title,n:e.n,pB:e.b/e.n,medianRt:median(e.rts)}));
+  return [...by.values()].map(e=>({question_id:e.question_id,title:e.title,n:e.n,pB:e.b/e.n,pC:e.c/e.n,pD:e.d/e.n,medianRt:median(e.rts)}));
 }
 
 /* a self-contained SVG document of one question, at 1:1 canvas pixels */

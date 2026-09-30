@@ -73,11 +73,20 @@ export function vertCount(def){
   return def.n;
 }
 
-/* ---- texture: sub-shapes tiling the inside of the base shape ----
-   A square lattice, aligned with the screen axes at baseRot 0: the
-   shape's width is divided into `n` cells, a sub-shape sits at the centre
-   of every cell whose centre lies inside the outline, and the whole
-   lattice turns with baseRot. For a square, n = 4 gives a 4 × 4 grid. */
+/* ---- texture: sub-shapes filling the base shape ----
+   Laid out for the clarity of the overall shape:
+   1. the contour is drawn explicitly — elements evenly spaced along every
+      edge with one on each corner (a circle: evenly around its rim), so
+      every edge is a straight row of elements;
+   2. the inside is a lattice that follows the shape's own symmetry — a
+      square lattice for four-sided shapes, a triangular lattice for all
+      others — aligned with the edge nearest the horizontal and anchored on
+      a corner. Triangles, squares, diamonds and hexagons thereby come out
+      as exact triangular / square / hexagonal arrangements; for the other
+      shapes the lattice fills the inside and stops short of the contour
+      row, which keeps the outline crisp.
+   Density `n` = elements per side (a circle: across its diameter), so the
+   spacing is side length / (n − 1). The whole layout turns with baseRot. */
 export const DEFAULT_TEXTURE=4;
 export const clampTexture=n=>Math.max(2,Math.min(16,Math.round(+n)||DEFAULT_TEXTURE));
 function outline(def,r){
@@ -89,56 +98,82 @@ function inside(pts,x,y,r,eps){
   let odd=false;
   for(let i=0,j=pts.length-1;i<pts.length;j=i++){
     const [xi,yi]=pts[i],[xj,yj]=pts[j];
-    // on an edge counts as inside (the lattice corners of a square are its vertices)
-    const cross=(xj-xi)*(y-yi)-(yj-yi)*(x-xi), len=Math.hypot(xj-xi,yj-yi);
-    if(Math.abs(cross)<=eps*len&&x>=Math.min(xi,xj)-eps&&x<=Math.max(xi,xj)+eps&&y>=Math.min(yi,yj)-eps&&y<=Math.max(yi,yj)+eps)return true;
     if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)odd=!odd;
   }
   return odd;
 }
+function distToOutline(pts,x,y,r){
+  if(!pts)return r-Math.hypot(x,y);
+  let d=Infinity;
+  for(let i=0;i<pts.length;i++){
+    const [x1,y1]=pts[i],[x2,y2]=pts[(i+1)%pts.length];
+    const dx=x2-x1,dy=y2-y1,t=Math.max(0,Math.min(1,((x-x1)*dx+(y-y1)*dy)/(dx*dx+dy*dy)));
+    d=Math.min(d,Math.hypot(x-x1-t*dx,y-y1-t*dy));
+  }
+  return d;
+}
+/* the length that density counts elements along, at r = 1: a side, or a circle's diameter */
+export function textureSpan(def){
+  const pts=outline(def,1);
+  if(!pts)return 2;
+  return Math.hypot(pts[1][0]-pts[0][0],pts[1][1]-pts[0][1]);
+}
+export const textureSpacing=(def,n)=>textureSpan(def)/(clampTexture(n)-1);
+const INNER_GAP=0.85;   // lattice points closer than this × spacing to the contour are left to the contour row
 export function texturePoints(def,r,n,baseRot=0){
   n=clampTexture(n);
-  const pts=outline(def,r);
-  const xs=pts?pts.map(p=>p[0]):[-r,r], ys=pts?pts.map(p=>p[1]):[-r,r];
-  const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
-  const step=(x1-x0)/n, eps=r*1e-6;
-  const rows=Math.max(1,Math.round((y1-y0)/step)), yStart=(y0+y1)/2-(rows-1)*step/2;
-  const out=[];
-  for(let j=0;j<rows;j++)for(let i=0;i<n;i++){
-    const x=x0+(i+0.5)*step, y=yStart+j*step;
-    if(inside(pts,x,y,r,eps))out.push(rotPt([x,y],baseRot));
+  const s=textureSpacing(def,n)*r, pts=outline(def,r), out=[];
+  // 1. contour
+  if(!pts){
+    const m=Math.max(6,Math.round(2*Math.PI*r/s));
+    for(let i=0;i<m;i++){const a=(-90+i*360/m)*Math.PI/180;out.push([r*Math.cos(a),r*Math.sin(a)]);}
+  }else{
+    pts.forEach((p,i)=>{
+      const q=pts[(i+1)%pts.length], k=Math.max(1,Math.round(Math.hypot(q[0]-p[0],q[1]-p[1])/s));
+      for(let j=0;j<k;j++)out.push([p[0]+(q[0]-p[0])*j/k,p[1]+(q[1]-p[1])*j/k]);
+    });
   }
-  return out;
+  // 2. inside: lattice aligned with the edge nearest the horizontal, anchored on its corner
+  let theta=0, origin=[0,0];
+  if(pts&&!def.star){
+    let best=Infinity;
+    pts.forEach((p,i)=>{
+      const q=pts[(i+1)%pts.length];
+      let a=Math.atan2(q[1]-p[1],q[0]-p[0])*180/Math.PI;
+      a=((a%180)+180)%180;if(a>90)a-=180;
+      if(Math.abs(a)<best-1e-9){best=Math.abs(a);theta=a;origin=p;}
+    });
+  }
+  const square=def.n===4;
+  const t=theta*Math.PI/180, c=Math.cos(t), sn=Math.sin(t);
+  const u=[s*c,s*sn], v=square?[-s*sn,s*c]:[s*(0.5*c-Math.sqrt(3)/2*sn),s*(0.5*sn+Math.sqrt(3)/2*c)];
+  const K=Math.ceil(4*r/s)+2;
+  for(let i=-K;i<=K;i++)for(let j=-K;j<=K;j++){
+    const x=origin[0]+i*u[0]+j*v[0], y=origin[1]+i*u[1]+j*v[1];
+    if(Math.abs(x)>r+1e-9||Math.abs(y)>r+1e-9)continue;
+    if(inside(pts,x,y,r,0)&&distToOutline(pts,x,y,r)>=INNER_GAP*s-1e-9)out.push([x,y]);
+  }
+  return baseRot?out.map(p=>rotPt(p,baseRot)):out;
 }
-/* Element size follows density: a textured sub-shape fills a fixed share
-   of its lattice cell, so doubling the density halves the element size.
-   Returned as a sub-shape relative size (fraction of the base radius),
-   the same unit as for sub-shapes on the vertices. */
-export const TEXTURE_FILL=0.35;   // sub-shape radius as a share of the cell width
-export function textureRatio(def,n,fill=TEXTURE_FILL){
-  const pts=outline(def,1), xs=pts?pts.map(p=>p[0]):[-1,1];
-  const w=Math.max(...xs)-Math.min(...xs);
-  return +(Math.max(0.02,Math.min(0.6,fill*w/clampTexture(n)))).toFixed(4);
-}
+
 /* ---- density, element size and fill are linked ----
-   size (sub-shape relative size) = fill × cell width, and the cell width
-   is the shape's width / density. Fill is the element's radius over the
-   cell width (0.5: elements of any orientation just touch). Two of the
-   three determine the third, so one of them is held: changing another
+   size (sub-shape relative size) = fill × spacing, and the spacing is
+   side / (density − 1). Fill is the element's radius over the spacing
+   (0.45: elements of any orientation stay clear of each other). Two of
+   the three determine the third, so one of them is held: changing another
    moves the remaining one. Density never drops below the contour minimum
    and fill stays within FILL_MIN..FILL_MAX, so a change can be limited;
    `limited` then says by what. */
-export const FILL_MIN=0.08, FILL_MAX=0.5;
-export function textureWidth(def){
-  const pts=outline(def,1);
-  if(!pts)return 2;
-  const xs=pts.map(p=>p[0]);
-  return Math.max(...xs)-Math.min(...xs);
+export const TEXTURE_FILL=0.3;   // default element radius as a share of the spacing
+export const FILL_MIN=0.08, FILL_MAX=0.45;
+export function textureRatio(def,n,fill=TEXTURE_FILL){
+  return +(Math.max(0.02,Math.min(0.6,fill*textureSpacing(def,n)))).toFixed(4);
 }
 export function relinkTexture(def,{n,size},hold,edited,value){
-  const w=textureWidth(def), nMin=minTexture(def), nMax=16;
+  const L=textureSpan(def), nMin=minTexture(def), nMax=16;
   const clampN=v=>Math.max(nMin,Math.min(nMax,Math.round(v)));
-  const fillOf=(sz,k)=>sz*k/w;
+  const fillOf=(sz,k)=>sz*(k-1)/L;          // radius / spacing
+  const nFor=(f,sz)=>f*L/sz+1;              // density giving fill f at size sz
   let limited="";
   let fill=fillOf(size,n);
   if(edited==="density"){
@@ -146,31 +181,31 @@ export function relinkTexture(def,{n,size},hold,edited,value){
     n=clampN(want);
     if(want<nMin)limited="contour";
     if(hold==="size"){
-      const cap=Math.floor(FILL_MAX*w/size), floor=Math.ceil(FILL_MIN*w/size);
+      const cap=Math.floor(nFor(FILL_MAX,size)), floor=Math.ceil(nFor(FILL_MIN,size));
       if(n>cap){n=Math.max(nMin,cap);limited="overlap";}
       if(n<floor){n=Math.min(nMax,floor);limited="sparse";}
-      if(fillOf(size,n)>FILL_MAX){size=FILL_MAX*w/n;limited="overlap";}
-    }else size=fill*w/n;                                   // hold fill: more elements, smaller ones
+      if(fillOf(size,n)>FILL_MAX){size=FILL_MAX*L/(n-1);limited="overlap";}
+    }else size=fill*L/(n-1);                                  // hold fill: more elements, smaller ones
   }else if(edited==="size"){
     size=value;
     if(hold==="density"){
-      const hi=FILL_MAX*w/n, lo=FILL_MIN*w/n;
+      const hi=FILL_MAX*L/(n-1), lo=FILL_MIN*L/(n-1);
       if(size>hi){size=hi;limited="overlap";}
       if(size<lo){size=lo;limited="sparse";}
-    }else{                                                  // hold fill: larger elements, fewer of them
-      const want=fill*w/size;
+    }else{                                                    // hold fill: larger elements, fewer of them
+      const want=nFor(fill,size);
       n=clampN(want);
       if(want<nMin-0.5)limited="contour";
       if(want>nMax+0.5)limited="max";
-      size=Math.min(size,FILL_MAX*w/n);
+      size=Math.min(size,FILL_MAX*L/(n-1));
     }
   }else if(edited==="fill"){
     fill=Math.max(FILL_MIN,Math.min(FILL_MAX,value));
     if(value>FILL_MAX)limited="overlap";
     if(value<FILL_MIN)limited="sparse";
-    if(hold==="density")size=fill*w/n;
-    else{                                                   // hold size: tighter fill packs more elements in
-      const want=fill*w/size;
+    if(hold==="density")size=fill*L/(n-1);
+    else{                                                     // hold size: tighter fill packs more elements in
+      const want=nFor(fill,size);
       n=clampN(want);
       if(want<nMin-0.5)limited="contour";
       if(want>nMax+0.5)limited="max";
@@ -180,47 +215,21 @@ export function relinkTexture(def,{n,size},hold,edited,value){
   return {n,size,fill:fillOf(size,n),limited};
 }
 
-/* The lowest density at which the elements still carry the contour.
-   Contour fidelity: the silhouette of the texture (the lattice cells that
-   hold an element) is compared with the true outline as intersection over
-   union. The minimum is the first density reaching MIN_FIDELITY (stars,
-   whose thin points a lattice can only approximate, need MIN_FIDELITY_STAR),
-   with at least PER_CORNER elements per corner of the outline (a circle
-   counts as eight corners, a star as twice its points) and never fewer than
-   MIN_ELEMENTS. Below it a texture reads as a cluster of dots — a circle of
-   3 × 3 is a square. */
-export const MIN_FIDELITY=0.85, MIN_FIDELITY_STAR=0.78, MIN_ELEMENTS=9, PER_CORNER=3;
-const corners=def=>def.circle?8:def.star?2*def.star:def.n;
-export function contourFidelity(def,n,G=120){
-  n=clampTexture(n);
-  const pts=def.circle?polyPts(96,1):outline(def,1);
-  const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
-  const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
-  const step=(x1-x0)/n, rows=Math.max(1,Math.round((y1-y0)/step)), yStart=(y0+y1)/2-(rows-1)*step/2;
-  const cells=new Set();
-  for(let j=0;j<rows;j++)for(let i=0;i<n;i++)
-    if(inside(def.circle?null:pts,x0+(i+0.5)*step,yStart+j*step,1,1e-6))cells.add(i+","+j);
-  const lo=Math.min(x0,y0,yStart-step)-0.05, hi=Math.max(x1,y1,yStart+rows*step)+0.05;
-  let I=0,U=0;
-  for(let a=0;a<G;a++)for(let b=0;b<G;b++){
-    const x=lo+(hi-lo)*(a+0.5)/G, y=lo+(hi-lo)*(b+0.5)/G;
-    const inO=def.circle?x*x+y*y<=1:inside(pts,x,y,1,0);
-    const inT=cells.has(Math.floor((x-x0)/step)+","+Math.round((y-yStart)/step));
-    if(inO&&inT)I++;if(inO||inT)U++;
-  }
-  return U?I/U:0;
-}
-const minCache=new Map();
+/* The lowest density at which the elements carry the contour: three
+   elements per side — two points are always collinear, it takes three to
+   read as a straight edge — and for a circle at least 12 around the rim. */
+export const MIN_PER_SIDE=3, MIN_RIM=12;
 export function minTexture(def){
-  const key=def.circle?"circle":def.star?"star"+def.star:`${def.n}:${def.offset||0}`;
-  if(minCache.has(key))return minCache.get(key);
-  const need=Math.max(MIN_ELEMENTS,PER_CORNER*corners(def)), fid=def.star?MIN_FIDELITY_STAR:MIN_FIDELITY;
-  let m=16;
-  for(let n=2;n<=16;n++){
-    if(texturePoints(def,1,n).length>=need&&contourFidelity(def,n)>=fid){m=n;break;}
-  }
-  minCache.set(key,m);
-  return m;
+  if(def.circle){for(let n=3;n<=16;n++)if(Math.round(Math.PI*(n-1))>=MIN_RIM)return n;return 16;}
+  return MIN_PER_SIDE;
+}
+
+/* the density a new texture starts at: the lowest (from 4, and not below
+   the minimum) that gives at least DEFAULT_ELEMENTS elements — clear shape first */
+export const DEFAULT_ELEMENTS=15;
+export function defaultTexture(def){
+  for(let n=Math.max(minTexture(def),DEFAULT_TEXTURE);n<=16;n++)if(texturePoints(def,1,n).length>=DEFAULT_ELEMENTS)return n;
+  return 16;
 }
 
 /* how many sub-shapes a construction has */

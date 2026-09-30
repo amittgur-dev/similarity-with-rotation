@@ -8,7 +8,7 @@
 import { $ } from "./dom.js";
 import { questions, experiments, sel, counters, findItem, findQuestion, findExperiment, nextId, clearSelection } from "./state.js";
 import { calib, pxToMm, visualAngleDeg } from "./calibration.js";
-import { PROMPT, experimentQuestions, experimentCode, newExperiment, nextOrdinal, isMember, setMembership,
+import { PROMPT, promptFor, experimentQuestions, experimentCode, newExperiment, nextOrdinal, isMember, setMembership,
          buildTrials, trialGeometry, stimulusMarkup, resultRow, toCSV, summarize, normalizeSettings } from "./experiment.js";
 import { exportStimuli } from "./stimexport.js";
 import { buildXlsx } from "./xlsx.js";
@@ -110,7 +110,7 @@ function readSettings(){
 function refreshSummary(exp){
   const n=exp.questions.length, s=exp.settings, total=n*s.repeats;
   $("expSummary").textContent=n?`${n} question${n===1?"":"s"} × ${s.repeats} = ${total} trial${total===1?"":"s"}`+
-    (s.shuffle?" · shuffled":" · canvas order")+(s.swapSides?" · B/C sides swapped":"")+(s.fixation?" · fixation":""):
+    (s.shuffle?" · shuffled":" · canvas order")+(s.swapSides?" · sides swapped":"")+(s.fixation?" · fixation":""):
     "no questions yet";
   $("pilotBtn").disabled=!n;
   $("pilotHint").textContent=!questions.length?"the canvas has no questions yet":
@@ -203,7 +203,7 @@ export function showMessage({title="",text="",button="",onClick=null,html=false}
 }
 function memberSizesMm(svg){
   const out={};
-  ["A","B","C"].forEach(k=>{
+  ["A","B","C","D"].forEach(k=>{
     const g=svg.querySelector(`g[data-m="${k}"]`);
     if(!g)return;
     const bb=g.getBBox(), s=parseFloat((g.getAttribute("transform").match(/scale\(([^)]+)\)/)||[0,1])[1]);
@@ -213,6 +213,8 @@ function memberSizesMm(svg){
 }
 function showTrial(){
   const t=trials[idx];
+  $("runPrompt").textContent=promptFor(t);
+  $("runChoice").querySelector('[data-r="D"]').hidden=!t.D;   // a third answer only when there is a third comparison
   $("runCount").textContent=`${idx+1} / ${trials.length}`;
   const g=trialGeometry(t);
   const svg=$("runSvg");
@@ -232,6 +234,7 @@ function showTrial(){
 }
 function respond(r){
   if(!accepting)return;
+  if(r==="D"&&!trials[idx].D)return;
   accepting=false;
   const rt=performance.now()-shownAt;
   const t=trials[idx];
@@ -255,13 +258,16 @@ function finish(){
   }
   lastRuns.set(runExp.id,{participant,rows,when:new Date().toISOString()});
   const tb=$("runTable");
-  tb.innerHTML="<tr><th>#</th><th>question</th><th>B side</th><th>response</th><th>rt (ms)</th></tr>"+
-    rows.map(r=>`<tr><td>${r.trial}</td><td></td><td>${r.B_side}</td><td>${r.response}</td><td>${r.rt_ms}</td></tr>`).join("");
+  tb.innerHTML="<tr><th>#</th><th>question</th><th>order</th><th>response</th><th>rt (ms)</th></tr>"+
+    rows.map(r=>`<tr><td>${r.trial}</td><td></td><td>${r.order.split("").join(" ")}</td><td>${r.response}</td><td>${r.rt_ms}</td></tr>`).join("");
   [...tb.querySelectorAll("tr")].slice(1).forEach((tr,i)=>tr.children[1].textContent=rows[i].question_title);
   const perQ=summarize(rows);
   const all=summarize(rows.map(r=>({...r,question_id:0})))[0];
-  $("runSummary").textContent=`${experimentCode(runExp)} ${runExp.name} · ${rows.length} trials · B chosen ${Math.round(all.pB*100)}% overall`+
-    (perQ.length>1?" (per question: "+perQ.map(q=>`${Math.round(q.pB*100)}%`).join(", ")+")":"")+
+  const pct=v=>Math.round(v*100)+"%";
+  const anyD=rows.some(r=>r.n_comparisons===3);
+  const choice=q=>anyD?`B ${pct(q.pB)} C ${pct(q.pC)} D ${pct(q.pD)}`:pct(q.pB);
+  $("runSummary").textContent=`${experimentCode(runExp)} ${runExp.name} · ${rows.length} trials · `+(anyD?`chosen: ${choice(all)}`:`B chosen ${pct(all.pB)} overall`)+
+    (perQ.length>1?" (per question: "+perQ.map(choice).join(anyD?"; ":", ")+")":"")+
     ` · median RT ${Math.round(all.medianRt)} ms`;
   setPhase("end");
   if(runCfg.onFinish)runCfg.onFinish(rows);
@@ -276,6 +282,9 @@ export function startRun(cfg){
   document.body.classList.toggle("participantRun",cfg.mode==="participant");
   $("runQuit").hidden=cfg.mode==="participant";
   $("runIntro").textContent=cfg.intro||"";$("runIntro").hidden=!cfg.intro;
+  const three=trials.some(t=>t.D), two=trials.some(t=>!t.D);
+  $("runHow").innerHTML=three?`On each trial you will see a figure <b>A</b> and ${two?"two or three":"three"} figures below it. Decide which of them is most similar to <b>A</b>, and answer with the <b>B</b>, <b>C</b>${two?"":" or"} <b>D</b> key (or the buttons). Answer as accurately as you can; there are no right or wrong answers.`
+    :`On each trial you will see three figures. Decide whether <b>A</b> is more similar to <b>B</b> or to <b>C</b>, and answer with the <b>B</b> or <b>C</b> key (or the buttons). Answer as accurately as you can; there are no right or wrong answers.`;
   $("runInstructions").textContent=cfg.instructions||"";$("runInstructions").hidden=!cfg.instructions;
   $("run").hidden=false;
   setPhase("start");
@@ -306,11 +315,11 @@ function quit(){
   if(runExp&&findExperiment(runExp.id))openExpPanel(runExp.id);else deselect();
 }
 /* results as .csv (one flat table) or .xlsx (results sheet + per-question summary sheet) */
-const SUMMARY_COLS=["question_id","title","n","pB","medianRt"];
+const SUMMARY_COLS=["question_id","title","n","pB","pC","pD","medianRt"];
 export function resultsFile(run,exp,format,columns=CSV_COLUMNS){
   const stem=`${experimentCode(exp)}-${exp.name.replace(/\s+/g,"-")}-${run.participant}-${run.when.replace(/[:.]/g,"-")}`;
   if(format==="xlsx"){
-    const summary=summarize(run.rows).map(s=>({...s,pB:+s.pB.toFixed(3)}));
+    const summary=summarize(run.rows).map(s=>({...s,pB:+s.pB.toFixed(3),pC:+s.pC.toFixed(3),pD:+s.pD.toFixed(3)}));
     return {name:`${stem}.xlsx`,blob:new Blob([buildXlsx([{name:"results",rows:run.rows,columns},{name:"summary",rows:summary,columns:SUMMARY_COLS}])],
             {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})};
   }
@@ -380,6 +389,7 @@ export function initExperiment(){
     if(!$("runMsg").hidden||!$("runThanks").hidden)return;
     if(e.key==="b"||e.key==="B")respond("B");
     else if(e.key==="c"||e.key==="C")respond("C");
+    else if(e.key==="d"||e.key==="D")respond("D");
     else if(e.key==="Escape")quit();
   });
   refreshExpBar();

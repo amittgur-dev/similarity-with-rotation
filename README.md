@@ -126,38 +126,50 @@ Text input grammar: a shape name optionally followed by a rotation
 
 Sub-shapes can sit on the vertices of the base shape (the default) or fill
 it as a **texture**: in the sub-shape row choose *on vertices* / *texture*.
-A texture is a square lattice, aligned with the screen at base orientation
-0°, clipped to the outline and turning with the base orientation. All
-rotation parameters keep their meaning:
+The layout is led by the clarity of the overall shape:
+
+1. the contour is drawn explicitly: elements evenly spaced along every edge
+   with one on each corner (a circle: evenly around its rim), so each edge
+   is a straight row of elements;
+2. the inside is a lattice matching the shape's symmetry (square for
+   four-sided shapes, triangular otherwise), aligned with an edge and
+   anchored on a corner. Triangles, squares, diamonds and hexagons come out
+   as exact triangular / square / hexagonal arrangements.
+
+The layout turns with the base orientation, and the rotation parameters keep
+their meaning:
 
 | what turns | how |
 |------------|-----|
 | the elements only | sub-shape *orient* (or rotational variant, scope *sub-shapes*) |
-| the lattice only, elements keep their orientation | base *orient*, screen frame |
+| the configuration only, elements keep their orientation | base *orient*, screen frame |
 | everything together | base *orient*, vertex frame (elements co-rotate) |
 
-Three texture variables are linked by one relation,
-`size = fill × shape width / density`:
+**Density** is elements per side (across, for a circle). It is linked to
+**relative size** and **fill** (element size relative to the spacing) by
+`size = fill × side / (density − 1)`. One of the three is **held** (the
+*hold* toggles) and editing another moves the third: hold fill and raise
+density for more, smaller elements; hold size and raise density to pack the
+same elements closer; hold density and enlarge the elements to shrink the
+gaps. Fill is capped so elements never overlap; when a change is limited the
+panel says why.
 
-- **density**: elements per row, which sets the count
-- **relative size**: element size relative to the whole shape
-- **fill**: element size relative to the spacing (100%: the elements touch)
-
-One of them is **held** (the *hold* toggles); editing another moves the
-third. Hold fill and raise density for more, smaller elements; hold size and
-raise density to pack the same elements closer; hold density and enlarge the
-elements to shrink the gaps. Density never drops below the shape's contour
-minimum and fill never exceeds 100% (no overlap); when a change is limited
-the panel says why.
-
-The contour minimum (`minTexture` in `geometry.js`) is the first density at
-which the silhouette of the textured cells matches the true outline with an
-intersection over union of at least 0.85 (0.78 for stars) and which has at
-least three elements per corner of the outline: square 4, hexagon 5,
-circle 6, pentagon/7-gon/octagon 7, triangle 8, stars 11–13. Every trial
-record carries `arrangement` and `density` per member.
+The minimum density is 3 per side (two points are always collinear; it
+takes three to read as a straight edge), and a circle needs 12 elements on
+its rim. A new texture starts at the lowest density giving at least 15
+elements (square 4 per side, triangle 5). Every trial record carries
+`arrangement` and `density` per member.
 
 ## Question (group) model
+
+A question has a reference A and **two or three comparisons**: select three
+objects for B and C, or four for B, C and D ("Is A more similar to B, C or
+D?"). With three comparisons they sit on one row under A (B left, C centre,
+D right); in a run their left-to-right order is a random permutation when
+"swap comparison sides" is on, recorded per trial as `order` (e.g. `DBC`)
+and `B_side` (left / middle / right), with `n_comparisons` and `D_*` member
+columns. Everything else below applies to both kinds.
+
 
 A question = `{a, b, c, cx, cy, s, anchorRatio, title}` referencing three items.
 Invariants enforced by `layoutQuestion()` on every layout pass:

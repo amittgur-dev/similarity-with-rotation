@@ -21,7 +21,7 @@ export function serializeCanvas({name,view,tray,items,questions,experiments=[],n
     items:items.map(i=>({id:i.id,trayId:i.trayRef.id,x:i.x,y:i.y,scale:i.scale,
                          baseRot:i.baseRot,anchorRot:i.anchorRot,frame:i.frame,anchorRatio:i.anchorRatio||DEFAULT_RATIO,
                          label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{}),...(i.texture?{texture:i.texture}:{})})),
-    questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO})),
+    questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,...(q.d!=null?{d:q.d}:{}),cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO})),
     experiments:experiments.map(e=>({id:e.id,n:e.n,name:e.name,questions:[...e.questions],settings:normalizeSettings(e.settings),...(e.online?{online:{...e.online}}:{})})),
     ...(nextExperimentN>0?{nextExperimentN}:{})
   };
@@ -56,9 +56,10 @@ export function deserializeCanvas(data){
             cx:(A.x+B.x+C.x)/3,cy:(A.y+B.y+C.y)/3,s:A.scale||1};
   }).filter(Boolean);
   // a question whose members are missing cannot be drawn or run: dropped (its remaining members stay as free objects)
-  const questions=qs.filter(q=>q&&[q.a,q.b,q.c].every(id=>items.some(i=>i.id===id))).map(q=>{
+  const ids=q=>[q.a,q.b,q.c,...(q.d!=null?[q.d]:[])];   // a fourth member: three comparisons
+  const questions=qs.filter(q=>q&&ids(q).every(id=>items.some(i=>i.id===id))).map(q=>{
     maxId=Math.max(maxId,q.id);
-    [q.a,q.b,q.c].forEach(id=>{items.find(i=>i.id===id).qId=q.id;});
+    ids(q).forEach(id=>{items.find(i=>i.id===id).qId=q.id;});
     return {...q,title:String(q.title??""),anchorRatio:q.anchorRatio||q.subRatio||DEFAULT_RATIO};
   });
   items.forEach(i=>{if(i.qId&&!questions.some(q=>q.id===i.qId))i.qId=null;});

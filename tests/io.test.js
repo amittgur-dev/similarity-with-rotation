@@ -124,3 +124,23 @@ test("textures round-trip; plain canvases carry no texture field", ()=>{
   assert.equal(back.tray[0].texture,4);assert.equal(back.items[1].texture,7);
   assert.equal(back.items[2].texture,16,"out-of-range densities are clamped on load");
 });
+
+test("a question with three comparisons round-trips; plain questions carry no d", ()=>{
+  const src=sampleCanvas();
+  const plain=serializeCanvas(src);
+  assert.ok(plain.questions.every(q=>!("d" in q)));
+  src.items[3].qId=6;src.questions[0].d=7;
+  const data=serializeCanvas(src);
+  assert.equal(data.questions[0].d,7);
+  const back=deserializeCanvas(JSON.parse(JSON.stringify(data)));
+  assert.equal(back.questions[0].d,7);assert.equal(back.items.find(i=>i.id===7).qId,6);
+  layoutQuestion(back.questions[0],back.items);
+  const byId=id=>back.items.find(i=>i.id===id);
+  assert.deepEqual([3,4,5,7].map(id=>byId(id).label),["A","B","C","D"]);
+  const q=back.questions[0], dx=BASE_R*Q_DX*q.s;
+  assert.deepEqual([byId(4).x,byId(5).x,byId(7).x],[q.cx-dx,q.cx,q.cx+dx],"B left, C centre, D right");
+  assert.equal(byId(3).x,q.cx);
+  // a missing D drops the question like any other missing member
+  const broken=deserializeCanvas({...JSON.parse(JSON.stringify(data)),items:data.items.filter(i=>i.id!==7)});
+  assert.equal(broken.questions.length,0);
+});

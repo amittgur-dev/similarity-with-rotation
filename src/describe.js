@@ -27,15 +27,17 @@ export const PLAN_SCHEMA={
       frame:{type:"string",enum:["screen","vertex"],description:"screen: sub-shapes keep absolute orientation when the base rotates; vertex: they point outward and co-rotate"},
       subRatio:{type:"number",description:"sub-shape size as a fraction of the base radius, 0.05-0.6 (default 0.18); ignored for textures, whose element size follows the density"},
       arrangement:{type:"string",enum:["vertices","texture"],description:"vertices: one sub-shape on each corner of the base shape; texture: sub-shapes fill the base shape on a square lattice"},
-      density:{type:"integer",description:"texture only: sub-shapes per row across the shape (4-16; 4 for a square is a 4x4 grid). Higher density means more and smaller elements. Use 0 for vertices"}},
+      density:{type:"integer",description:"texture only: elements per side (across, for a circle), 3-16; 4 for a square is a 4x4 grid, 5 for a triangle is 15 elements. Higher density means more and smaller elements. Use 0 for vertices"}},
       required:["key","base","sub","frame","subRatio","arrangement","density"]}},
-    questions:{type:"array",description:"each question: reference A and two comparisons B, C that differ from A only in rotations",items:{type:"object",additionalProperties:false,properties:{
+    questions:{type:"array",description:"each question: reference A and two comparisons B, C (or three: B, C, D) that differ from A only in rotations",items:{type:"object",additionalProperties:false,properties:{
       shape:{type:"string",description:"key of the shape construction"},
       A:{type:"object",additionalProperties:false,properties:{baseRot:{type:"number"},subRot:{type:"number"}},required:["baseRot","subRot"]},
       B:{type:"object",additionalProperties:false,properties:{baseRot:{type:"number"},subRot:{type:"number"}},required:["baseRot","subRot"]},
       C:{type:"object",additionalProperties:false,properties:{baseRot:{type:"number"},subRot:{type:"number"}},required:["baseRot","subRot"]},
+      D:{anyOf:[{type:"object",additionalProperties:false,properties:{baseRot:{type:"number"},subRot:{type:"number"}},required:["baseRot","subRot"]},{type:"null"}],
+         description:"a third comparison, only when the question has three comparisons; null otherwise"},
       note:{type:"string",description:"what this question tests, in a few words"}},
-      required:["shape","A","B","C","note"]}},
+      required:["shape","A","B","C","D","note"]}},
     settings:{type:"object",additionalProperties:false,properties:{
       repeats:{type:"integer"},shuffle:{type:"boolean"},swapSides:{type:"boolean"},fixation:{type:"boolean"}},
       required:["repeats","shuffle","swapSides","fixation"]}
@@ -47,9 +49,9 @@ export const SYSTEM=`You design stimulus sets for a perception experiment on how
 
 Stimuli are configural shapes: a base polygon whose vertices are occupied by sub-shapes (e.g. a square made of diamonds, a hexagon of triangles), drawn black on white. Every object is described by: base shape, its rotation baseRot (degrees), the sub-shape, its orientation subRot (degrees), the sub-shape relative size, and the frame. The frame is the core manipulation: in the "screen" frame sub-shapes keep their absolute orientation when the base configuration rotates; in the "vertex" frame sub-shapes point outward from the center and co-rotate with the base (configural vs elemental rotation).
 
-A similarity question shows a reference A and two comparisons B and C, asking "Is A more similar to B or to C?". B and C must differ from A only in rotations (baseRot and/or subRot). Typical designs: B rotates the whole configuration while C rotates only the sub-shapes (or only the base); B and C use the same magnitude but different components; a magnitude series (15°, 30°, 45°, 60°, 90°); the same relation shown from different reference orientations; the same set in both frames.
+A similarity question shows a reference A and two comparisons B and C, asking "Is A more similar to B or to C?" — or three comparisons B, C and D ("Is A more similar to B, C or D?"); give D only when the request asks for three comparisons or three alternatives, and set it to null otherwise. The comparisons must differ from A only in rotations (baseRot and/or subRot). Typical designs: B rotates the whole configuration while C rotates only the sub-shapes (or only the base); B and C use the same magnitude but different components; a magnitude series (15°, 30°, 45°, 60°, 90°); the same relation shown from different reference orientations; the same set in both frames.
 
-Sub-shapes can also form a texture: they fill the base shape on a square lattice aligned with the screen at baseRot 0, and the whole lattice turns with baseRot. The frame keeps its meaning (screen: elements keep their orientation while the lattice turns; vertex: elements co-rotate with the lattice). Density (elements per row) is a variable of its own; element size shrinks as density grows, and each base shape has a minimum density below which its contour no longer reads (square 4, circle 6, triangle 5, hexagon 5, 5-point star 9). Use textures when the request mentions textures, grids, lattices, fields of elements or density.
+Sub-shapes can also form a texture: they fill the base shape on a square lattice aligned with the screen at baseRot 0, and the whole lattice turns with baseRot. The frame keeps its meaning (screen: elements keep their orientation while the lattice turns; vertex: elements co-rotate with the lattice). The texture draws the contour explicitly (elements along every edge, one on each corner) and fills the inside with a lattice matching the shape (triangular for triangles and hexagons, square for squares). Density is elements per side (across, for a circle), a variable of its own; element size shrinks as density grows. The minimum is 3 per side (5 across a circle); 4-6 per side gives a clear shape. Use textures when the request mentions textures, grids, lattices, fields of elements or density.
 
 Available shape names: ${SHAPE_NAMES.join(", ")}, or "N-gon" (3-24) and "N star" (4-12). Rotations are integers in degrees (0-359). Keep sub-shape relative size at 0.18 unless the request implies otherwise. Produce between 3 and 24 questions unless the request asks for a specific number, and choose an informative experiment name. Reuse one shape construction across questions when the design varies only rotations.`;
 
@@ -117,20 +119,21 @@ export function materializePlan(plan,ctx){
     if(!entry){entry={id:nextId(),def,anchor,baseRot:0,anchorRot:0,frame,anchorRatio:ratio,...(texture?{texture}:{})};tray.push(entry);}
     byKey.set(sh.key,entry);
   });
-  // questions → three objects each, laid out in rows below/right of the origin
+  // questions → three or four objects each, laid out in rows below/right of the origin
   const created=[];
   const s=1, gapX=2*BASE_R*Q_DX*s+BASE_R*2.4*s, gapY=2*BASE_R*Q_DY*s+BASE_R*3.2*s, perRow=3;
   (plan.questions||[]).forEach((pq,k)=>{
     const entry=byKey.get(pq.shape);
     if(!entry){problems.push(`question ${k+1} references unknown shape “${pq.shape}”`);return;}
     const mk=(m)=>({id:nextId(),trayRef:entry,x:0,y:0,scale:s,baseRot:norm(+m.baseRot||0),anchorRot:norm(+m.subRot||0),frame:entry.frame,anchorRatio:entry.anchorRatio,label:null,qId:null,...(entry.texture?{texture:entry.texture}:{})});
-    const A=mk(pq.A||{}),B=mk(pq.B||{}),C=mk(pq.C||{});
-    items.push(A,B,C);
+    const A=mk(pq.A||{}),B=mk(pq.B||{}),C=mk(pq.C||{}),D=pq.D&&typeof pq.D==="object"?mk(pq.D):null;
+    const ms=[A,B,C,...(D?[D]:[])];
+    items.push(...ms);
     const idx=created.length;
-    const q={id:nextId(),title:"",a:A.id,b:B.id,c:C.id,cx:origin.x+(idx%perRow)*gapX,cy:origin.y+Math.floor(idx/perRow)*gapY,s,anchorRatio:entry.anchorRatio};
-    [A,B,C].forEach(it=>it.qId=q.id);
+    const q={id:nextId(),title:"",a:A.id,b:B.id,c:C.id,...(D?{d:D.id}:{}),cx:origin.x+(idx%perRow)*gapX,cy:origin.y+Math.floor(idx/perRow)*gapY,s,anchorRatio:entry.anchorRatio};
+    ms.forEach(it=>it.qId=q.id);
     questions.push(q);
-    q.title=questionTitle(questions.length,A,B,C)+(pq.note?` · ${String(pq.note).trim()}`:"");
+    q.title=questionTitle(questions.length,A,B,C,D)+(pq.note?` · ${String(pq.note).trim()}`:"");
     layoutQuestion(q);
     created.push(q);
   });

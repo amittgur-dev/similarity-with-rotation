@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildRequestBody, parsePlan, materializePlan, PLAN_SCHEMA, MODEL, requestPlanDirect } from "../src/describe.js";
-import { parseShape, norm, BASE_R, Q_DX, Q_DY, textureRatio } from "../src/geometry.js";
+import { parseShape, norm, BASE_R, Q_DX, Q_DY, textureRatio, minTexture } from "../src/geometry.js";
 import { questionTitle } from "../src/variants.js";
 import { newExperiment, nextOrdinal } from "../src/experiment.js";
 import { layoutQuestion } from "../src/questions.js";
@@ -69,10 +69,25 @@ test("materializePlan: textures get a density at or above the minimum and a size
                {shape:"v",A:{baseRot:0,subRot:0},B:{baseRot:0,subRot:45},C:{baseRot:45,subRot:0},note:""}],
     settings:{repeats:1,shuffle:true,swapSides:true,fixation:true}};
   const r=materializePlan(plan,ctx);
-  assert.deepEqual(tray.map(t=>t.texture||0),[6,6,0],"circle density raised to its minimum (6)");
+  assert.deepEqual(tray.map(t=>t.texture||0),[6,minTexture(parseShape("circle")),0],"circle density raised to its minimum");
   assert.ok(Math.abs(tray[0].anchorRatio-textureRatio(parseShape("square"),6))<1e-9);
   const A=items.find(i=>i.id===r.questions[0].a);
   assert.equal(A.texture,6);assert.equal(r.questions[0].anchorRatio,tray[0].anchorRatio);
   assert.ok(r.questions[0].title.includes("square/square texture 6"));
   assert.ok(!("texture" in items.find(i=>i.id===r.questions[2].a)));
+});
+
+test("materializePlan: a question with a third comparison becomes a four-object question", ()=>{
+  const tray=[],items=[],questions=[],experiments=[];let id=1;
+  const ctx={tray,items,questions,experiments,nextId:()=>id++,parseShape,norm,layoutQuestion:q=>layoutQuestion(q,items),questionTitle,newExperiment,nextOrdinal,BASE_R,Q_DX,Q_DY,origin:{x:0,y:0}};
+  const plan={experiment:{name:"three",rationale:""},shapes:[{key:"s",base:"square",sub:"diamond",frame:"screen",subRatio:0.18,arrangement:"vertices",density:0}],
+    questions:[{shape:"s",A:{baseRot:0,subRot:0},B:{baseRot:45,subRot:0},C:{baseRot:0,subRot:45},D:{baseRot:45,subRot:45},note:""},
+               {shape:"s",A:{baseRot:0,subRot:0},B:{baseRot:45,subRot:0},C:{baseRot:0,subRot:45},D:null,note:""}],
+    settings:{repeats:1,shuffle:true,swapSides:true,fixation:true}};
+  const r=materializePlan(plan,ctx);
+  assert.equal(items.length,7);
+  assert.ok(r.questions[0].d!=null&&r.questions[1].d==null);
+  assert.equal(items.find(i=>i.id===r.questions[0].d).label,"D");
+  assert.ok(r.questions[0].title.includes("D(45,45)"));
+  assert.ok(PLAN_SCHEMA.properties.questions.items.required.includes("D"));
 });
