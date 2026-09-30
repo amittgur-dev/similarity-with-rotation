@@ -37,13 +37,14 @@ test("shuffle is deterministic under an injected rng and renumbers trials", ()=>
 test("trial stimulus: same triangle as the canvas, at 1:1 pixels, with labels and no outlines", ()=>{
   const t=buildTrials(EXP,questions,find,{shuffle:false})[0];
   const g=trialGeometry(t);
-  assert.deepEqual(g.positions,{A:[0,-140],B:[-189,140],C:[189,140]});
+  const dy=70*2.6;   // BASE_R × Q_DY: the comparison row sits well below A
+  assert.deepEqual(g.positions,{A:[0,-dy],B:[-189,dy],C:[189,dy]});
   const m=stimulusMarkup(t);
   assert.equal((m.match(/<g data-m=/g)||[]).length,3);
   assert.equal((m.match(/<path/g)||[]).length,12,"4 diamonds × 3 objects");
   assert.ok(!m.includes("stroke"));
   assert.match(m,/>A<\/text>/);assert.match(m,/>B<\/text>/);assert.match(m,/>C<\/text>/);
-  assert.ok(g.viewBox[2]>2*189&&g.viewBox[3]>2*140);
+  assert.ok(g.viewBox[2]>2*189&&g.viewBox[3]>2*dy);
   assert.equal(PROMPT,"Is A more similar to B or C?");
 });
 

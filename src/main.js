@@ -13,7 +13,9 @@ import { initHistory, commit, undo, redo, resetHistory } from "./history.js";
 import { initCalibration, openCalibration } from "./calibrate.js";
 import { initSplitter } from "./splitter.js";
 import { initTour, startTour, tourDone } from "./tour.js";
-import { initExperiment, refreshExpBar, openExpPanel, resetRuns } from "./run.js";
+import { initExperiment, refreshExpBar, openExpPanel, resetRuns, downloadBlob } from "./run.js";
+import { questionTrial, experimentsOf, experimentCode } from "./experiment.js";
+import { questionSheetPdf } from "./pdf.js";
 import { initCloud, openConnections, startParticipant } from "./cloud.js";
 import { initAssist, openDescribe } from "./assist.js";
 import { prolificParams } from "./online.js";
@@ -217,6 +219,18 @@ function exportCanvas(){
   const name=canvasFileName($("canvasName").value);
   downloadJSON(currentData(name),name+".json");
 }
+/* every question on the canvas, in canvas order, as a vector PDF (six per A4 page) */
+function exportPdf(){
+  const entries=questions.map((q,i)=>{
+    const t=questionTrial(q,id=>items.find(it=>it.id===id));
+    return t&&{index:i+1,title:q.title,codes:experimentsOf(q.id,experiments).map(experimentCode).join(" "),trial:t};
+  }).filter(Boolean);
+  if(!entries.length){toast("no questions on this canvas yet");return;}
+  const canvas=$("canvasName").value.trim();
+  const bytes=questionSheetPdf(entries,{canvas,date:new Date().toLocaleDateString(),pxPerMm:calib.pxPerMm,calibrated:calib.calibrated});
+  downloadBlob(`${canvasFileName(canvas)}-questions.pdf`,new Blob([bytes],{type:"application/pdf"}));
+  toast(`${entries.length} question${entries.length===1?"":"s"} · ${Math.ceil(entries.length/6)} page${entries.length>6?"s":""}`);
+}
 async function importCanvasFile(file){
   if(!discardOk())return;
   try{
@@ -230,6 +244,7 @@ async function importCanvasFile(file){
 const actions={
   save:saveCanvas,
   export:exportCanvas,
+  exportPdf,
   import:()=>$("loadFile").click(),
   newCanvas,
   removeCanvas,

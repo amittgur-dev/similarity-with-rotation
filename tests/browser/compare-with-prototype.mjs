@@ -18,6 +18,11 @@ async function run(url,tag){
   page.on("dialog",d=>d.accept());   // the modular app confirms before discarding unsaved edits
   // resource-load failures (e.g. the web font when offline) are not app errors; script errors still surface via pageerror
   page.on("console",m=>{if(m.type()==="error"&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
+  // deliberate layout change since the prototype: the comparison row sits further from A (Q_DY 2.0 → 2.6); apply it to the reference too
+  await page.route(/prototype\/index-v9\.html/,async route=>{
+    const r=await route.fetch();
+    await route.fulfill({response:r,body:(await r.text()).replace("const Q_DX=2.7, Q_DY=2.0;","const Q_DX=2.7, Q_DY=2.6;")});
+  });
   await page.goto(url);
   // native drag of a stray text selection cancels pointer sequences in both versions (see README rough edges)
   await page.evaluate(()=>document.addEventListener("dragstart",e=>e.preventDefault()));
@@ -103,6 +108,8 @@ async function run(url,tag){
   await dragCanvas(560,80,860,700,true);
   await btn("delete all").click();
   // click question title text → selects; ungroup the second question
+  // (scroll the canvas down first: with the taller question layout the title sits under the zoom bar)
+  await page.mouse.move(400,450);await page.mouse.wheel(0,-120);await page.waitForTimeout(100);
   await page.click('text[data-qid="12"]');
   await btn("ungroup").click();
   // pan / zoom / space-pan

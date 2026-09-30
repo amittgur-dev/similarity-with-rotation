@@ -20,8 +20,13 @@ Canvas navigation: drag empty space to move around, scroll to pan,
 ⌘/ctrl+scroll or the +/− buttons to zoom (the percentage resets the view, as does settings → reset view),
 space+drag or the middle button also pan. Click an object to select it,
 **shift-click** further objects to build a multi-selection, or **shift-drag**
-a box; with three ungrouped objects selected press "make similarity
+a box; with three (or four) ungrouped objects selected press "make similarity
 question" to group them.
+
+**pdf** (next to save / export / import) downloads every question on the
+canvas as a vector PDF: six per A4 page, as many pages as needed, all drawn
+at one scale so sizes stay comparable, each with its title and experiment
+codes, and a footer scale bar showing 10 mm of the calibrated on-screen size.
 
 The console on the right can be resized by dragging the thin splitter on
 its left edge; clicking the splitter (or dragging it all the way right)
@@ -47,6 +52,7 @@ reference — see *Verification* below).
 | `src/xlsx.js` | **pure** .xlsx writer (inline strings) for results and manifests |
 | `src/history.js` | **pure** undo/redo over injected snapshot/restore |
 | `src/stimexport.js`, `src/zip.js` | stimulus export (SVG + PNG + manifest) and a **pure** store-only zip writer |
+| `src/pdf.js` | **pure** minimal PDF writer and the question sheet: every question on the canvas as vector graphics, six per A4 page, one scale for all (the *pdf* button) |
 | `src/online.js`, `src/cloud.js` | **pure** Supabase REST client (publishing, sessions, trials, results) and its page wiring: connections dialog, publish, results, the participant flow |
 | `src/describe.js`, `src/assist.js` | **pure** "describe the experiment you want" request/plan/materialise, and its dialog |
 | `server/supabase/` | the database schema + policies and the Edge Function that holds the Anthropic key (see its README) |

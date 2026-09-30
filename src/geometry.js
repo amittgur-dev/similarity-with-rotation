@@ -2,7 +2,7 @@
    No DOM, no state — everything here is unit-testable. */
 
 export const BASE_R = 70;
-export const Q_DX = 2.7, Q_DY = 2.0;   // question layout constants (× BASE_R × s)
+export const Q_DX = 2.7, Q_DY = 2.6;   // question layout constants (× BASE_R × s); Q_DY was 2.0 — the comparisons now sit further below A
 export const DEFAULT_RATIO = 0.18;
 
 /* ================= parser ================= */
@@ -252,29 +252,29 @@ export function anchorOrientation(v,frame,anchorRot){
    a lattice of sub-shapes instead. The frame keeps its meaning: screen,
    the elements hold their absolute orientation while the lattice turns;
    vertex, they co-rotate with it (orientation baseRot + anchorRot). */
-export function shapeMarkup(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorRatio=DEFAULT_RATIO,texture=0){
-  const out=[];
+/* The drawing of one object as primitives, shared by the SVG renderer and
+   the PDF export so the two cannot differ:
+   {circle:[cx,cy], r} | {poly:[[x,y]…]} with an optional placement
+   {at:[x,y], rot} (the polygon is drawn rotated by rot, then moved to at). */
+export function shapePrimitives(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorRatio=DEFAULT_RATIO,texture=0){
   const hasAnchors=anchor&&!anchor.none;
   if(!hasAnchors){
-    if(def.circle){
-      out.push(`<circle cx="0" cy="0" r="${r}" fill="#111"/>`);
-    }else{
-      const pts=def.star?starPts(def.star,r).map(p=>rotPt(p,baseRot))
-                        :polyPts(def.n,r,(def.offset||0)+baseRot);
-      out.push(`<path d="${pathD(pts)}" fill="#111"/>`);
-    }
-    return out.join("");
+    if(def.circle)return [{circle:[0,0],r}];
+    return [{poly:def.star?starPts(def.star,r).map(p=>rotPt(p,baseRot)):polyPts(def.n,r,(def.offset||0)+baseRot)}];
   }
   const sr=r*anchorRatio;
   const verts=texture?texturePoints(def,r,texture,baseRot):baseVerts(def,r,baseRot);
-  verts.forEach(v=>{
+  const spts=anchor.circle?null:(anchor.star?starPts(anchor.star,sr):polyPts(anchor.n,sr,anchor.offset||0));
+  return verts.map(v=>{
     const rot=texture?(frame==="vertex"?baseRot+anchorRot:anchorRot):anchorOrientation(v,frame,anchorRot);
-    if(anchor.circle){
-      out.push(`<circle cx="${v[0].toFixed(2)}" cy="${v[1].toFixed(2)}" r="${sr}" fill="#111"/>`);
-    }else{
-      const spts=anchor.star?starPts(anchor.star,sr):polyPts(anchor.n,sr,anchor.offset||0);
-      out.push(`<path d="${pathD(spts)}" fill="#111" transform="translate(${v[0].toFixed(2)},${v[1].toFixed(2)}) rotate(${rot.toFixed(1)})"/>`);
-    }
+    return anchor.circle?{circle:v,r:sr,sub:true}:{poly:spts,at:v,rot};
   });
-  return out.join("");
+}
+export function shapeMarkup(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorRatio=DEFAULT_RATIO,texture=0){
+  return shapePrimitives(def,r,anchor,frame,baseRot,anchorRot,anchorRatio,texture).map(p=>{
+    if(p.circle)return p.sub?`<circle cx="${p.circle[0].toFixed(2)}" cy="${p.circle[1].toFixed(2)}" r="${p.r}" fill="#111"/>`
+                            :`<circle cx="0" cy="0" r="${p.r}" fill="#111"/>`;
+    return p.at?`<path d="${pathD(p.poly)}" fill="#111" transform="translate(${p.at[0].toFixed(2)},${p.at[1].toFixed(2)}) rotate(${p.rot.toFixed(1)})"/>`
+               :`<path d="${pathD(p.poly)}" fill="#111"/>`;
+  }).join("");
 }
