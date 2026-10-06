@@ -2,14 +2,14 @@
    drawn in a trial (from the same objects as the canvas — no duplicate
    model) and the CSV record. Pure; no DOM. */
 
-import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup } from "./geometry.js";
+import { BASE_R, DEFAULT_RATIO, LABEL_GAP, shapeMarkup, questionLayout } from "./geometry.js";
 
 export const PROMPT="Is A more similar to B or C?";
 export const PROMPT4="Is A more similar to B, C or D?";
 /* a trial's comparison labels, and its prompt */
 export const comparisons=t=>t.D?["B","C","D"]:["B","C"];
 export const promptFor=t=>t.D?PROMPT4:PROMPT;
-export const LABEL_GAP=1.55;   // same as the canvas
+export { LABEL_GAP };   // the same as the canvas (geometry.js)
 
 /* ---- experiments: named subsets of a canvas's questions with their own run settings ---- */
 export const DEFAULT_SETTINGS={repeats:1,shuffle:true,swapSides:true,fixation:true,fullscreen:true};
@@ -119,16 +119,16 @@ export function publishedDefinition(exp,questions,findItem,{canvas="",instructio
 }
 
 /* geometry of one trial at 1:1 canvas pixels (zoom 100%), so the calibrated
-   on-screen size is exactly what the panels report */
+   on-screen size is exactly what the panels report; the layout is
+   geometry.questionLayout, the same as on the canvas */
 export function trialGeometry(t){
-  const s=t.s, dx=BASE_R*Q_DX*s, dy=BASE_R*Q_DY*s;
-  const padX=BASE_R*1.4*s, top=BASE_R*1.3*s, labelY=BASE_R*LABEL_GAP*s+24;
-  return {
-    dx,dy,
-    positions:t.D?{A:[0,-dy],B:[-dx,dy],C:[0,dy],D:[dx,dy]}:{A:[0,-dy],B:[-dx,dy],C:[dx,dy]},
-    viewBox:[-(dx+padX),-(dy+top),2*(dx+padX),2*dy+top+labelY+10],
-    labelY
-  };
+  const s=t.s, labels=["A",...comparisons(t)];
+  const L=questionLayout(labels.map(k=>({def:t[k].def,anchor:t[k].anchor,ratio:t[k].anchorRatio,texture:t[k].texture||0})),s);
+  const labelY=BASE_R*LABEL_GAP*s+24, pad=L.radius+BASE_R*0.2*s;
+  const positions={};labels.forEach((k,i)=>{positions[k]=L.positions[i];});
+  const xs=L.positions.map(p=>p[0]), ys=L.positions.map(p=>p[1]);
+  const x0=Math.min(...xs)-pad, x1=Math.max(...xs)+pad, y0=Math.min(...ys)-pad, y1=Math.max(...ys)+labelY+10;
+  return {D:L.D,gap:L.gap,radius:L.radius,positions,viewBox:[x0,y0,x1-x0,y1-y0],labelY};
 }
 export function stimulusMarkup(t){
   const g=trialGeometry(t);

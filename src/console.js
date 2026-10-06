@@ -8,7 +8,7 @@ import { $, escapeXML } from "./dom.js";
 import { calib, pxToMm, visualAngleDeg, formatDeg } from "./calibration.js";
 import { commit, commitSoon } from "./history.js";
 import { renderCanvas } from "./canvas.js";
-import { layoutQuestion, renderQStruct, regenerateTitle, memberIds, LABELS } from "./questions.js";
+import { layoutQuestion, renderQStruct, regenerateTitle, memberIds, LABELS, questionGeometry } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
 import { syncExpChips, refreshExpBar } from "./run.js";
 
@@ -422,13 +422,25 @@ export function updateMmReadouts(){
     return {w:bb.width*it.scale*view.z,h:bb.height*it.scale*view.z};
   };
   document.querySelectorAll(".mmReadout").forEach(el=>{
-    let f=null, suffix="";
+    let f=null, suffix="", gapTitle="";
     if(el.dataset.item)f=figure(parseInt(el.dataset.item));
-    else if(el.id==="qMm"){const q=findQuestion(sel.qId);if(q)f=figure(q.a);}
+    else if(el.id==="qMm"){
+      const q=findQuestion(sel.qId);
+      if(q){
+        f=figure(q.a);
+        // as presented (1:1): every comparison the same distance from A; beyond ~10° some comparisons get harder
+        const L=questionGeometry(q);
+        if(L){
+          const mm=pxToMm(L.D), deg=visualAngleDeg(mm);
+          suffix=` · in runs, centres ${mm.toFixed(0)} mm (${formatDeg(deg)}) apart${deg>10?" — over 10°, consider a smaller size":""}`;
+          gapTitle=`. In runs (drawn at 1:1, whatever the canvas zoom) every comparison is ${mm.toFixed(1)} mm from A, with at least one figure width of clear space between neighbours`;
+        }
+      }
+    }
     if(!f){el.textContent="";return;}
     const wmm=pxToMm(f.w), hmm=pxToMm(f.h);
     el.textContent=`${wmm.toFixed(1)} × ${hmm.toFixed(1)} mm · ${formatDeg(visualAngleDeg(wmm))} × ${formatDeg(visualAngleDeg(hmm))}`+suffix+(calib.calibrated?"":" · uncalibrated");
-    el.title=`width × height of the drawn figure on screen, in mm and in degrees of visual angle at ${calib.distanceCm} cm`;
+    el.title=`width × height of the drawn figure on screen, in mm and in degrees of visual angle at ${calib.distanceCm} cm`+gapTitle;
     el.classList.toggle("uncal",!calib.calibrated);
   });
 }

@@ -1,17 +1,16 @@
 /* The SVG canvas: rendering of items/questions/selection and all pointer,
    wheel and keyboard interaction. */
 
-import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO, shapeMarkup, norm } from "./geometry.js";
+import { BASE_R, DEFAULT_RATIO, LABEL_GAP, shapeMarkup, norm } from "./geometry.js";
 import { items, questions, experiments, sel, view, findItem, findQuestion, findExperiment } from "./state.js";
 import { experimentsOf, experimentCode, isMember } from "./experiment.js";
 import { toggleMembership, refreshExpBar } from "./run.js";
 import { $, escapeXML } from "./dom.js";
 import { openSelPanel, openQPanel, openMultiPanel, deselect, deleteSelected, deleteMulti, duplicateSelected, syncSelPanelNumbers, updateMmReadouts } from "./console.js";
 import { calib, pxToMm, formatMm } from "./calibration.js";
-import { layoutQuestion, deleteQuestion } from "./questions.js";
+import { layoutQuestion, deleteQuestion, questionFrame } from "./questions.js";
 import { commit, commitSoon } from "./history.js";
 
-const LABEL_GAP=1.55;   // label distance below an object center, × BASE_R × scale
 
 let svg=null;
 let rubber=null; // {x0,y0,x1,y1} world coords
@@ -82,8 +81,9 @@ export function renderCanvas(){
          `${faded.has(q.id)?' class="lensOut"':""} style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${box}${escapeXML(q.title)}`+
          (codes?`<tspan fill="#6b6b6b" font-size="12"> ${codes}</tspan>`:"")+`</text>`;
     if(selQ||q.id===hoverQ){
-      const dx=BASE_R*Q_DX*q.s+BASE_R*1.4*q.s, dy=BASE_R*Q_DY*q.s+BASE_R*LABEL_GAP*q.s+30;
-      out+=`<rect x="${q.cx-dx}" y="${q.cy-dy-14}" width="${2*dx}" height="${2*dy+14}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;
+      // frame: the members' extent (shared presentation layout) with the title above and the labels below
+      const f=questionFrame(q);
+      if(f)out+=`<rect x="${f.x0}" y="${f.y0}" width="${f.x1-f.x0}" height="${f.y1-f.y0}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;
     }
   });
   items.forEach(it=>{

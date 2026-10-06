@@ -69,6 +69,7 @@
       <button data-action="export" title="download as a .json file">export</button>
       <button data-action="import" title="load a .json file">import</button>
       <button data-action="exportPdf" title="all questions on this canvas as a PDF — vector, six per A4 page, one scale for all">pdf</button>
+      <button data-action="exportImages" title="every stimulus on the canvas as its own image — all the same fixed size and scale — in a zip">images</button>
       <input type="file" id="loadFile" accept=".json" style="display:none">
     </div>
     <input type="text" id="canvasName" placeholder="untitled canvas" autocomplete="off">
@@ -313,6 +314,23 @@
     <label class="field"><span>Prolific completion URL</span><input type="text" id="pubUrl" placeholder="https://app.prolific.com/submissions/complete?cc=XXXXXXXX" autocomplete="off" spellcheck="false"></label>
     <label class="field"><span>or just the completion code</span><input type="text" id="pubCode" placeholder="XXXXXXXX" autocomplete="off" spellcheck="false"></label>
     <div class="modalRow"><span class="note" id="pubStatus"></span><button class="ghost" id="pubCancel">cancel</button><button id="pubGo">publish</button></div>
+  </div>
+</div>
+
+<!-- stimulus images: one fixed-size image per stimulus -->
+<div id="imagesDlg" class="modal" hidden>
+  <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="imgTitle">
+    <div class="modalHead"><span class="kicker">Export stimulus images</span></div>
+    <h2 id="imgTitle">One image per stimulus, all the same size</h2>
+    <p class="modalText" id="imgSummary"></p>
+    <label class="field"><span>image size · pixels, square</span><input type="number" id="imgSize" step="1"></label>
+    <label class="check"><input type="radio" name="imgMode" value="fit"> one scale for all images: the largest stimulus fills the image at any rotation (8% margin)</label>
+    <label class="check"><input type="radio" name="imgMode" value="fixed"><span>a fixed scale of <input type="number" id="imgScale" min="0.05" max="40" step="0.05" class="inlineNum"> image pixels per canvas pixel</span></label>
+    <label class="check"><input type="checkbox" id="imgUnique"> one image per distinct stimulus (identical figures share a file)</label>
+    <label class="check"><input type="checkbox" id="imgSvg"> also include each image as SVG (vector, same size)</label>
+    <p class="modalText note">Each figure is centred on its rotation centre, so rotated versions line up. The zip also holds a manifest (CSV and XLSX) with every parameter, the figure size in pixels and mm, and the questions that use each image.</p>
+    <div class="err" id="imgWarn"></div>
+    <div class="modalRow"><span class="note" id="imgStatus"></span><button class="ghost" id="imgCancel">cancel</button><button id="imgGo">export zip</button></div>
   </div>
 </div>
 

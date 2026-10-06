@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildRequestBody, parsePlan, materializePlan, PLAN_SCHEMA, MODEL, requestPlanDirect } from "../src/describe.js";
-import { parseShape, norm, BASE_R, Q_DX, Q_DY, textureRatio, minTexture } from "../src/geometry.js";
+import { parseShape, norm, BASE_R, textureRatio, minTexture, questionLayout, questionStep } from "../src/geometry.js";
 import { questionTitle } from "../src/variants.js";
 import { newExperiment, nextOrdinal } from "../src/experiment.js";
 import { layoutQuestion } from "../src/questions.js";
@@ -35,7 +35,7 @@ test("direct call: headers and error surfacing", async ()=>{
 
 test("materializePlan: shapes dedupe, questions laid out, experiment created, problems reported", ()=>{
   const tray=[],items=[],questions=[],experiments=[];let id=1;
-  const ctx={tray,items,questions,experiments,nextId:()=>id++,parseShape,norm,layoutQuestion:q=>layoutQuestion(q,items),questionTitle,newExperiment,nextOrdinal,BASE_R,Q_DX,Q_DY,origin:{x:100,y:200}};
+  const ctx={tray,items,questions,experiments,nextId:()=>id++,parseShape,norm,layoutQuestion:q=>layoutQuestion(q,items),questionTitle,newExperiment,nextOrdinal,BASE_R,origin:{x:100,y:200}};
   const plan={experiment:{name:"frame test",rationale:"why"},
     shapes:[{key:"sq",base:"square",sub:"diamond",frame:"screen",subRatio:0.18},{key:"sq2",base:"square",sub:"diamond",frame:"screen",subRatio:0.18},
             {key:"hx",base:"hexagon",sub:"none",frame:"vertex",subRatio:0.18},{key:"bad",base:"blob",sub:"diamond",frame:"screen",subRatio:0.18}],
@@ -52,14 +52,16 @@ test("materializePlan: shapes dedupe, questions laid out, experiment created, pr
   assert.deepEqual(r.experiment.settings,{repeats:2,shuffle:false,swapSides:true,fixation:false,fullscreen:true});
   assert.ok(r.questions[0].title.startsWith("Q1 · square/diamond · A(0,0) B(45,45) C(0,45) · whole vs subs"));
   assert.equal(items.find(i=>i.id===r.questions[1].b).baseRot,40,"rotations normalised");
-  assert.equal(r.questions[0].cx,100);assert.equal(r.questions[1].cx,100+2*BASE_R*Q_DX+BASE_R*2.4);
+  const lay=(base,sub)=>questionLayout([0,1,2].map(()=>({def:parseShape(base),anchor:sub==="none"?{none:true}:parseShape(sub),ratio:0.18,texture:0})),1);
+  const cellW=Math.max(questionStep(lay("square","diamond")),questionStep(lay("hexagon","none")));
+  assert.equal(r.questions[0].cx,100);assert.equal(r.questions[1].cx,100+cellW,"cells fit the widest question plus clear space");
   assert.equal(r.questions[2].cy,200,"three per row");
   assert.ok(items.every(i=>i.qId!=null&&i.label));
 });
 
 test("materializePlan: textures get a density at or above the minimum and a size that follows it", ()=>{
   const tray=[],items=[],questions=[],experiments=[];let id=1;
-  const ctx={tray,items,questions,experiments,nextId:()=>id++,parseShape,norm,layoutQuestion:q=>layoutQuestion(q,items),questionTitle,newExperiment,nextOrdinal,BASE_R,Q_DX,Q_DY,origin:{x:0,y:0}};
+  const ctx={tray,items,questions,experiments,nextId:()=>id++,parseShape,norm,layoutQuestion:q=>layoutQuestion(q,items),questionTitle,newExperiment,nextOrdinal,BASE_R,origin:{x:0,y:0}};
   const plan={experiment:{name:"texture",rationale:""},
     shapes:[{key:"t",base:"square",sub:"square",frame:"screen",subRatio:0.18,arrangement:"texture",density:6},
             {key:"c",base:"circle",sub:"square",frame:"vertex",subRatio:0.18,arrangement:"texture",density:2},
@@ -79,7 +81,7 @@ test("materializePlan: textures get a density at or above the minimum and a size
 
 test("materializePlan: a question with a third comparison becomes a four-object question", ()=>{
   const tray=[],items=[],questions=[],experiments=[];let id=1;
-  const ctx={tray,items,questions,experiments,nextId:()=>id++,parseShape,norm,layoutQuestion:q=>layoutQuestion(q,items),questionTitle,newExperiment,nextOrdinal,BASE_R,Q_DX,Q_DY,origin:{x:0,y:0}};
+  const ctx={tray,items,questions,experiments,nextId:()=>id++,parseShape,norm,layoutQuestion:q=>layoutQuestion(q,items),questionTitle,newExperiment,nextOrdinal,BASE_R,origin:{x:0,y:0}};
   const plan={experiment:{name:"three",rationale:""},shapes:[{key:"s",base:"square",sub:"diamond",frame:"screen",subRatio:0.18,arrangement:"vertices",density:0}],
     questions:[{shape:"s",A:{baseRot:0,subRot:0},B:{baseRot:45,subRot:0},C:{baseRot:0,subRot:45},D:{baseRot:45,subRot:45},note:""},
                {shape:"s",A:{baseRot:0,subRot:0},B:{baseRot:45,subRot:0},C:{baseRot:0,subRot:45},D:null,note:""}],

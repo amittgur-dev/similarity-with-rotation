@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { serializeCanvas, deserializeCanvas, canvasFileName, SAVE_VERSION } from "../src/io.js";
-import { layoutQuestion } from "../src/questions.js";
-import { BASE_R, Q_DX, Q_DY } from "../src/geometry.js";
+import { layoutQuestion, questionFrame, separateQuestions } from "../src/questions.js";
+import { BASE_R, questionLayout } from "../src/geometry.js";
 
 const SQ={n:4,offset:45,name:"square"}, DI={n:4,name:"diamond"};
 
@@ -95,10 +95,11 @@ test("layoutQuestion enforces the rigid triangle, shared size and ratio, and lab
   const list=[mk(1),mk(2),mk(3)];
   const q={a:1,b:2,c:3,cx:100,cy:50,s:0.5,anchorRatio:0.2};
   layoutQuestion(q,list);
-  const dx=BASE_R*Q_DX*0.5, dy=BASE_R*Q_DY*0.5;
-  assert.deepEqual([list[0].x,list[0].y],[100,50-dy]);
-  assert.deepEqual([list[1].x,list[1].y],[100-dx,50+dy]);
-  assert.deepEqual([list[2].x,list[2].y],[100+dx,50+dy]);
+  const L=questionLayout(list.map(()=>({def:SQ,anchor:DI,ratio:0.2,texture:0})),0.5);
+  list.forEach((m,i)=>assert.deepEqual([m.x,m.y],[100+L.positions[i][0],50+L.positions[i][1]]));
+  const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  assert.ok(Math.abs(d(list[0],list[1])-d(list[0],list[2]))<1e-9&&Math.abs(d(list[1],list[2])-L.D)<1e-9,"equilateral: every pair the same distance");
+  assert.ok(list[0].y<list[1].y&&list[1].x<list[0].x&&list[2].x>list[0].x,"A on top, B left, C right");
   assert.deepEqual(list.map(i=>i.scale),[0.5,0.5,0.5]);
   assert.deepEqual(list.map(i=>i.anchorRatio),[0.2,0.2,0.2]);
   assert.deepEqual(list.map(i=>i.label),["A","B","C"]);
@@ -106,6 +107,22 @@ test("layoutQuestion enforces the rigid triangle, shared size and ratio, and lab
   const lone=[mk(1)];
   layoutQuestion(q,lone);
   assert.equal(lone[0].x,999);
+});
+
+test("opening a canvas moves overlapping questions apart, left to right; the rest stay put", ()=>{
+  const ref={id:1,def:SQ,anchor:DI};
+  const list=[1,2,3,4,5,6,7,8,9,10,11].map(id=>({id,trayRef:ref,x:0,y:0,scale:1,anchorRatio:0.18,label:null}));
+  // two three-comparison questions 500 px apart overlap at the current spacing; a third sits well below
+  const qs=[{id:21,a:1,b:2,c:3,d:4,cx:900,cy:300,s:1},{id:20,a:5,b:6,c:7,d:8,cx:400,cy:300,s:1},{id:22,a:9,b:10,c:11,cx:400,cy:1400,s:1}];
+  qs.forEach(q=>layoutQuestion(q,list));
+  const ov=(f,g)=>f.x0<g.x1&&f.x1>g.x0&&f.y0<g.y1&&f.y1>g.y0;
+  assert.ok(ov(questionFrame(qs[0],list),questionFrame(qs[1],list)),"they start out overlapping");
+  assert.equal(separateQuestions(qs,list),1);
+  assert.equal(qs[1].cx,400,"the leftmost stays");assert.equal(qs[2].cx,400,"no overlap, no move");
+  const [f0,f1]=[questionFrame(qs[0],list),questionFrame(qs[1],list)];
+  assert.ok(Math.abs(f0.x0-(f1.x1+BASE_R))<1e-9,"cleared by a figure radius of space, no further");
+  assert.equal(list[0].x,qs[0].cx,"members follow their question");
+  assert.equal(separateQuestions(qs,list),0,"nothing left to move");
 });
 
 test("canvasFileName", ()=>{
@@ -137,8 +154,12 @@ test("a question with three comparisons round-trips; plain questions carry no d"
   layoutQuestion(back.questions[0],back.items);
   const byId=id=>back.items.find(i=>i.id===id);
   assert.deepEqual([3,4,5,7].map(id=>byId(id).label),["A","B","C","D"]);
-  const q=back.questions[0], dx=BASE_R*Q_DX*q.s;
-  assert.deepEqual([byId(4).x,byId(5).x,byId(7).x],[q.cx-dx,q.cx,q.cx+dx],"B left, C centre, D right");
+  const q=back.questions[0], A=byId(3), cmp=[4,5,7].map(byId);
+  const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const D=d(A,cmp[0]);
+  assert.ok(cmp.every(m=>Math.abs(d(A,m)-D)<1e-9),"every comparison the same distance from A");
+  assert.ok(Math.abs(d(cmp[0],cmp[1])-D)<1e-9&&Math.abs(d(cmp[1],cmp[2])-D)<1e-9,"neighbouring comparisons that distance apart");
+  assert.ok(cmp[0].x<cmp[1].x&&cmp[1].x<cmp[2].x&&cmp[1].x===q.cx&&cmp.every(m=>m.y>A.y),"B left, C centre, D right, all below A");
   assert.equal(byId(3).x,q.cx);
   // a missing D drops the question like any other missing member
   const broken=deserializeCanvas({...JSON.parse(JSON.stringify(data)),items:data.items.filter(i=>i.id!==7)});

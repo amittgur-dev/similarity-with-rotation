@@ -506,3 +506,9 @@ body.participantRun #runQuit{display:none}
 .spec .seg[data-f="arrange"]{margin-top:2px}
 
 #runChoice button[hidden]{display:none}
+
+/* ---- save row: room for pdf / images; stimulus images dialog ---- */
+#saveRow .saveBtns{flex-wrap:wrap}
+.modalCard input.inlineNum{width:64px;border:none;border-bottom:1px solid var(--faint);font-family:var(--mono);font-size:0.8rem;text-align:right;outline:none;background:transparent;margin:0 4px}
+.modalCard input.inlineNum:disabled{color:#9a9a9a;border-bottom-style:dotted}
+.modalCard .modalText.note{color:#6f6f6f;font-size:0.72rem}

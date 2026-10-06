@@ -2,8 +2,8 @@
    No DOM, no state — everything here is unit-testable. */
 
 export const BASE_R = 70;
-export const Q_DX = 2.7, Q_DY = 2.6;   // question layout constants (× BASE_R × s); Q_DY was 2.0 — the comparisons now sit further below A
 export const DEFAULT_RATIO = 0.18;
+export const LABEL_GAP = 1.55;   // A/B/C label distance below an object centre, × BASE_R × scale (canvas, runs, exports)
 
 /* ================= parser ================= */
 export const NAMES = {
@@ -242,6 +242,83 @@ export function defaultTexture(def){
 /* how many sub-shapes a construction has */
 export function subCount(def,texture=0){
   return texture?texturePoints(def,BASE_R,texture).length:vertCount(def);
+}
+
+/* ================= presenting a question =================
+   One layout for the canvas, pilot runs, participant runs, the PDF and every
+   stimulus export, so what is designed is exactly what is shown.
+
+   1. Every comparison is the same distance D from the reference A: spatial
+      distance itself changes similarity judgements (Casasanto 2008: in
+      perceptual judgements, stimuli shown closer together were rated less
+      similar), so no comparison may sit closer to A than another.
+      · two comparisons: A, B, C form an equilateral triangle (A on top)
+      · three comparisons: B, C, D lie on an arc around A at −60°, 0°, +60°
+        (three consecutive corners of a hexagon centred on A), so they are
+        also D from their neighbours
+   2. The empty gap between neighbouring figures is GAP_FIGURE figure
+      diameters, so neighbours are always spaced by at least twice Bouma's
+      critical spacing (half the eccentricity; Pelli & Tillman 2008) from
+      whichever figure is fixated, and
+   3. at least GAP_GROUPING × the largest spacing between elements inside a
+      figure, so each figure's elements group with each other and not with a
+      neighbour's (grouping by proximity follows relative distance; Kubovy,
+      Holcombe & Wagemans 1998).
+   4. Figures keep their size; the spacing scales with them. The extents are
+      rotation-invariant bounds, so rotating members never moves them. */
+export const GAP_FIGURE=1, GAP_GROUPING=1.5;
+const extentCache=new Map();
+/* a figure's extent at r = 1: radius bounds every orientation; spacing is
+   the largest distance from an element to its nearest neighbour */
+export function figureExtent(def,anchor,ratio=DEFAULT_RATIO,texture=0){
+  const key=JSON.stringify([def,anchor,+ratio||DEFAULT_RATIO,texture||0]);
+  if(extentCache.has(key))return extentCache.get(key);
+  let out;
+  if(!anchor||anchor.none)out={radius:1,spacing:0};
+  else{
+    const pts=texture?texturePoints(def,1,texture):baseVerts(def,1,0);
+    const radius=Math.max(...pts.map(p=>Math.hypot(p[0],p[1])))+(+ratio||DEFAULT_RATIO);
+    let spacing=0;
+    for(let i=0;i<pts.length;i++){
+      let nn=Infinity;
+      for(let j=0;j<pts.length;j++)if(j!==i)nn=Math.min(nn,Math.hypot(pts[i][0]-pts[j][0],pts[i][1]-pts[j][1]));
+      if(nn<Infinity)spacing=Math.max(spacing,nn);
+    }
+    out={radius,spacing};
+  }
+  extentCache.set(key,out);
+  return out;
+}
+/* members: [{def, anchor, ratio, texture}] with A first, then 2 or 3
+   comparisons; s: the question's scale. Positions are relative to the
+   question centre (canvas pixels). */
+export function questionLayout(members,s=1){
+  const ext=members.map(m=>figureExtent(m.def,m.anchor,m.ratio,m.texture));
+  const radius=Math.max(...ext.map(e=>e.radius))*BASE_R*s;
+  const spacing=Math.max(...ext.map(e=>e.spacing))*BASE_R*s;
+  const gap=Math.max(GAP_FIGURE*2*radius,GAP_GROUPING*spacing);
+  const D=2*radius+gap;
+  const positions=members.length>=4
+    ?[[0,-D/2],[-D*Math.sqrt(3)/2,0],[0,D/2],[D*Math.sqrt(3)/2,0]]
+    :[[0,-D*Math.sqrt(3)/4],[-D/2,D*Math.sqrt(3)/4],[D/2,D*Math.sqrt(3)/4]];
+  const xs=positions.map(p=>p[0]), ys=positions.map(p=>p[1]);
+  return {positions,D,gap,radius,
+          bounds:{x0:Math.min(...xs)-radius,x1:Math.max(...xs)+radius,y0:Math.min(...ys)-radius,y1:Math.max(...ys)+radius}};
+}
+/* how far to the right the next question goes (group variations): the
+   question's width plus one figure diameter of clear space */
+export function questionStep(layout){
+  return layout.bounds.x1-layout.bounds.x0+2*layout.radius;
+}
+/* exact bounding box of drawn primitives (for image exports) */
+export function primitivesBBox(prims){
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  const add=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);};
+  for(const p of prims){
+    if(p.circle){add(p.circle[0]-p.r,p.circle[1]-p.r);add(p.circle[0]+p.r,p.circle[1]+p.r);}
+    else p.poly.forEach(q=>{const r=p.at?rotPt(q,p.rot):q;add(r[0]+(p.at?p.at[0]:0),r[1]+(p.at?p.at[1]:0));});
+  }
+  return {x0,y0,x1,y1,w:x1-x0,h:y1-y0};
 }
 
 /* Orientation of the sub-shape sitting on vertex v.

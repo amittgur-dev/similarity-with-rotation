@@ -1,7 +1,7 @@
 /* Similarity questions: grouping three or four objects, the rigid layout, and the
    two group variations. */
 
-import { BASE_R, Q_DX, Q_DY, DEFAULT_RATIO } from "./geometry.js";
+import { BASE_R, DEFAULT_RATIO, LABEL_GAP, questionLayout, questionStep } from "./geometry.js";
 import { assignABC, relationOf, describeRel, applyRelation, turnWhole, questionTitle } from "./variants.js";
 import { items, questions, experiments, sel, ui, nextId, findItem, findQuestion, removeItem } from "./state.js";
 import { removeQuestionEverywhere } from "./experiment.js";
@@ -16,21 +16,53 @@ export const LABELS=["A","B","C","D"];
 export function memberIds(q){return [q.a,q.b,q.c,...(q.d!=null?[q.d]:[])];}
 export function members(q,list=items){return memberIds(q).map(id=>list.find(i=>i.id===id));}
 
-/* Invariants: A top-center, the comparisons on one row below it (B left,
-   C right; with three comparisons B left, C centre, D right), one scale
-   and one sub-shape relative size for all members, labels A/B/C(/D).
-   Re-applied on every layout pass, so the group always wins. */
+/* Invariants: the presentation layout of geometry.questionLayout (A on top,
+   every comparison the same distance from A, gaps scaled to the figures),
+   one scale and one sub-shape relative size for all members, labels
+   A/B/C(/D). Re-applied on every layout pass, so the group always wins. */
+export function memberSpec(m){
+  return {def:m.trayRef.def,anchor:m.trayRef.anchor,ratio:m.anchorRatio||DEFAULT_RATIO,texture:m.texture||0};
+}
+export function questionGeometry(q,list=items){
+  const ms=members(q,list);
+  if(ms.some(m=>!m))return null;
+  return questionLayout(ms.map(m=>({...memberSpec(m),ratio:q.anchorRatio||m.anchorRatio||DEFAULT_RATIO})),q.s);
+}
 export function layoutQuestion(q,list=items){
   const ms=members(q,list);
   if(ms.some(m=>!m))return;
-  const dx=BASE_R*Q_DX*q.s, dy=BASE_R*Q_DY*q.s;
-  const xs=ms.length===4?[0,-dx,0,dx]:[0,-dx,dx];
+  ms.forEach(m=>{m.scale=q.s;if(q.anchorRatio)m.anchorRatio=q.anchorRatio;});
+  const L=questionLayout(ms.map(memberSpec),q.s);
   ms.forEach((m,i)=>{
-    m.scale=q.s;
-    if(q.anchorRatio)m.anchorRatio=q.anchorRatio;
-    m.x=q.cx+xs[i];m.y=i?q.cy+dy:q.cy-dy;
+    m.x=q.cx+L.positions[i][0];m.y=q.cy+L.positions[i][1];
     m.label=LABELS[i];
   });
+}
+/* The space a question takes on the canvas — its members, the title above
+   and the labels below — in canvas coordinates (the selection frame). */
+export function questionFrame(q,list=items){
+  const L=questionGeometry(q,list);
+  if(!L)return null;
+  const pad=BASE_R*0.2*q.s, titleY=q.cy+L.positions[0][1]-BASE_R*1.25*q.s-26;
+  return {x0:q.cx+L.bounds.x0-pad,x1:q.cx+L.bounds.x1+pad,
+          y0:titleY-18,y1:q.cy+L.bounds.y1-L.radius+BASE_R*LABEL_GAP*q.s+34};
+}
+/* When a canvas is opened, questions whose frames overlap (three-comparison
+   questions placed for the earlier, narrower row, say) are moved apart: left
+   to right, each moves right just far enough to clear the ones before it,
+   plus a figure radius of space. Questions that do not overlap stay put.
+   Returns how many moved. */
+export function separateQuestions(qs=questions,list=items){
+  const placed=[];let moved=0;
+  for(const q of [...qs].sort((a,b)=>a.cx-b.cx||a.cy-b.cy)){
+    let f=questionFrame(q,list);
+    if(!f)continue;
+    let shift=0, hit;
+    while((hit=placed.find(p=>f.x0+shift<p.x1&&f.x1+shift>p.x0&&f.y0<p.y1&&f.y1>p.y0)))shift=hit.x1+BASE_R*q.s-f.x0;
+    if(shift>0){q.cx+=shift;layoutQuestion(q,list);f=questionFrame(q,list);moved++;}
+    placed.push(f);
+  }
+  return moved;
 }
 
 export function qDefaultTitle(A,B,C,D=null){
@@ -124,7 +156,7 @@ export function makeGroupVariation(){
   }
   const fresh3=[nA,nB,nC,...(nD?[nD]:[])];
   items.push(...fresh3);
-  const gapX=2*(BASE_R*Q_DX*q.s)+BASE_R*2.4*q.s;
+  const gapX=questionStep(questionGeometry(q));   // the source question's width plus a figure of clear space
   const nq={
     id:nextId(),
     title:"",

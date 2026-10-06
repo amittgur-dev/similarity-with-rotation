@@ -4,7 +4,7 @@
    experiment — one undo step. */
 
 import { $ } from "./dom.js";
-import { BASE_R, Q_DX, Q_DY, parseShape, norm } from "./geometry.js";
+import { BASE_R, parseShape, norm } from "./geometry.js";
 import { questionTitle } from "./variants.js";
 import { tray, items, questions, experiments, view, nextId } from "./state.js";
 import { newExperiment } from "./experiment.js";
@@ -41,11 +41,11 @@ export function closeDescribe(){
   if(aborter){aborter.abort();aborter=null;setBusy(false);}
   $("describeDlg").hidden=true;
 }
-/* where the new questions go: below everything on the canvas, then pan there */
+/* where the new questions go: below everything on the canvas, then pan there
+   (a default question reaches about 3.5 radii left of its centre and 4.5 above) */
 function placement(){
-  const s=1, half=BASE_R*Q_DY*s+BASE_R*1.6*s;
-  const maxY=items.length?Math.max(...items.map(i=>i.y+BASE_R*1.4*i.scale)):-half;
-  return {x:BASE_R*Q_DX*s+BASE_R*1.8*s,y:maxY+half+BASE_R*1.2*s};
+  const maxY=items.length?Math.max(...items.map(i=>i.y+BASE_R*1.4*i.scale)):-BASE_R;
+  return {x:BASE_R*4,y:maxY+BASE_R*5.5};
 }
 async function generate(){
   const text=$("describeText").value.trim();
@@ -63,10 +63,10 @@ async function generate(){
       await requestPlanViaFunction(body,{url:c.url,anonKey:c.anonKey,token:await ensureToken()},fetchWithSignal);
     const before=new Set(tray.map(t=>t.id));
     const origin=placement();
-    const res=materializePlan(plan,{tray,items,questions,experiments,nextId,parseShape,norm,layoutQuestion,questionTitle,newExperiment,nextOrdinal:()=>newOrdinal(),BASE_R,Q_DX,Q_DY,origin});
+    const res=materializePlan(plan,{tray,items,questions,experiments,nextId,parseShape,norm,layoutQuestion,questionTitle,newExperiment,nextOrdinal:()=>newOrdinal(),BASE_R,origin});
     tray.filter(t=>!before.has(t.id)).forEach(addTrayItem);
     if(!res.questions.length)throw new Error("nothing could be built from the plan"+(res.problems.length?": "+res.problems.join("; "):""));
-    view.z=1;view.tx=40-(origin.x-BASE_R*Q_DX-BASE_R*1.6);view.ty=60-(origin.y-BASE_R*Q_DY-BASE_R*1.6);
+    view.z=1;view.tx=40-(origin.x-BASE_R*4);view.ty=60-(origin.y-BASE_R*4.5);
     renderCanvas();refreshExpBar();
     if(res.experiment)openExpPanel(res.experiment.id);
     commit();

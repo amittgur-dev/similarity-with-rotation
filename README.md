@@ -28,6 +28,27 @@ canvas as a vector PDF: six per A4 page, as many pages as needed, all drawn
 at one scale so sizes stay comparable, each with its title and experiment
 codes, and a footer scale bar showing 10 mm of the calibrated on-screen size.
 
+**images** exports every stimulus on the canvas as its own image: one file
+per distinct figure, not per question, in a zip. Every image is exactly the
+size you choose (square, 64–4096 px, default 512), with a white background,
+and all images share one scale, so relative sizes are preserved. By default
+the scale is chosen so the largest stimulus fills the image at any rotation,
+with an 8% margin on each side. Alternatively, set a fixed number of image
+pixels per canvas pixel; anything that would be cut off is reported, and
+export waits until everything fits. Each figure is centred on its rotation
+centre, so rotated versions line up when shown in the same place. Identical
+figures share one file (untick that for one file per object). The zip holds:
+- `S001_….png`, plus the same image as SVG if you tick that option;
+- `manifest.csv` / `.xlsx`: every parameter, the figure's size in image pixels
+  and in mm on the designer's screen, the canvas object ids, and the questions
+  that use each image (`Q3:B` = comparison B of question 3);
+- a README.
+
+Names read `S007_square-diamond_b045_s000_screen_r18_x100`: stimulus 7, a
+square of diamonds, base 45°, sub-shapes 0°, screen frame, sub-shape size 18%,
+scale 100%. `_tex5` marks a texture with 5 per side; solids read
+`S009_triangle-solid_b090_x150`.
+
 The console on the right can be resized by dragging the thin splitter on
 its left edge; clicking the splitter (or dragging it all the way right)
 collapses it, and clicking again brings it back. The width is remembered.
@@ -52,12 +73,13 @@ reference — see *Verification* below).
 | `src/xlsx.js` | **pure** .xlsx writer (inline strings) for results and manifests |
 | `src/history.js` | **pure** undo/redo over injected snapshot/restore |
 | `src/stimexport.js`, `src/zip.js` | stimulus export (SVG + PNG + manifest) and a **pure** store-only zip writer |
+| `src/stimimages.js`, `src/imagesdlg.js` | **pure** per-stimulus images (one fixed-size, one-scale image per distinct figure, with manifest and README, in a zip: the *images* button), and its dialog |
 | `src/pdf.js` | **pure** minimal PDF writer and the question sheet: every question on the canvas as vector graphics, six per A4 page, one scale for all (the *pdf* button) |
 | `src/online.js`, `src/cloud.js` | **pure** Supabase REST client (publishing, sessions, trials, results) and its page wiring: connections dialog, publish, results, the participant flow |
 | `src/describe.js`, `src/assist.js` | **pure** "describe the experiment you want" request/plan/materialise, and its dialog |
 | `server/supabase/` | the database schema + policies and the Edge Function that holds the Anthropic key (see its README) |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
-| `src/questions.js` | grouping, rigid layout, ungroup/delete, group-variation commands |
+| `src/questions.js` | grouping, the presentation layout on the canvas, ungroup/delete, group-variation commands, moving overlapping questions apart when a canvas opens |
 | `src/console.js` | the right-hand panels (creation, object, selection, question) and single-object commands |
 | `src/tray.js` | created-shape tray and drag-to-canvas placement |
 | `src/canvas.js` | SVG rendering and all pointer / wheel / keyboard interaction |
@@ -170,20 +192,61 @@ elements (square 4 per side, triangle 5). Every trial record carries
 
 A question has a reference A and **two or three comparisons**: select three
 objects for B and C, or four for B, C and D ("Is A more similar to B, C or
-D?"). With three comparisons they sit on one row under A (B left, C centre,
-D right); in a run their left-to-right order is a random permutation when
+D?"). With three comparisons they sit on an arc under A (B left, C below,
+D right; see *Presentation spacing*); in a run their left-to-right order is a random permutation when
 "swap comparison sides" is on, recorded per trial as `order` (e.g. `DBC`)
 and `B_side` (left / middle / right), with `n_comparisons` and `D_*` member
 columns. Everything else below applies to both kinds.
 
 
-A question = `{a, b, c, cx, cy, s, anchorRatio, title}` referencing three items.
+A question = `{a, b, c, d?, cx, cy, s, anchorRatio, title}` referencing three or four items.
 Invariants enforced by `layoutQuestion()` on every layout pass:
-- fixed triangle: A top-center, B bottom-left, C bottom-right
+- the presentation layout below: A on top, every comparison the same
+  distance from A (B bottom-left, C bottom-right; with D: B left, C below, D right)
 - one scale and one sub-shape relative size for all members
 - labels A/B/C assigned automatically
 - moves as a rigid unit; members editable individually via **double-click**
   (rotations only)
+
+### Presentation spacing (2AFC / 3AFC)
+
+One layout, `questionLayout()` in `src/geometry.js`, places the members
+everywhere they appear: on the canvas, in pilot and participant runs, in the
+PDF and in the per-question stimulus export.
+
+- **Every comparison is the same distance from A.** With two comparisons the
+  figures form an equilateral triangle (A on top, B and C below). With three,
+  B, C and D sit on an arc under A at −60°, 0° and +60°. Distance itself
+  changes judged similarity: in perceptual judgements of appearance, items
+  shown closer together were rated *less* similar (Casasanto 2008). Unequal
+  A–B and A–C distances would therefore confound the answer; the earlier
+  three-comparison row put C nearer to A than B and D.
+- **Distant enough.** The clear gap between neighbouring figures is at least
+  one figure diameter. It is also at least 1.5 × the largest spacing between
+  elements inside a figure, so each figure groups as one unit: grouping by
+  proximity follows relative distance (Kubovy, Holcombe & Wagemans 1998).
+  With the eyes on A, every neighbour then lies outside the crowding zone of
+  about half the eccentricity (Bouma's rule; Pelli & Tillman 2008).
+- **Original size.** Figures are never shrunk to make room; the spacing
+  scales with the figures instead (size and sub-shape size). The diameter used
+  bounds the figure at every rotation, so all rotations of a question share
+  one layout.
+- **Not too far.** For the default square of diamonds at 100% the centres
+  are 87 mm apart on a 96 dpi screen (≈ 8.8° at 57 cm). The question panel shows the centre distance in mm and degrees and
+  warns above 10°. Comparison between separated stimuli has been shown to
+  stay precise up to about that separation (Danilova & Mollon 2003); larger
+  displays need eye movements between figures.
+
+References: Casasanto, D. (2008). Similarity and proximity: When does close
+in space mean close in mind? *Memory & Cognition*, 36, 1047–1056 ·
+Kubovy, M., Holcombe, A. O., & Wagemans, J. (1998). On the lawfulness of
+grouping by proximity. *Cognitive Psychology*, 35, 71–98 · Pelli, D. G., &
+Tillman, K. A. (2008). The uncrowded window of object recognition. *Nature
+Neuroscience*, 11, 1129–1135 · Danilova, M. V., & Mollon, J. D. (2003).
+Comparison at a distance. *Perception*, 32, 395–414.
+
+Runs draw at 1:1 canvas pixels, so the calibrated size on screen is what the
+panels report.
 
 Auto-titles are systematic condition codes:
 `Q1 · square/diamond · A(0,0) B(45,0) C(0,45)` — the pairs are
@@ -309,11 +372,21 @@ produced by `serializeCanvas()`; `deserializeCanvas()` migrates older files
 (`sub*` keys → `anchor*`, v2 `trials` → `questions`). Saved canvases are
 research artifacts — keep the migrations working (they are unit-tested).
 
+Opening a canvas re-applies the current presentation layout. Questions whose
+frames then overlap are moved to the right just far enough to clear each
+other, with a notice. This can happen to three-comparison questions placed
+for the earlier, narrower row. Questions that don't overlap stay where they
+are; save to keep the new positions.
+
 ## Verification
 
 Phase 0 was a pure restructuring: no rendering or interaction behaviour
-changed. Since then two deliberate changes: dragging empty canvas pans
-(box-select is shift-drag) and the in-browser library. Besides the unit tests, `tests/browser/compare-with-prototype.mjs`
+changed. Since then, deliberate changes: dragging empty canvas pans
+(box-select is shift-drag), the in-browser library, the presentation layout
+(the script loads `src/geometry.js` into the prototype and routes its
+question placement through `questionLayout()`), and box-select catching any
+object whose box overlaps the band (patched into the prototype the same way).
+Besides the unit tests, `tests/browser/compare-with-prototype.mjs`
 drives `prototype/index-v9.html` and `index.html` through the same ~40-step
 interaction script (creation, drops, panel edits, question, both group
 variations, all three variant scopes, vary grid, duplicate/delete/⌘D, handle

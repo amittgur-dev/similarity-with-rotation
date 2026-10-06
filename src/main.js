@@ -4,7 +4,7 @@ import { tray, items, questions, experiments, counters, view, sel, clearSelectio
 import { $ } from "./dom.js";
 import { initCanvas, renderCanvas, zoomIn, zoomOut, resetView, isTyping } from "./canvas.js";
 import { initConsole, showPanel, openQPanel, createShape, makeVariant, deselect, duplicateSelected, deleteSelected, deleteMulti } from "./console.js";
-import { makeQuestion, makeGroupVariation, ungroupQuestion, deleteQuestion, layoutQuestion } from "./questions.js";
+import { makeQuestion, makeGroupVariation, ungroupQuestion, deleteQuestion, layoutQuestion, separateQuestions } from "./questions.js";
 import { addTrayItem, clearTrayDOM } from "./tray.js";
 import { serializeCanvas, deserializeCanvas, canvasFileName, downloadJSON, readJSONFile } from "./io.js";
 import { listCanvases, saveToLibrary, loadFromLibrary, removeFromLibrary } from "./library.js";
@@ -16,6 +16,7 @@ import { initTour, startTour, tourDone } from "./tour.js";
 import { initExperiment, refreshExpBar, openExpPanel, resetRuns, downloadBlob } from "./run.js";
 import { questionTrial, experimentsOf, experimentCode } from "./experiment.js";
 import { questionSheetPdf } from "./pdf.js";
+import { initImages, openImages } from "./imagesdlg.js";
 import { initCloud, openConnections, startParticipant } from "./cloud.js";
 import { initAssist, openDescribe } from "./assist.js";
 import { prolificParams } from "./online.js";
@@ -25,16 +26,17 @@ const WORKING_KEY="stimulus-builder.working";
 
 /* ---- small notice at the bottom of the canvas ---- */
 let toastTimer=null;
-export function toast(msg){
+export function toast(msg,ms=2200){
   const t=$("toast");t.textContent=msg;t.hidden=false;
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},2200);
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},ms);
 }
 
 /* ---- canvas contents ---- */
 function currentData(name){
   return serializeCanvas({name,view,tray,items,questions,experiments,nextExperimentN:counters.expN});
 }
-/* replace the canvas contents; keepView leaves the viewport and name alone (undo/redo) */
+/* replace the canvas contents; keepView leaves the viewport and name alone (undo/redo).
+   Returns how many questions were moved apart (see separateQuestions; opening only). */
 function applyState(loaded,{keepView=false}={}){
   const keep={expId:sel.expId,qId:sel.qId};   // undo/redo keeps the open panel when its record survives
   tray.length=0;items.length=0;questions.length=0;experiments.length=0;
@@ -48,6 +50,7 @@ function applyState(loaded,{keepView=false}={}){
   experiments.push(...(loaded.experiments||[]));
   bumpId(loaded.maxId);
   questions.forEach(q=>layoutQuestion(q));
+  const moved=keepView?0:separateQuestions();
   if(!keepView){
     if(loaded.view)Object.assign(view,loaded.view);
     $("canvasName").value=loaded.name;
@@ -58,12 +61,15 @@ function applyState(loaded,{keepView=false}={}){
     if(keep.expId!=null&&findExperiment(keep.expId))openExpPanel(keep.expId);
     else if(keep.qId!=null&&findQuestion(keep.qId)){sel.qId=keep.qId;renderCanvas();openQPanel();}
   }
+  return moved;
 }
+const movedNote=n=>`moved ${n} overlapping question${n===1?"":"s"} apart for the current spacing — save to keep`;
 function applyLoaded(loaded){
-  applyState(loaded);
+  const moved=applyState(loaded);
   resetHistory();
-  setDirty(false);
+  setDirty(moved>0);
   writeWorking();
+  if(moved)toast(movedNote(moved),6000);
 }
 /* unsaved edits are only thrown away on purpose */
 function discardOk(){return !dirty||confirm("Discard the unsaved changes to the current canvas?");}
@@ -102,10 +108,11 @@ function restoreWorking(){
   try{
     const w=storage&&JSON.parse(storage.getItem(WORKING_KEY)||"null");
     if(!w||!w.data||!((w.data.items&&w.data.items.length)||(w.data.tray&&w.data.tray.length)))return false;
-    applyState(deserializeCanvas(w.data));
+    const moved=applyState(deserializeCanvas(w.data));
     $("canvasName").value=w.name||"";
     const saved=w.name?loadFromLibrary(storage,w.name):null;
     setDirty(!(saved&&JSON.stringify(saved)===JSON.stringify(currentData(w.name))));
+    if(moved){writeWorking();toast(movedNote(moved),6000);}
     return true;
   }catch{return false;}
 }
@@ -245,6 +252,7 @@ const actions={
   save:saveCanvas,
   export:exportCanvas,
   exportPdf,
+  exportImages:openImages,
   import:()=>$("loadFile").click(),
   newCanvas,
   removeCanvas,
@@ -304,6 +312,7 @@ loadCalibration(storage);
 initHistory({snap:stateSnapshot,restore:restoreSnapshot,onChange:e=>{if(!e.baseline)setDirty(true);writeWorking();}});
 initCloud({storage,toast});
 initAssist({toast});
+initImages({storage,toast});
 const params=prolificParams(location.search);
 if(params.run){
   /* a participant link: no builder, no walkthrough — the study flow drives the page */

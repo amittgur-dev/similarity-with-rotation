@@ -4,6 +4,7 @@ import { experimentQuestions, paramRecord, shuffled, buildTrials, trialGeometry,
   newExperiment, experimentCode, nextOrdinal, isMember, setMembership, experimentsOf, removeQuestionEverywhere, loadExperiments, normalizeSettings, DEFAULT_SETTINGS } from "../src/experiment.js";
 
 const SQ={n:4,offset:45,name:"square"}, DI={n:4,name:"diamond"};
+const close=(a,b,eps=1e-9)=>assert.ok(Math.abs(a-b)<eps,`${a} ≠ ${b}`);
 const ref={def:SQ,anchor:DI};
 const mk=(id,baseRot,anchorRot)=>({id,trayRef:ref,baseRot,anchorRot,frame:"screen",anchorRatio:0.18,scale:1,x:0,y:0});
 const items=[mk(1,0,0),mk(2,45,0),mk(3,0,45),mk(4,0,0),mk(5,90,0),mk(6,0,90)];
@@ -34,17 +35,21 @@ test("shuffle is deterministic under an injected rng and renumbers trials", ()=>
   assert.deepEqual(t.map(x=>x.qId),[12,10]);
 });
 
-test("trial stimulus: same triangle as the canvas, at 1:1 pixels, with labels and no outlines", ()=>{
+test("trial stimulus: the presentation layout, at 1:1 pixels, with labels and no outlines", ()=>{
   const t=buildTrials(EXP,questions,find,{shuffle:false})[0];
   const g=trialGeometry(t);
-  const dy=70*2.6;   // BASE_R × Q_DY: the comparison row sits well below A
-  assert.deepEqual(g.positions,{A:[0,-dy],B:[-189,dy],C:[189,dy]});
+  const r=70*(1+0.18);                       // square of diamonds: vertex radius + element circumradius
+  close(g.radius,r);close(g.gap,2*r);close(g.D,4*r);   // the gap is one figure diameter
+  const P=g.positions, d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  close(d(P.A,P.B),g.D);close(d(P.A,P.C),g.D);close(d(P.B,P.C),g.D);   // equilateral: A equidistant from B and C
+  assert.ok(P.A[1]<P.B[1]&&P.B[0]<0&&P.C[0]>0&&P.A[0]===0);
   const m=stimulusMarkup(t);
   assert.equal((m.match(/<g data-m=/g)||[]).length,3);
   assert.equal((m.match(/<path/g)||[]).length,12,"4 diamonds × 3 objects");
   assert.ok(!m.includes("stroke"));
   assert.match(m,/>A<\/text>/);assert.match(m,/>B<\/text>/);assert.match(m,/>C<\/text>/);
-  assert.ok(g.viewBox[2]>2*189&&g.viewBox[3]>2*dy);
+  const [vx,vy,vw,vh]=g.viewBox;
+  assert.ok(vx<=P.B[0]-r&&vx+vw>=P.C[0]+r&&vy<=P.A[1]-r&&vy+vh>=P.B[1]+g.labelY,"every figure and label inside the stimulus");
   assert.equal(PROMPT,"Is A more similar to B or C?");
 });
 
@@ -144,9 +149,11 @@ test("three comparisons: a random left-to-right order, prompt, geometry and reco
   assert.deepEqual([...four.order].sort(),["B","C","D"],"a permutation of the comparisons");
   assert.equal(two.order.length,2);
   assert.equal(promptFor(four),"Is A more similar to B, C or D?");assert.equal(promptFor(two),PROMPT);
-  // geometry: the three comparisons sit left / centre / right under A, in `order`
-  const g=trialGeometry(four);
-  assert.deepEqual(g.positions.C,[0,g.dy]);
+  // geometry: B, C, D on an arc around A — all D from A, neighbours D apart — drawn in `order`
+  const g=trialGeometry(four), P=g.positions, dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  for(const k of ["B","C","D"])close(dist(P.A,P[k]),g.D);
+  close(dist(P.B,P.C),g.D);close(dist(P.C,P.D),g.D);
+  assert.ok(P.C[0]===0&&P.C[1]>P.B[1]&&P.B[0]<0&&P.D[0]>0);
   const m=stimulusMarkup({...four,order:["D","B","C"]});
   const x=k=>+m.match(new RegExp(`data-m="${k}" transform="translate\\(([-\\d.]+)`))[1];
   assert.ok(x("D")<x("B")&&x("B")<x("C"),"drawn in the given order");

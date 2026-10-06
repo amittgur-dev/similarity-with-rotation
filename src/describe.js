@@ -6,7 +6,7 @@
    and requires the experimenter to be signed in; optionally the
    experimenter's own key is used directly from the browser. */
 
-import { clampTexture, minTexture, textureRatio } from "./geometry.js";
+import { clampTexture, minTexture, textureRatio, questionLayout, questionStep } from "./geometry.js";
 
 export const AI_KEY="stimulus-builder.ai";   // {mode:"supabase"|"direct", apiKey?}
 export const MODEL="claude-opus-5";
@@ -98,9 +98,9 @@ export async function requestPlanViaFunction(body,{url,anonKey,token},fetch=glob
 }
 
 /* ---- materialising a plan on the canvas ----
-   ctx: {tray, items, questions, experiments, nextId, parseShape, norm, layoutQuestion, questionTitle, newExperiment, nextOrdinal, BASE_R, Q_DX, Q_DY, origin:{x,y}} */
+   ctx: {tray, items, questions, experiments, nextId, parseShape, norm, layoutQuestion, questionTitle, newExperiment, nextOrdinal, BASE_R, origin:{x,y}} */
 export function materializePlan(plan,ctx){
-  const {tray,items,questions,experiments,nextId,parseShape,norm,layoutQuestion,questionTitle,newExperiment,nextOrdinal,BASE_R,Q_DX,Q_DY}=ctx;
+  const {tray,items,questions,experiments,nextId,parseShape,norm,layoutQuestion,questionTitle,newExperiment,nextOrdinal,BASE_R}=ctx;
   const origin=ctx.origin||{x:0,y:0};
   const problems=[];
   // shape constructions → tray entries (reuse an identical existing one)
@@ -120,8 +120,8 @@ export function materializePlan(plan,ctx){
     byKey.set(sh.key,entry);
   });
   // questions → three or four objects each, laid out in rows below/right of the origin
-  const created=[];
-  const s=1, gapX=2*BASE_R*Q_DX*s+BASE_R*2.4*s, gapY=2*BASE_R*Q_DY*s+BASE_R*3.2*s, perRow=3;
+  const created=[], made=[];
+  const s=1, perRow=3;
   (plan.questions||[]).forEach((pq,k)=>{
     const entry=byKey.get(pq.shape);
     if(!entry){problems.push(`question ${k+1} references unknown shape “${pq.shape}”`);return;}
@@ -129,14 +129,22 @@ export function materializePlan(plan,ctx){
     const A=mk(pq.A||{}),B=mk(pq.B||{}),C=mk(pq.C||{}),D=pq.D&&typeof pq.D==="object"?mk(pq.D):null;
     const ms=[A,B,C,...(D?[D]:[])];
     items.push(...ms);
-    const idx=created.length;
-    const q={id:nextId(),title:"",a:A.id,b:B.id,c:C.id,...(D?{d:D.id}:{}),cx:origin.x+(idx%perRow)*gapX,cy:origin.y+Math.floor(idx/perRow)*gapY,s,anchorRatio:entry.anchorRatio};
+    const q={id:nextId(),title:"",a:A.id,b:B.id,c:C.id,...(D?{d:D.id}:{}),cx:origin.x,cy:origin.y,s,anchorRatio:entry.anchorRatio};
     ms.forEach(it=>it.qId=q.id);
     questions.push(q);
     q.title=questionTitle(questions.length,A,B,C,D)+(pq.note?` · ${String(pq.note).trim()}`:"");
-    layoutQuestion(q);
-    created.push(q);
+    created.push(q);made.push(ms);
   });
+  // a grid whose cells fit the largest question (presentation layout) plus clear space, title and labels
+  if(created.length){
+    const lays=made.map(ms=>questionLayout(ms.map(m=>({def:m.trayRef.def,anchor:m.trayRef.anchor,ratio:m.anchorRatio,texture:m.texture||0})),s));
+    const cellW=Math.max(...lays.map(questionStep));
+    const cellH=Math.max(...lays.map(L=>L.bounds.y1-L.bounds.y0+2*L.radius+BASE_R*3*s));
+    created.forEach((q,idx)=>{
+      q.cx=origin.x+(idx%perRow)*cellW;q.cy=origin.y+Math.floor(idx/perRow)*cellH;
+      layoutQuestion(q);
+    });
+  }
   let exp=null;
   if(created.length){
     exp=newExperiment(nextId(),nextOrdinal(experiments),(plan.experiment&&plan.experiment.name)||null,created.map(q=>q.id));

@@ -18,10 +18,29 @@ async function run(url,tag){
   page.on("dialog",d=>d.accept());   // the modular app confirms before discarding unsaved edits
   // resource-load failures (e.g. the web font when offline) are not app errors; script errors still surface via pageerror
   page.on("console",m=>{if(m.type()==="error"&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
-  // deliberate layout change since the prototype: the comparison row sits further from A (Q_DY 2.0 → 2.6); apply it to the reference too
+  // deliberate layout change since the prototype: questions are placed by the shared presentation layout
+  // (src/geometry.js questionLayout: comparisons equidistant from A, gap from the figures' size and element
+  // spacing). Load that module into the reference too and route its question placement through it.
   await page.route(/prototype\/index-v9\.html/,async route=>{
     const r=await route.fetch();
-    await route.fulfill({response:r,body:(await r.text()).replace("const Q_DX=2.7, Q_DY=2.0;","const Q_DX=2.7, Q_DY=2.6;")});
+    const spec="({def:m.trayRef.def,anchor:m.trayRef.anchor,ratio:m.anchorRatio||0.18,texture:0})";
+    const patches=[
+      ["  const dx=BASE_R*Q_DX*q.s, dy=BASE_R*Q_DY*q.s;\n",""],
+      ["  A.x=q.cx;      A.y=q.cy-dy;\n  B.x=q.cx-dx;   B.y=q.cy+dy;\n  C.x=q.cx+dx;   C.y=q.cy+dy;\n",
+       `  const L=window.__geo.questionLayout([A,B,C].map(m=>${spec}),q.s);\n  [A,B,C].forEach((m,i)=>{m.x=q.cx+L.positions[i][0];m.y=q.cy+L.positions[i][1];});\n`],
+      ["const gapX=2*(BASE_R*Q_DX*q.s)+BASE_R*2.4*q.s;",
+       `const gapX=window.__geo.questionStep(window.__geo.questionLayout([s.A,s.B,s.C].map(m=>${spec.replace("m.anchorRatio","q.anchorRatio||m.anchorRatio")}),q.s));`],
+      ["</body>",'<script type="module">import * as g from "/src/geometry.js";window.__geo=g;</script></body>'],
+      // and the rubber band catches an object when its box overlaps the band, not only its centre
+      ["const caught=items.filter(i=>i.x>=x0&&i.x<=x1&&i.y>=y0&&i.y<=y1).map(i=>i.id);",
+       "const caught=items.filter(i=>{const b=BASE_R*1.25*i.scale;return i.x+b>=x0&&i.x-b<=x1&&i.y+b>=y0&&i.y-b<=y1;}).map(i=>i.id);"],
+    ];
+    let body=await r.text();
+    for(const [from,to] of patches){
+      if(!body.includes(from))throw new Error("prototype patch target not found: "+from.trim().slice(0,60));
+      body=body.replace(from,to);
+    }
+    await route.fulfill({response:r,body});
   });
   await page.goto(url);
   // native drag of a stray text selection cancels pointer sequences in both versions (see README rough edges)
@@ -108,8 +127,10 @@ async function run(url,tag){
   await dragCanvas(560,80,860,700,true);
   await btn("delete all").click();
   // click question title text → selects; ungroup the second question
-  // (scroll the canvas down first: with the taller question layout the title sits under the zoom bar)
-  await page.mouse.move(400,450);await page.mouse.wheel(0,-120);await page.waitForTimeout(100);
+  // (pan the canvas first: with the wider question spacing the title sits under the zoom bar and the console)
+  // (the pan depends only on the title's centre, which both versions place identically; the console widths differ)
+  const tBox=await page.locator('text[data-qid="12"]').boundingBox();
+  await page.mouse.move(400,450);await page.mouse.wheel(Math.max(0,Math.round(tBox.x+tBox.width/2-400)),-120);await page.waitForTimeout(100);
   await page.click('text[data-qid="12"]');
   await btn("ungroup").click();
   // pan / zoom / space-pan

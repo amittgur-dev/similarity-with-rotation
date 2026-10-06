@@ -218,3 +218,34 @@ test("up- and down-pointing triangles are distinct shapes, both at 0°", ()=>{
     assert.equal(t.filter(q=>Math.abs(q[1]-topY)<1e-6).length,n);
   }
 });
+
+import { figureExtent, questionLayout, questionStep, GAP_FIGURE, GAP_GROUPING, primitivesBBox, shapePrimitives } from "../src/geometry.js";
+
+test("presentation layout: equal distances, gaps scaled to the figures, rotation-proof", ()=>{
+  const P=s=>parseShape(s), m=(b,s,ratio=0.18,texture=0)=>({def:P(b),anchor:s==="none"?{none:true}:P(s),ratio,texture});
+  // solid figures: the gap is one diameter
+  let L=questionLayout([m("hexagon","none"),m("hexagon","none"),m("hexagon","none")],1);
+  close(L.radius,70);close(L.gap,GAP_FIGURE*140);close(L.D,280);
+  // a sparse triangle of small diamonds: its corners are far apart, so the grouping rule sets the gap
+  L=questionLayout([m("triangle","diamond",0.1),m("triangle","diamond",0.1),m("triangle","diamond",0.1)],1);
+  const side=Math.sqrt(3)*70;
+  close(L.gap,GAP_GROUPING*side,1e-9);assert.ok(L.gap>2*L.radius);
+  // the scale scales everything, the figures keep their size
+  const L1=questionLayout([m("square","diamond"),m("square","diamond"),m("square","diamond")],1);
+  const L2=questionLayout([m("square","diamond"),m("square","diamond"),m("square","diamond")],2);
+  close(L2.D,2*L1.D);close(L2.radius,2*L1.radius);
+  // two comparisons: equilateral; three: an arc around A, neighbours D apart
+  const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  const [A,B,C]=L1.positions;close(d(A,B),L1.D);close(d(A,C),L1.D);close(d(B,C),L1.D);
+  const L4=questionLayout([0,1,2,3].map(()=>m("square","diamond")),1), Q=L4.positions;
+  for(const k of [1,2,3])close(d(Q[0],Q[k]),L4.D);
+  close(d(Q[1],Q[2]),L4.D);close(d(Q[2],Q[3]),L4.D);
+  // textures: dense elements, the diameter rule applies; extents bound every orientation
+  const e=figureExtent(P("square"),P("square"),0.1,6);
+  assert.ok(e.spacing<0.5&&e.radius>1);
+  for(const rot of [0,17,45,90]){
+    const bb=primitivesBBox(shapePrimitives(P("square"),70,P("square"),"screen",rot,rot,0.1,6));
+    assert.ok(Math.max(Math.abs(bb.x0),Math.abs(bb.x1),Math.abs(bb.y0),Math.abs(bb.y1))<=e.radius*70+1e-9,`rotation ${rot}: inside the radius bound`);
+  }
+  assert.ok(questionStep(L1)>L1.bounds.x1-L1.bounds.x0,"the next question starts beyond this one");
+});

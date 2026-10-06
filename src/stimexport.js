@@ -14,7 +14,7 @@ function csv(rows,cols){
   return [cols.join(","),...rows.map(r=>cols.map(c=>cell(r[c])).join(","))].join("\n")+"\n";
 }
 /* rasterise an SVG document string at a scale factor → PNG bytes */
-function svgToPng(svgText,scale){
+export function svgToPng(svgText,scale){
   return new Promise((resolve,reject)=>{
     const img=new Image();
     img.onload=()=>{
