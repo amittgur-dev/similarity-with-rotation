@@ -124,7 +124,7 @@ for in `rotateParams()` (`variants.js`):
 "sub-shape" / "sub-shape relative size". Keep that mapping.
 
 Text input grammar: a shape name optionally followed by a rotation
-(`square 45`, `hexagon -30°`). Named shapes, `7`/`7-gon` (3–24), `6 star`
+(`square 45`, `hexagon -30°`). Named shapes (including `up triangle` and `down triangle`, distinct shapes pointing up / standing on a tip, both at 0°; plain `triangle` points up), `7`/`7-gon` (3–24), `6 star`
 (4–12 points), `circle`, `none`. A trailing number is always a rotation, so
 `star 5` is a five-point star turned 5°, not a 5-star.
 

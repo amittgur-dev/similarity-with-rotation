@@ -11,7 +11,7 @@ import { clampTexture, minTexture, textureRatio } from "./geometry.js";
 export const AI_KEY="stimulus-builder.ai";   // {mode:"supabase"|"direct", apiKey?}
 export const MODEL="claude-opus-5";
 
-const SHAPE_NAMES=["triangle","square","diamond","pentagon","hexagon","heptagon","octagon","nonagon","decagon","circle","star"];
+const SHAPE_NAMES=["triangle","up-triangle","down-triangle","square","diamond","pentagon","hexagon","heptagon","octagon","nonagon","decagon","circle","star"];
 
 export const PLAN_SCHEMA={
   type:"object",
@@ -22,7 +22,7 @@ export const PLAN_SCHEMA={
       rationale:{type:"string",description:"one or two sentences on what the set manipulates"}},required:["name","rationale"]},
     shapes:{type:"array",description:"stimulus constructions used by the questions",items:{type:"object",additionalProperties:false,properties:{
       key:{type:"string",description:"identifier referenced by questions, e.g. 'sq-di'"},
-      base:{type:"string",description:"base shape: triangle, square, diamond, pentagon, hexagon, heptagon, octagon, nonagon, decagon, circle, star, or 'N-gon' / 'N star'"},
+      base:{type:"string",description:"base shape: triangle (= up-triangle, pointing up), down-triangle (standing on a tip), square, diamond, pentagon, hexagon, heptagon, octagon, nonagon, decagon, circle, star, or 'N-gon' / 'N star'"},
       sub:{type:"string",description:"sub-shape at each vertex: same names, or 'none' for a solid shape"},
       frame:{type:"string",enum:["screen","vertex"],description:"screen: sub-shapes keep absolute orientation when the base rotates; vertex: they point outward and co-rotate"},
       subRatio:{type:"number",description:"sub-shape size as a fraction of the base radius, 0.05-0.6 (default 0.18); ignored for textures, whose element size follows the density"},

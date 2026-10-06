@@ -9,7 +9,7 @@ export const TOUR_KEY="stimulus-builder.tour";
 
 const STEPS=[
   {target:"#shapeInput",title:"Name a base shape",
-   text:"In the console on the right, type a shape — square, hexagon, 5 star, circle, or 7 for a heptagon. Add a rotation if you like: “square 45”. Press Enter."},
+   text:"In the console on the right, type a shape — square, hexagon, up triangle, down triangle, 5 star, circle, or 7 for a heptagon. Add a rotation if you like: “square 45”. Press Enter."},
   {target:"#createPanel",title:"Then its sub-shape",
    text:"The vertices of the base shape are occupied by sub-shapes: diamond, triangle, circle… or none for a solid shape. Switch the sub-shapes to “texture” to fill the shape with them instead, and set their density, size and fill. Enter creates the shape."},
   {target:"#tray",title:"Your shapes land in the tray",

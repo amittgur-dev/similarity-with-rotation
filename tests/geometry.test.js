@@ -199,3 +199,22 @@ test("density, size and fill: hold one, change another, the third follows", ()=>
   r=relinkTexture(sq,{n:4,size:textureRatio(sq,4)},"size","fill",0.4);   // hold size: tighter fill packs more in
   assert.equal(r.n,5);
 });
+
+test("up- and down-pointing triangles are distinct shapes, both at 0°", ()=>{
+  assert.deepEqual(parseShape("down triangle"),{n:3,offset:180,name:"down-triangle"});
+  assert.deepEqual(parseShape("Down-Triangle"),{n:3,offset:180,name:"down-triangle"});
+  assert.deepEqual(parseShape("▼"),{n:3,offset:180,name:"down-triangle"});
+  assert.deepEqual(parseShape("upward  triangle"),{n:3,name:"up-triangle"});
+  assert.deepEqual(parseShape("triangle"),{n:3,name:"triangle"},"plain triangle unchanged (points up)");
+  assert.deepEqual(parseShapeWithRot("down triangle 30"),{shape:{n:3,offset:180,name:"down-triangle"},rot:30});
+  const r=70, down=baseVerts(parseShape("down triangle"),r,0), up=baseVerts(parseShape("up triangle"),r,0);
+  assert.ok(Math.abs(Math.max(...down.map(p=>p[1]))-r)<1e-9&&down.some(p=>Math.abs(p[0])<1e-9&&p[1]>0),"down: a tip at the bottom");
+  assert.ok(up.some(p=>Math.abs(p[0])<1e-9&&p[1]<0),"up: a tip at the top");
+  // textures: an exact triangular arrangement, the full row on top
+  for(const n of [3,5,7]){
+    const t=texturePoints(parseShape("down triangle"),r,n);
+    assert.equal(t.length,n*(n+1)/2);
+    const topY=Math.min(...t.map(q=>q[1]));
+    assert.equal(t.filter(q=>Math.abs(q[1]-topY)<1e-6).length,n);
+  }
+});

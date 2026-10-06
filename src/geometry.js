@@ -8,15 +8,22 @@ export const DEFAULT_RATIO = 0.18;
 /* ================= parser ================= */
 export const NAMES = {
   triangle:{n:3}, square:{n:4,offset:45}, diamond:{n:4},
+  "up-triangle":{n:3}, "down-triangle":{n:3,offset:180},   // distinct shapes: pointing up / standing on a tip, both at 0°
   pentagon:{n:5}, hexagon:{n:6}, heptagon:{n:7}, septagon:{n:7},
   octagon:{n:8}, nonagon:{n:9}, decagon:{n:10},
   hendecagon:{n:11}, dodecagon:{n:12},
   circle:{circle:true}, star:{star:5}
 };
+/* other ways of writing the two directed triangles */
+const ALIASES={
+  "up triangle":"up-triangle","upward triangle":"up-triangle","triangle up":"up-triangle","upward-triangle":"up-triangle","uptriangle":"up-triangle","▲":"up-triangle","△":"up-triangle",
+  "down triangle":"down-triangle","downward triangle":"down-triangle","triangle down":"down-triangle","downward-triangle":"down-triangle","downtriangle":"down-triangle","▼":"down-triangle","▽":"down-triangle"
+};
 export function parseShape(txt){
-  const t=txt.trim().toLowerCase();
+  let t=txt.trim().toLowerCase().replace(/\s+/g," ");
   if(!t) return null;
   if(t==="none"||t==="-") return {none:true};
+  t=ALIASES[t]||t;
   if(NAMES[t]) return {...NAMES[t], name:t};
   const g=t.match(/^(\d+)(?:-?\s*gon)?$/);
   if(g){const n=parseInt(g[1]); if(n>=3&&n<=24) return {n,name:n+"-gon"};}
