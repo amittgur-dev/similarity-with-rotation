@@ -148,6 +148,23 @@ test("v5: textures carry contour; a plus or x texture from before is its two lin
   assert.equal(m.items[m.items.length-1].contour,undefined);
 });
 
+test("free texts round-trip; none means no key; malformed ones are dropped", ()=>{
+  const src=sampleCanvas();
+  assert.ok(!("texts" in serializeCanvas(src)),"no texts, no key");
+  src.texts=[{id:30,x:10.5,y:-20,text:"Experiment 1\nsquare of diamonds",size:18},{id:31,x:0,y:0,text:"big",size:40}];
+  const data=serializeCanvas(src);
+  assert.deepEqual(data.texts,src.texts);
+  const back=deserializeCanvas(JSON.parse(JSON.stringify(data)));
+  assert.deepEqual(back.texts,src.texts);
+  assert.equal(back.maxId,31,"texts count toward the next id");
+  data.texts.push({id:32,x:1,y:1,text:"   ",size:18},{id:33,x:1,y:1,size:18},null);
+  data.texts[1].size=999;
+  const b2=deserializeCanvas(JSON.parse(JSON.stringify(data)));
+  assert.equal(b2.texts.length,2,"blank, textless and null entries are dropped");
+  assert.equal(b2.texts[1].size,120,"size is clamped");
+  assert.equal(deserializeCanvas({version:4,tray:[],items:[]}).texts.length,0,"older files have none");
+});
+
 test("canvasFileName", ()=>{
   assert.equal(canvasFileName("  "),"untitled-canvas");
   assert.equal(canvasFileName("pilot  study 2"),"pilot-study-2");

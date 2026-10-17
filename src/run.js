@@ -8,8 +8,9 @@
 import { $ } from "./dom.js";
 import { questions, experiments, sel, counters, findItem, findQuestion, findExperiment, nextId, clearSelection } from "./state.js";
 import { calib, pxToMm, visualAngleDeg } from "./calibration.js";
-import { PROMPT, promptFor, experimentQuestions, experimentCode, newExperiment, nextOrdinal, isMember, setMembership,
-         buildTrials, trialGeometry, stimulusMarkup, resultRow, toCSV, summarize, normalizeSettings } from "./experiment.js";
+import { PROMPT, promptFor, comparisons, experimentQuestions, experimentCode, newExperiment, nextOrdinal, isMember, setMembership,
+         buildTrials, trialGeometry, stimulusMarkup, memberMarkup, resultRow, toCSV, summarize, normalizeSettings } from "./experiment.js";
+import { animateMembers } from "./spin.js";
 import { exportStimuli } from "./stimexport.js";
 import { buildXlsx } from "./xlsx.js";
 import { CSV_COLUMNS } from "./experiment.js";
@@ -221,11 +222,15 @@ function showTrial(){
   svg.setAttribute("viewBox",g.viewBox.join(" "));
   svg.setAttribute("width",g.viewBox[2]);
   svg.setAttribute("height",g.viewBox[3]);
+  if(stopSpin){stopSpin();stopSpin=null;}
   svg.innerHTML=stimulusMarkup(t);
   const tok=runToken;
   const go=()=>{
     if(tok!==runToken)return;
     setPhase("stim");t.sizes=memberSizesMm(svg);
+    // continuous rotation starts as the stimulus appears, each member from its design orientation
+    const spinning=["A",...comparisons(t)].filter(k=>t[k]&&t[k].spin).map(k=>({selector:`g[data-m="${k}"]`,p:t[k]}));
+    if(spinning.length)stopSpin=animateMembers(svg,spinning,memberMarkup);
     // the clock starts when the stimulus frame has actually been painted
     requestAnimationFrame(()=>requestAnimationFrame(()=>{if(tok!==runToken)return;shownAt=performance.now();accepting=true;}));
   };
@@ -273,7 +278,8 @@ function finish(){
   if(runCfg.onFinish)runCfg.onFinish(rows);
 }
 function leaveFullscreen(){if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}
-function cancelTimers(){runToken++;clearTimeout(fixTimer);clearTimeout(itiTimer);fixTimer=itiTimer=null;}
+let stopSpin=null;   // ends the current trial's continuous rotation
+function cancelTimers(){runToken++;clearTimeout(fixTimer);clearTimeout(itiTimer);fixTimer=itiTimer=null;if(stopSpin){stopSpin();stopSpin=null;}}
 export function startRun(cfg){
   cancelTimers();begun=false;
   runCfg=cfg;runExp=cfg.exp;participant=cfg.participant||"pilot";

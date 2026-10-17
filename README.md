@@ -27,6 +27,30 @@ several objects and questions can be chosen together: drag any of them to
 move the selection as one, press Delete or *delete all* to remove it all,
 or click one without shift to select just that one.
 
+**Continuous rotation.** Any object on the canvas can turn on its own:
+the **+** next to *orient* in its panel opens the rotation controls in
+place (the rest of the panel moves down). Choose the direction (↺ counter /
+still / ↻ clockwise), the speed in degrees per second, and what turns:
+**whole** (everything together), **shape** (the configuration only, the
+sub-shapes keep their orientation), **sub-shapes** (in place) or
+**opposite** (the configuration one way, the sub-shapes the other). Each
+object, including each member of a question, has its own setting. The
+stored orientations never change — the design is what the panels show and
+the PDF and images export draw; on the canvas and in runs (pilot and
+participant) the figure turns from that orientation, each trial starting
+afresh. Trial records carry `spin_deg_per_s` (signed, + clockwise) and
+`spin_turns` per member; saved files carry `spin: {dps, scope}` on the
+object. The frame keeps its meaning throughout (`src/spin.js`, pure and
+unit-tested).
+
+**Titles and notes.** Double-click empty canvas to write a text where you
+clicked (Enter keeps it, shift+Enter adds a line, Escape puts the old text
+back; nothing written, nothing kept). Double-click a text to edit it in
+place; the Text panel also edits it and sets its size. Texts drag, nudge
+with the arrow keys, join a selection with shift-click or a box, and go
+with Delete. They are annotations: saved with the canvas (`texts`), never
+part of a stimulus, so runs, the PDF and the exports leave them out.
+
 **pdf** (next to save / export / import) downloads every question on the
 canvas as a vector PDF: six per A4 page, as many pages as needed, all drawn
 at one scale so sizes stay comparable, each with its title and experiment
@@ -83,6 +107,8 @@ reference — see *Verification* below).
 | `src/describe.js`, `src/assist.js` | **pure** "describe the experiment you want" request/plan/materialise, and its dialog |
 | `server/supabase/` | the database schema + policies and the Edge Function that holds the Anthropic key (see its README) |
 | `src/state.js` | the shared mutable records: draft, tray, items, questions, selection, view |
+| `src/texts.js` | free text on the canvas: the inline editor and the Text panel |
+| `src/spin.js` | **pure** continuous rotation: the phase, what turns by scope and frame, the frame loop for runs |
 | `src/questions.js` | grouping, the presentation layout on the canvas, ungroup/delete, group-variation commands, moving overlapping questions apart when a canvas opens |
 | `src/console.js` | the right-hand panels (creation, object, selection, question) and single-object commands |
 | `src/tray.js` | created-shape tray and drag-to-canvas placement |
@@ -166,8 +192,8 @@ succession of elements along the two lines — see *Textures*.
 ## Textures
 
 Sub-shapes can sit on the vertices of the base shape (the default) or form
-a **texture**: in the sub-shape row choose *on vertices* / *contour* /
-*full*. A **contour** texture is the outline only, a dotted line of elements
+a **texture**: in the sub-shape row choose *on vertices* / *texture*, and
+for a texture its kind, *contour* or *full*. A **contour** texture is the outline only, a dotted line of elements
 along every edge (a circle: around its rim; a plus or x: along its two
 lines), with nothing inside. A **full** texture fills the whole shape: that
 contour plus a lattice inside (a plus or x: its bars). The two share the
@@ -401,8 +427,8 @@ per-browser and per-site, so it does not follow you to another machine.
 are the canonical, shareable format — the `canvases/` directory is the
 intended home for canvases kept in git.
 
-JSON `{version, name, view, tray[], items[], questions[], experiments[]}`
-(version 5) is produced by `serializeCanvas()`; `deserializeCanvas()`
+JSON `{version, name, view, tray[], items[], questions[], experiments[], texts[]}`
+(version 5; `texts` only when there are any) is produced by `serializeCanvas()`; `deserializeCanvas()`
 migrates older files (`sub*` keys → `anchor*`, v2 `trials` → `questions`, v3
 stars → experiment 1, and v4 plus/x textures → `contour`, since before v5 a
 plus or x texture was always its two lines). A texture's `contour: true`

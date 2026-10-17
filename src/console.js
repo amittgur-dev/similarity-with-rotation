@@ -3,10 +3,11 @@
 
 import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, defaultTexture, clampTexture, textureRatio, relinkTexture, textureSpan, densityForCount, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
 import { rotateParams, parseVary } from "./variants.js";
-import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem } from "./state.js";
+import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem, removeText } from "./state.js";
 import { $, escapeXML } from "./dom.js";
 import { calib, pxToMm, visualAngleDeg, formatDeg } from "./calibration.js";
 import { commit, commitSoon } from "./history.js";
+import { SPIN_DEFAULT, SPIN_MIN, SPIN_MAX, SPIN_SCOPES, SPIN_SCOPE_LABEL, clampSpinSpeed, normalizeSpin, spinText } from "./spin.js";
 import { renderCanvas } from "./canvas.js";
 import { layoutQuestion, renderQStruct, regenerateTitle, memberIds, LABELS, questionGeometry, removeQuestion } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
@@ -24,13 +25,27 @@ export function buildSpecRows(container, target, cfg){
   // a plus or x shows and takes its number of elements; what is stored is the density, elements from the centre to each tip
   const shownN=n=>cross?subCount(cfg.def,n,contourOn()):n, toN=v=>cross?densityForCount(cfg.def,v,contourOn()):v;
   let lastN=target.texture||0;   // the density a texture had, for when it is switched off and on again
+  // continuous rotation: a canvas object (not the creation draft) can turn on its own — the + next to orient opens it
+  const spinnable=target.id!=null, sp=normalizeSpin(target.spin), spinOpen=ui.spinOpen||!!sp;
+  const SCOPE_WORD={whole:"whole",shape:"shape",sub:"sub-shapes",opposite:"opposite"};
   const row1=document.createElement("div");
   row1.className="spec";
   row1.innerHTML=
     `<div class="pv">${miniSVG(cfg.def,target.baseRot)}</div>`+
     `<div class="fields">`+
       `<div class="frow"><span>${escapeXML(cfg.def.name)}</span></div>`+
-      `<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.baseRot)}" data-f="baseRot">°</div>`+
+      `<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.baseRot)}" data-f="baseRot">°`+
+        (spinnable?`<button type="button" class="spinToggle${sp?" live":""}" title="continuous rotation: the object turns on its own, on the canvas and in runs">${spinOpen?"−":"+"}</button>`:"")+`</div>`+
+      (spinnable?`<div class="spinBox"${spinOpen?"":' style="display:none"'}>`+
+        `<div class="seg" data-f="spinDir" title="turning, as seen on the screen">`+
+          `<button data-v="-1" class="${sp&&sp.dps<0?"on":""}" title="counter-clockwise">↺ ccw</button>`+
+          `<button data-v="0" class="${sp?"":"on"}" title="no rotation">still</button>`+
+          `<button data-v="1" class="${sp&&sp.dps>0?"on":""}" title="clockwise">↻ cw</button></div>`+
+        `<div class="frow" title="degrees per second: 360 is one turn a second, 30 a turn every 12 s"><span>speed</span><input type="number" step="5" min="${SPIN_MIN}" max="${SPIN_MAX}" value="${sp?Math.abs(sp.dps):SPIN_DEFAULT}" data-f="spinSpeed">°/s</div>`+
+        (hasAnchors?`<div class="seg" data-f="spinScope" title="what turns">`+
+          SPIN_SCOPES.map(v=>`<button data-v="${v}" class="${(sp?sp.scope:"whole")===v?"on":""}" title="${SPIN_SCOPE_LABEL[v]}">${SCOPE_WORD[v]}</button>`).join("")+`</div>`:"")+
+        `<div class="note spinNote">${spinText(sp)}</div>`+
+      `</div><!-- /spinBox -->`:"")+
       (cfg.showSize?`<div class="frow"><span>size</span><input type="number" step="5" min="20" max="400" value="${Math.round(target.scale*100)}" data-f="size">%</div>`+
                     `<div class="frow mmRow"><span>on screen</span><span class="mmReadout" data-item="${target.id}"></span></div>`:"")+
       (target.id!=null?`<label class="check mini mmRow"><input type="checkbox" data-f="showMm" ${target.showMm?"checked":""}> show absolute size</label>`:"")+
@@ -53,10 +68,13 @@ export function buildSpecRows(container, target, cfg){
         `</div>`+
         `<div class="seg" data-f="arrange" title="where the sub-shapes go">`+
           `<button data-v="vertices" class="${tex?"":"on"}" title="${cross?"the centre and the four tips":"on the corners of the base shape"}">on vertices</button>`+
-          `<button data-v="contour" class="${tex&&target.contour?"on":""}" title="${cross?"a succession of elements along the two lines, nothing more; choose how many":"the outline only: a dotted line of elements along every edge, nothing inside"}">contour</button>`+
-          `<button data-v="full" class="${tex&&!target.contour?"on":""}" title="${cross?"the two bars filled with elements, rows to either side of each line; choose how many":"elements fill the whole shape: the contour and a lattice inside; the density sets how many and how large"}">full</button>`+
+          `<button data-v="texture" class="${tex?"on":""}" title="${cross?"many elements: along the two lines (contour) or filling the bars (full); choose how many":"many elements: along the outline (contour) or filling the shape (full); the density sets how many and how large"}">texture</button>`+
         `</div>`+
         `<div class="texBox"${tex?"":' style="display:none"'}>`+
+          `<div class="seg" data-f="texKind" title="the kind of texture">`+
+            `<button data-v="contour" class="${target.contour?"on":""}" title="${cross?"contour texture: a succession of elements along the two lines, nothing more":"contour texture: the outline only — a dotted line of elements along every edge, nothing inside"}">contour</button>`+
+            `<button data-v="full" class="${target.contour?"":"on"}" title="${cross?"full texture: the two bars filled with elements, rows to either side of each line":"full texture: elements fill the whole shape — the contour and a lattice inside"}">full</button>`+
+          `</div>`+
           (cross
           ?`<div class="frow" title="how many elements make the ${escapeXML(cfg.def.name)}: the same number from the centre out to each tip, so only some counts exist — type a number and the nearest is used">`+
             `<span>elements · total</span><input type="number" step="1" min="${subCount(cfg.def,minTex,contourOn())}" max="${subCount(cfg.def,16,contourOn())}" value="${subCount(cfg.def,tex||defaultTexture(cfg.def,contourOn()),contourOn())}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`
@@ -75,7 +93,7 @@ export function buildSpecRows(container, target, cfg){
       const f=inp.dataset.f;
       const v=parseFloat(inp.value);
       if(isNaN(v))return;
-      if(f==="texture"||f==="fill")return;   // applied on change (see below), so typing "12" does not pass through "1"
+      if(f==="texture"||f==="fill"||f==="spinSpeed")return;   // applied on change (see below), so typing "12" does not pass through "1"
       if(f==="anchorRatio"&&target.texture&&cfg.showRatio!==false)return;   // linked: applied on change
       if(f==="size"){target.scale=Math.max(0.2,Math.min(4,v/100));}
       else if(f==="anchorRatio"){target.anchorRatio=Math.max(0.02,Math.min(0.6,v/100));}
@@ -87,6 +105,30 @@ export function buildSpecRows(container, target, cfg){
       if(pvs[1])pvs[1].innerHTML=miniSVG(cfg.anchor,target.anchorRot,true);
     });
   });
+  // the rotation box: direction, speed, what turns
+  const spinBtn=wrap.querySelector(".spinToggle"), spinBox=wrap.querySelector(".spinBox");
+  if(spinBtn&&spinBox){
+    spinBtn.onclick=()=>{ui.spinOpen=spinBox.style.display==="none";spinBox.style.display=ui.spinOpen?"":"none";spinBtn.textContent=ui.spinOpen?"−":"+";};
+    const speedInput=wrap.querySelector('input[data-f="spinSpeed"]');
+    const setSpin=patch=>{
+      const cur=normalizeSpin(target.spin)||{dps:0,scope:(target.spin&&target.spin.scope)||"whole"};
+      const dir=patch.dir!==undefined?patch.dir:Math.sign(cur.dps);
+      const speed=clampSpinSpeed(patch.speed!==undefined?patch.speed:(Math.abs(cur.dps)||parseFloat(speedInput.value)||SPIN_DEFAULT));
+      const scope=patch.scope||cur.scope;
+      if(dir===0){if(target.spin)target.spin={dps:0,scope};}   // remembers what would turn
+      else target.spin={dps:dir*speed,scope};
+      const now=normalizeSpin(target.spin);
+      wrap.querySelectorAll('.seg[data-f="spinDir"] button').forEach(b=>b.classList.toggle("on",+b.dataset.v===(now?Math.sign(now.dps):0)));
+      wrap.querySelectorAll('.seg[data-f="spinScope"] button').forEach(b=>b.classList.toggle("on",b.dataset.v===scope));
+      speedInput.value=speed;
+      spinBtn.classList.toggle("live",!!now);
+      wrap.querySelector(".spinNote").textContent=spinText(now);
+      cfg.onChange();commitSoon();
+    };
+    wrap.querySelectorAll('.seg[data-f="spinDir"] button').forEach(b=>{b.onclick=()=>setSpin({dir:+b.dataset.v});});
+    wrap.querySelectorAll('.seg[data-f="spinScope"] button').forEach(b=>{b.onclick=()=>setSpin({scope:b.dataset.v});});
+    speedInput.addEventListener("change",()=>{const v=parseFloat(speedInput.value);if(isNaN(v)){speedInput.value=SPIN_DEFAULT;return;}setSpin({speed:v});});
+  }
   wrap.querySelectorAll('input[data-f="showMm"]').forEach(cb=>{
     cb.addEventListener("change",()=>{target.showMm=cb.checked;cfg.onChange();commit();});
   });
@@ -180,15 +222,27 @@ export function buildSpecRows(container, target, cfg){
   });
   syncHolds();
   [texInput,fillInput,sizeInput].forEach(i=>{if(i)shown.set(i,i.value);});
+  // a plus or x counts its elements: the counts on offer depend on the kind of texture
+  const syncCountRange=()=>{if(cross&&texInput){texInput.min=subCount(cfg.def,minTex,contourOn());texInput.max=subCount(cfg.def,16,contourOn());}};
   wrap.querySelectorAll('.seg[data-f="arrange"] button').forEach(b=>{
     b.onclick=()=>{
-      const v=b.dataset.v, on=v!=="vertices";
+      const on=b.dataset.v==="texture";
       b.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
       wrap.querySelector(".texBox").style.display=on?"":"none";
-      if(v==="contour")target.contour=true;else delete target.contour;
-      if(cross&&texInput){texInput.min=subCount(cfg.def,minTex,contourOn());texInput.max=subCount(cfg.def,16,contourOn());}
-      // contour and full share the density; a texture switched back on returns at the density it had
+      syncCountRange();
+      // a texture switched back on returns at the density and kind it had
       setTexture(on?(target.texture||lastN||defaultTexture(cfg.def,contourOn())):0);
+      commit();
+    };
+  });
+  wrap.querySelectorAll('.seg[data-f="texKind"] button').forEach(b=>{
+    b.onclick=()=>{
+      if(b.dataset.v==="contour")target.contour=true;else delete target.contour;   // contour and full share the density
+      b.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+      syncCountRange();
+      showTexture(null);
+      if(cfg.onTexture)cfg.onTexture(target);
+      cfg.onChange();
       commit();
     };
   });
@@ -295,7 +349,7 @@ export function createShape(){
 
 /* ================= panels ================= */
 export function showPanel(id){
-  ["createPanel","selPanel","multiPanel","qPanel","expPanel"].forEach(p=>$(p).classList.toggle("on",p===id));
+  ["createPanel","selPanel","multiPanel","qPanel","expPanel","textPanel"].forEach(p=>$(p).classList.toggle("on",p===id));
 }
 export function deselect(){
   const hadExp=sel.expId!=null;
@@ -330,13 +384,13 @@ export function openSelPanel(){
   showPanel("selPanel");
 }
 export function openMultiPanel(){
-  const n=sel.ids.length, m=sel.qIds.length, some=(k,w)=>`${k} ${w}${k===1?"":"s"}`;
-  $("multiInfo").textContent=[n?some(n,"object"):"",m?some(m,"question"):""].filter(Boolean).join(" · ")+" selected";
+  const n=sel.ids.length, m=sel.qIds.length, k=sel.tIds.length, some=(c,w)=>`${c} ${w}${c===1?"":"s"}`;
+  $("multiInfo").textContent=[n?some(n,"object"):"",m?some(m,"question"):"",k?some(k,"text"):""].filter(Boolean).join(" · ")+" selected";
   const free=sel.ids.filter(id=>{const it=findItem(id);return it&&!it.qId;});
-  const ok=!m&&(n===3||n===4)&&free.length===n;
+  const ok=!m&&!k&&(n===3||n===4)&&free.length===n;
   $("makeQBtn").disabled=!ok;
   $("errMulti").textContent=
-    m?"drag any of them to move the selection together, or delete all; a new question needs 3 or 4 free objects":
+    m||k?"drag any of them to move the selection together, or delete all; a new question needs 3 or 4 free objects":
     n!==3&&n!==4?"a question needs 3 objects (4 for three comparisons)":
     free.length!==n?"some objects already belong to a question":"";
   showPanel("multiPanel");
@@ -391,6 +445,7 @@ export function deleteMulti(){
     removeItem(id);
   });
   sel.qIds.map(findQuestion).filter(Boolean).forEach(removeQuestion);   // chosen questions go whole
+  sel.tIds.forEach(removeText);
   deselect();commit();
 }
 export function duplicateSelected(){

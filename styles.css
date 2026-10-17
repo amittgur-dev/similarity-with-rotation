@@ -512,3 +512,24 @@ body.participantRun #runQuit{display:none}
 .modalCard input.inlineNum{width:64px;border:none;border-bottom:1px solid var(--faint);font-family:var(--mono);font-size:0.8rem;text-align:right;outline:none;background:transparent;margin:0 4px}
 .modalCard input.inlineNum:disabled{color:#9a9a9a;border-bottom-style:dotted}
 .modalCard .modalText.note{color:#6f6f6f;font-size:0.72rem}
+
+/* ---- free text on the canvas ---- */
+#textEdit{position:absolute;z-index:5;margin:0;padding:2px 4px;border:1px dashed #4a90d9;background:#fff;color:var(--ink);
+  font-family:monospace;line-height:1.25;white-space:pre;overflow:hidden;resize:none;outline:none}
+#textPanel textarea{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:0.85rem;line-height:1.4;border:1px solid var(--faint);padding:6px 8px;resize:vertical;background:#fff}
+#textPanel .frow input{width:64px}
+
+.texBox .seg[data-f="texKind"]{margin:2px 0 6px}
+
+/* ---- continuous rotation: the + next to orient and its box ---- */
+.spec .frow button.spinToggle{font-family:var(--mono);font-size:0.75rem;border:1px solid var(--faint);background:#fff;color:var(--grey);width:20px;height:20px;padding:0;margin-left:8px;cursor:pointer;line-height:1}
+.spec .frow button.spinToggle:hover{border-color:var(--ink);color:var(--ink)}
+.spec .frow button.spinToggle.live{background:var(--ink);border-color:var(--ink);color:#fff}
+.spinBox{display:flex;flex-direction:column;gap:5px;margin:2px 0 8px;padding:6px 0 6px 10px;border-left:2px solid var(--faint)}
+.spinBox .seg button{font-size:0.72rem}
+.spinBox .note{margin:0;font-size:0.68rem}
+.spinBox .seg[data-f="spinDir"] button{white-space:nowrap;padding:5px 2px}
+.spinBox .seg[data-f="spinScope"]{flex-wrap:wrap}
+.spinBox .seg[data-f="spinScope"] button{flex:1 1 45%;white-space:nowrap;padding:5px 2px}
+#textPanel .frow{display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--grey);letter-spacing:0.08em;text-transform:uppercase}
+#textPanel .frow input{width:64px;font-family:var(--mono);font-size:0.9rem;text-align:right;border:none;border-bottom:1px solid var(--faint);outline:none;color:var(--ink)}

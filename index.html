@@ -13,8 +13,9 @@
 
 <div id="canvasWrap">
   <svg id="canvas"></svg>
+  <textarea id="textEdit" hidden spellcheck="false" aria-label="text on the canvas"></textarea>
   <div id="emptyHint">name a shape in the console to begin →</div>
-  <div id="gestureHint">drag to move around · shift-click objects or questions to select several, then drag them together · shift-drag to box-select · scroll to pan · ⌘/ctrl+scroll to zoom</div>
+  <div id="gestureHint">drag to move around · double-click empty canvas to write a title · shift-click objects or questions to select several, then drag them together · shift-drag to box-select · scroll to pan · ⌘/ctrl+scroll to zoom</div>
   <div id="zoomBar">
     <button data-action="zoomOut" title="zoom out">−</button>
     <div id="zoomBadge" title="reset view">100%</div>
@@ -136,6 +137,16 @@
     </div>
 
     <!-- selection: multiple objects -->
+    <div class="panel" id="textPanel">
+      <label>Text</label>
+      <textarea id="textContent" rows="3" spellcheck="false" placeholder="a title or note"></textarea>
+      <div class="frow" style="margin-top:8px"><span>size</span><input type="number" id="noteSize" min="8" max="120" step="1">px</div>
+      <p class="note">Double-click a text to edit it in place (Enter keeps it, shift+Enter adds a line, Escape puts the old one back). Drag to move; texts stay out of runs and exports.</p>
+      <div class="steprow">
+        <button class="ghost" data-action="deselect">done</button>
+        <button class="ghost" data-action="deleteText">delete</button>
+      </div>
+    </div><!-- /textPanel -->
     <div class="panel" id="multiPanel">
       <label>Selection</label>
       <div id="multiInfo" style="font-size:0.75rem"></div>

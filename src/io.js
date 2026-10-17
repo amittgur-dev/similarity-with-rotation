@@ -8,11 +8,12 @@
      · v3 `inExp` stars → one experiment "experiment 1" */
 
 import { DEFAULT_RATIO, clampTexture } from "./geometry.js";
+import { normalizeSpin } from "./spin.js";
 import { loadExperiments, normalizeSettings } from "./experiment.js";
 
 export const SAVE_VERSION=5;   // 5: textures carry `contour` (the outline only); a plus/x texture saved before is its lines
 
-export function serializeCanvas({name,view,tray,items,questions,experiments=[],nextExperimentN=0}){
+export function serializeCanvas({name,view,tray,items,questions,experiments=[],texts=[],nextExperimentN=0}){
   return {
     version:SAVE_VERSION,
     name,
@@ -20,9 +21,11 @@ export function serializeCanvas({name,view,tray,items,questions,experiments=[],n
     tray:tray.map(t=>({id:t.id,def:t.def,anchor:t.anchor,baseRot:t.baseRot,anchorRot:t.anchorRot,frame:t.frame,anchorRatio:t.anchorRatio||DEFAULT_RATIO,...(t.texture?{texture:t.texture,...(t.contour?{contour:true}:{})}:{})})),
     items:items.map(i=>({id:i.id,trayId:i.trayRef.id,x:i.x,y:i.y,scale:i.scale,
                          baseRot:i.baseRot,anchorRot:i.anchorRot,frame:i.frame,anchorRatio:i.anchorRatio||DEFAULT_RATIO,
-                         label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{}),...(i.texture?{texture:i.texture,...(i.contour?{contour:true}:{})}:{})})),
+                         label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{}),...(i.texture?{texture:i.texture,...(i.contour?{contour:true}:{})}:{}),
+                         ...(normalizeSpin(i.spin)?{spin:normalizeSpin(i.spin)}:{})})),
     questions:questions.map(q=>({id:q.id,title:q.title,a:q.a,b:q.b,c:q.c,...(q.d!=null?{d:q.d}:{}),cx:q.cx,cy:q.cy,s:q.s,anchorRatio:q.anchorRatio||DEFAULT_RATIO})),
     experiments:experiments.map(e=>({id:e.id,n:e.n,name:e.name,questions:[...e.questions],settings:normalizeSettings(e.settings),...(e.online?{online:{...e.online}}:{})})),
+    ...(texts.length?{texts:texts.map(t=>({id:t.id,x:t.x,y:t.y,text:t.text,size:t.size}))}:{}),
     ...(nextExperimentN>0?{nextExperimentN}:{})
   };
 }
@@ -49,7 +52,7 @@ export function deserializeCanvas(data){
     items.push({id:i.id,trayRef:ref,x:i.x,y:i.y,scale:i.scale,
                 baseRot:i.baseRot,anchorRot:(i.anchorRot!=null?i.anchorRot:i.subRot)||0,frame:i.frame,
                 anchorRatio:i.anchorRatio||i.subRatio||DEFAULT_RATIO,
-                label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{}),...tex(i,ref.def)});
+                label:i.label||null,qId:i.qId||null,...(i.showMm?{showMm:true}:{}),...tex(i,ref.def),...(normalizeSpin(i.spin)?{spin:normalizeSpin(i.spin)}:{})});
   });
   const qs=data.questions||(data.trials||[]).map(t=>{
     const A=data.items.find(i=>i.id===t.a),B=data.items.find(i=>i.id===t.b),C=data.items.find(i=>i.id===t.c);
@@ -68,7 +71,12 @@ export function deserializeCanvas(data){
   // experiments (v4), or one synthesised from v3 "include in experiment" stars
   const experiments=loadExperiments(data,questions);
   experiments.forEach(e=>{if(e.id==null)e.id=++maxId;else maxId=Math.max(maxId,e.id);});
-  return {tray,items,questions,experiments,view:data.view?{...data.view}:null,name:data.name||"",maxId,nextExperimentN:parseInt(data.nextExperimentN)||0};
+  // free texts (titles and notes), since v5; an empty or malformed one is dropped
+  const texts=(data.texts||[]).filter(t=>t&&typeof t.text==="string"&&t.text.trim()).map(t=>{
+    maxId=Math.max(maxId,t.id);
+    return {id:t.id,x:+t.x||0,y:+t.y||0,text:t.text,size:Math.max(8,Math.min(120,Math.round(+t.size)||18))};
+  });
+  return {tray,items,questions,experiments,texts,view:data.view?{...data.view}:null,name:data.name||"",maxId,nextExperimentN:parseInt(data.nextExperimentN)||0};
 }
 
 export function canvasFileName(rawName){

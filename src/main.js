@@ -1,6 +1,6 @@
 /* Entry point: wires the modules to the page. */
 
-import { tray, items, questions, experiments, counters, view, sel, clearSelection, bumpId, findExperiment, findQuestion } from "./state.js";
+import { tray, items, questions, experiments, texts, counters, view, sel, clearSelection, bumpId, findExperiment, findQuestion } from "./state.js";
 import { $ } from "./dom.js";
 import { initCanvas, renderCanvas, zoomIn, zoomOut, resetView, isTyping } from "./canvas.js";
 import { initConsole, showPanel, openQPanel, createShape, makeVariant, deselect, duplicateSelected, deleteSelected, deleteMulti } from "./console.js";
@@ -17,6 +17,7 @@ import { initExperiment, refreshExpBar, openExpPanel, resetRuns, downloadBlob } 
 import { questionTrial, experimentsOf, experimentCode } from "./experiment.js";
 import { questionSheetPdf } from "./pdf.js";
 import { initImages, openImages } from "./imagesdlg.js";
+import { initTexts, deleteText } from "./texts.js";
 import { initCloud, openConnections, startParticipant } from "./cloud.js";
 import { initAssist, openDescribe } from "./assist.js";
 import { prolificParams } from "./online.js";
@@ -33,13 +34,13 @@ export function toast(msg,ms=2200){
 
 /* ---- canvas contents ---- */
 function currentData(name){
-  return serializeCanvas({name,view,tray,items,questions,experiments,nextExperimentN:counters.expN});
+  return serializeCanvas({name,view,tray,items,questions,experiments,texts,nextExperimentN:counters.expN});
 }
 /* replace the canvas contents; keepView leaves the viewport and name alone (undo/redo).
    Returns how many questions were moved apart (see separateQuestions; opening only). */
 function applyState(loaded,{keepView=false}={}){
   const keep={expId:sel.expId,qId:sel.qId};   // undo/redo keeps the open panel when its record survives
-  tray.length=0;items.length=0;questions.length=0;experiments.length=0;
+  tray.length=0;items.length=0;questions.length=0;experiments.length=0;texts.length=0;
   clearSelection();
   if(!keepView)resetRuns();
   counters.expN=loaded.nextExperimentN||0;
@@ -48,6 +49,7 @@ function applyState(loaded,{keepView=false}={}){
   items.push(...loaded.items);
   questions.push(...loaded.questions);
   experiments.push(...(loaded.experiments||[]));
+  texts.push(...(loaded.texts||[]));
   bumpId(loaded.maxId);
   questions.forEach(q=>layoutQuestion(q));
   const moved=keepView?0:separateQuestions();
@@ -75,7 +77,7 @@ function applyLoaded(loaded){
 function discardOk(){return !dirty||confirm("Discard the unsaved changes to the current canvas?");}
 function newCanvas(){
   if(!discardOk())return;
-  tray.length=0;items.length=0;questions.length=0;experiments.length=0;
+  tray.length=0;items.length=0;questions.length=0;experiments.length=0;texts.length=0;
   counters.expN=0;resetRuns();
   clearSelection();
   clearTrayDOM();
@@ -92,7 +94,7 @@ function newCanvas(){
 
 /* ---- undo / redo + autosave of the working copy ---- */
 function stateSnapshot(){
-  const d=serializeCanvas({name:"",view:{tx:0,ty:0,z:1},tray,items,questions,experiments,nextExperimentN:counters.expN});
+  const d=serializeCanvas({name:"",view:{tx:0,ty:0,z:1},tray,items,questions,experiments,texts,nextExperimentN:counters.expN});
   delete d.view;delete d.name;
   return JSON.stringify(d);
 }
@@ -253,6 +255,7 @@ const actions={
   export:exportCanvas,
   exportPdf,
   exportImages:openImages,
+  deleteText,
   import:()=>$("loadFile").click(),
   newCanvas,
   removeCanvas,
@@ -306,6 +309,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsMenu").hi
 initSplitter({storage});
 initConsole();
 initCanvas();
+initTexts();
 initExperiment();
 refreshLibrary("");
 loadCalibration(storage);

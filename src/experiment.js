@@ -3,6 +3,7 @@
    model) and the CSV record. Pure; no DOM. */
 
 import { BASE_R, DEFAULT_RATIO, LABEL_GAP, shapeMarkup, questionLayout } from "./geometry.js";
+import { normalizeSpin, spinAngles } from "./spin.js";
 
 export const PROMPT="Is A more similar to B or C?";
 export const PROMPT4="Is A more similar to B, C or D?";
@@ -70,7 +71,8 @@ export function paramRecord(it){
     subName:it.trayRef.anchor&&!it.trayRef.anchor.none?it.trayRef.anchor.name:"none",
     baseRot:it.baseRot, anchorRot:it.anchorRot, frame:it.frame,
     anchorRatio:it.anchorRatio||DEFAULT_RATIO, scale:it.scale,
-    texture:it.texture||0, contour:!!(it.texture&&it.contour)
+    texture:it.texture||0, contour:!!(it.texture&&it.contour),
+    spin:normalizeSpin(it.spin)   // continuous rotation, or null
   };
 }
 
@@ -130,6 +132,11 @@ export function trialGeometry(t){
   const x0=Math.min(...xs)-pad, x1=Math.max(...xs)+pad, y0=Math.min(...ys)-pad, y1=Math.max(...ys)+labelY+10;
   return {D:L.D,gap:L.gap,radius:L.radius,positions,viewBox:[x0,y0,x1-x0,y1-y0],labelY};
 }
+/* one member's figure, turned by the phase of its continuous rotation (0: as designed) */
+export function memberMarkup(p,phase=0){
+  const a=spinAngles(p,phase);
+  return shapeMarkup(p.def,BASE_R,p.anchor,p.frame,a.baseRot,a.anchorRot,p.anchorRatio,p.texture||0,!!p.contour);
+}
 export function stimulusMarkup(t){
   const g=trialGeometry(t);
   let out="";
@@ -138,8 +145,7 @@ export function stimulusMarkup(t){
     const p=t[k];
     const slot=k==="A"?"A":slots[order.indexOf(k)];   // the k-th place from the left holds order[k]
     const [x,y]=g.positions[slot];
-    out+=`<g data-m="${k}" transform="translate(${x},${y}) scale(${p.scale})">`+
-         shapeMarkup(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio,p.texture||0,!!p.contour)+`</g>`+
+    out+=`<g data-m="${k}" transform="translate(${x},${y}) scale(${p.scale})">`+memberMarkup(p)+`</g>`+
          `<text x="${x}" y="${y+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${k}</text>`;
   }
   return out;
@@ -158,7 +164,7 @@ export function sideOf(t,k){
   const order=orderOf(t), i=order.indexOf(k);
   return order.length===3?["left","middle","right"][i]:(i?"right":"left");
 }
-export const MEMBER_COLS=["shape","sub","arrangement","density","baseRot","subRot","frame","subRatio","scale","width_mm","height_mm","width_deg","height_deg"];
+export const MEMBER_COLS=["shape","sub","arrangement","density","baseRot","subRot","frame","subRatio","scale","spin_deg_per_s","spin_turns","width_mm","height_mm","width_deg","height_deg"];
 export const CSV_COLUMNS=["participant","canvas","experiment_id","experiment_code","experiment_name","trial","repeat","question_index","question_id","question_title","n_comparisons","response","rt_ms","B_side","order",
   ...["A","B","C","D"].flatMap(k=>MEMBER_COLS.map(c=>`${k}_${c}`)),
   "px_per_mm","calibrated","viewing_distance_cm","fixation_ms","timestamp"];
@@ -173,6 +179,7 @@ export function paramColumns(t,sizes={},deg=null){
                        [`${k}_arrangement`]:p.texture?(p.contour?"contour":"texture"):"vertices",[`${k}_density`]:p.texture||"",
                        [`${k}_baseRot`]:p.baseRot,[`${k}_subRot`]:p.anchorRot,
                        [`${k}_frame`]:p.frame,[`${k}_subRatio`]:+p.anchorRatio.toFixed(4),[`${k}_scale`]:+p.scale.toFixed(4),
+                       [`${k}_spin_deg_per_s`]:p.spin?p.spin.dps:"",[`${k}_spin_turns`]:p.spin?p.spin.scope:"",
                        [`${k}_width_mm`]:z.w!=null?+z.w.toFixed(2):"",[`${k}_height_mm`]:z.h!=null?+z.h.toFixed(2):"",
                        [`${k}_width_deg`]:z.w!=null&&deg?+deg(z.w).toFixed(3):"",[`${k}_height_deg`]:z.h!=null&&deg?+deg(z.h).toFixed(3):""});
   }
