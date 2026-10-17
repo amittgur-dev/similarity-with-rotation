@@ -249,3 +249,56 @@ test("presentation layout: equal distances, gaps scaled to the figures, rotation
   }
   assert.ok(questionStep(L1)>L1.bounds.x1-L1.bounds.x0,"the next question starts beyond this one");
 });
+
+import { crossPts, crossCount, crossDensity, CROSS_W, rotPt } from "../src/geometry.js";
+test("plus and x: two perpendicular lines; the x is the plus turned 45°", ()=>{
+  assert.deepEqual(parseShape("plus"),{cross:true,name:"plus"});
+  assert.deepEqual(parseShape("X"),{cross:true,offset:45,name:"x"});
+  for(const t of ["+","cross","✚"])assert.equal(parseShape(t).name,"plus",t);
+  for(const t of ["ex","×","times","diagonal cross"])assert.equal(parseShape(t).name,"x",t);
+  assert.deepEqual(parseShapeWithRot("x 30"),{shape:{cross:true,offset:45,name:"x"},rot:30});
+  const plus=parseShape("plus"), x=parseShape("x");
+  // solid: twelve corners, tips at r, arms CROSS_W r to either side of the line
+  const pp=crossPts(70);
+  assert.equal(pp.length,12);
+  close(Math.max(...pp.map(([px,py])=>Math.hypot(px,py))),Math.hypot(70,70*CROSS_W));
+  assert.equal(pp.filter(([px,py])=>Math.abs(py+70)<1e-9).length,2,"the top arm ends in two corners");
+  const xp=crossPts(70,45);
+  pp.forEach((p,i)=>{const q=rotPt(p,45);close(q[0],xp[i][0]);close(q[1],xp[i][1]);});
+  assert.equal(shapeMarkup(x,70,{none:true},"screen",0,0),shapeMarkup(plus,70,{none:true},"screen",45,0),"solid x = solid plus at 45°");
+  // on vertices: the centre and the four tips
+  const v=baseVerts(plus,70,0);
+  assert.equal(v.length,5);assert.equal(vertCount(plus),5);
+  assert.deepEqual(v[0],[0,0]);
+  for(const [tx,ty] of v.slice(1)){close(Math.hypot(tx,ty),70);assert.ok(Math.abs(tx)<1e-9||Math.abs(ty)<1e-9,"plus tips on the axes");}
+  for(const [tx,ty] of baseVerts(x,70,0).slice(1))close(Math.abs(tx),Math.abs(ty));
+  // texture: elements along the lines, 4n − 3 of them, the centre shared, the tips at r
+  for(const n of [2,3,4,5,8,16]){
+    const t=texturePoints(plus,70,n);
+    assert.equal(t.length,4*n-3,`density ${n}`);assert.equal(crossCount(n),4*n-3);
+    assert.ok(t.every(([px,py])=>Math.abs(px)<1e-9||Math.abs(py)<1e-9),"all on the two lines");
+    assert.equal(t.filter(([px,py])=>Math.abs(Math.hypot(px,py)-70)<1e-9).length,4,"four tips");
+    close(textureSpacing(plus,n)*70,70/(n-1));
+  }
+  assert.ok(texturePoints(x,70,5).every(([px,py])=>Math.abs(Math.abs(px)-Math.abs(py))<1e-9),"the x's elements on the diagonals");
+  assert.equal(texturePoints(x,70,5,20).length,17,"turning keeps the count");
+  assert.equal(minTexture(plus),2,"five elements: the centre and the tips");
+  assert.equal(defaultTexture(plus),5,"17 elements by default");
+  assert.equal(subCount(x,0),5);assert.equal(subCount(x,4),13);
+  // asking for a number of elements gives the nearest the lines allow
+  for(const [want,n] of [[15,5],[12,4],[20,6],[3,2],[100,16],[13,4],[17,5]])assert.equal(crossDensity(want),n,`${want} elements → density ${n} (${crossCount(n)})`);
+  // frames: in the vertex frame the elements of an x sit at 45°, of a plus at 0°; the centre element follows too
+  const sq=parseShape("square"), rots=m=>[...m.matchAll(/rotate\(([-\d.]+)\)/g)].map(r=>+r[1]);
+  assert.ok(rots(shapeMarkup(x,70,sq,"vertex",0,0,0.1,4)).every(r=>r===45));
+  assert.ok(rots(shapeMarkup(plus,70,sq,"vertex",0,0,0.1,4)).every(r=>r===0));
+  assert.ok(rots(shapeMarkup(x,70,sq,"screen",0,10,0.1,4)).every(r=>r===10),"screen frame: absolute orientation");
+  assert.deepEqual(rots(shapeMarkup(x,70,sq,"vertex",0,0,0.18,0)).map(r=>norm(r)),[45,45,135,225,315],"on vertices: the centre with the lines, the tips outward");
+  const a=shapePrimitives(x,70,sq,"vertex",0,0,0.1,4), b=shapePrimitives(plus,70,sq,"vertex",45,0,0.1,4);
+  a.forEach((p,i)=>{close(p.at[0],b[i].at[0]);close(p.at[1],b[i].at[1]);assert.equal(p.rot,b[i].rot);});
+  // the texture controls: the contour minimum is two per arm; a plus as the sub-shape of something is fine
+  assert.equal(relinkTexture(plus,{n:5,size:textureRatio(plus,5)},"fill","density",1).n,2);
+  assert.equal(relinkTexture(plus,{n:5,size:textureRatio(plus,5)},"fill","density",1).limited,"contour");
+  assert.equal((shapeMarkup(sq,70,plus,"screen",0,0,0.18,0).match(/<path/g)||[]).length,4,"a square of pluses");
+  const e=figureExtent(plus,sq,0.1,5);
+  close(e.radius,1.1);close(e.spacing,0.25);
+});

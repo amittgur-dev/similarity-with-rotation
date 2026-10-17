@@ -1,7 +1,7 @@
 /* Right-hand console: the creation panel, the three selection panels and
    the single-object operations they expose. */
 
-import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, defaultTexture, clampTexture, textureRatio, relinkTexture, textureSpan, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
+import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, defaultTexture, clampTexture, textureRatio, relinkTexture, textureSpan, crossCount, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
 import { rotateParams, parseVary } from "./variants.js";
 import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem } from "./state.js";
 import { $, escapeXML } from "./dom.js";
@@ -20,6 +20,9 @@ export function miniSVG(def,rot,isAnchor){
 export function buildSpecRows(container, target, cfg){
   const wrap=document.createElement("div");
   const hasAnchors=cfg.anchor&&!cfg.anchor.none;
+  const cross=!!cfg.def.cross, minTex=minTexture(cfg.def);
+  // a plus or x shows and takes its number of elements; what is stored is the density, elements from the centre to each tip
+  const shownN=n=>cross?crossCount(n):n, toN=v=>cross?(v+3)/4:v;
   const row1=document.createElement("div");
   row1.className="spec";
   row1.innerHTML=
@@ -36,7 +39,7 @@ export function buildSpecRows(container, target, cfg){
     const row2=document.createElement("div");
     row2.className="spec";
     const orientable=!cfg.anchor.circle;
-    const tex=target.texture||0, minTex=minTexture(cfg.def);
+    const tex=target.texture||0;
     row2.innerHTML=
       `<div class="pv">${miniSVG(cfg.anchor,target.anchorRot,true)}</div>`+
       `<div class="fields">`+
@@ -48,12 +51,15 @@ export function buildSpecRows(container, target, cfg){
           `<button data-v="vertex" class="${target.frame==="vertex"?"on":""}" title="vertex frame: sub-shapes point outward from the center and co-rotate with the base">vertex</button>`+
         `</div>`+
         `<div class="seg" data-f="arrange" title="where the sub-shapes go">`+
-          `<button data-v="vertices" class="${tex?"":"on"}" title="on the corners of the base shape">on vertices</button>`+
-          `<button data-v="texture" class="${tex?"on":""}" title="filling the base shape as a texture; the density sets how many and how large">texture</button>`+
+          `<button data-v="vertices" class="${tex?"":"on"}" title="${cross?"the centre and the four tips":"on the corners of the base shape"}">on vertices</button>`+
+          `<button data-v="texture" class="${tex?"on":""}" title="${cross?"a succession of elements along the two lines; choose how many":"filling the base shape as a texture; the density sets how many and how large"}">texture</button>`+
         `</div>`+
         `<div class="texBox"${tex?"":' style="display:none"'}>`+
-          `<div class="frow" title="${cfg.def.circle?"elements across the circle":"elements along each side"}; at least ${minTex} so the elements carry the contour of the ${escapeXML(cfg.def.name)}">`+
-            `<span>density · ${cfg.def.circle?"across":"per side"}</span><input type="number" step="1" min="${minTex}" max="16" value="${tex||defaultTexture(cfg.def)}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`+
+          (cross
+          ?`<div class="frow" title="how many elements make the ${escapeXML(cfg.def.name)}: one at the centre and the same number along each of the four arms, so 5, 9, 13, 17, … — type a number and the nearest is used">`+
+            `<span>elements · total</span><input type="number" step="4" min="${crossCount(minTex)}" max="${crossCount(16)}" value="${crossCount(tex||defaultTexture(cfg.def))}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`
+          :`<div class="frow" title="${cfg.def.circle?"elements across the circle":"elements along each side"}; at least ${minTex} so the elements carry the contour of the ${escapeXML(cfg.def.name)}">`+
+            `<span>density · ${cfg.def.circle?"across":"per side"}</span><input type="number" step="1" min="${minTex}" max="16" value="${tex||defaultTexture(cfg.def)}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`)+
           (cfg.showRatio===false?"":
           `<div class="frow" title="element size relative to the spacing between elements: 100% and they touch">`+
             `<span>fill</span><input type="number" step="5" min="${Math.round(FILL_MIN*200)}" max="${Math.round(FILL_MAX*200)}" value="${fillPct(cfg.def,target)}" data-f="fill">%${holdBtn("fill",tex)}</div>`+
@@ -85,15 +91,15 @@ export function buildSpecRows(container, target, cfg){
   // arrangement, density, size and fill: one of the last three is held, editing another moves the third
   const texInput=wrap.querySelector('input[data-f="texture"]');
   const fillInput=wrap.querySelector('input[data-f="fill"]');
-  const LIMIT={contour:()=>cfg.def.circle?`at least ${texInput.min} across, so the rim is a clear circle`:`at least ${texInput.min} per side — it takes three elements to read as a straight edge`,
+  const LIMIT={contour:()=>cross?`at least ${texInput.min} elements — the centre and the four tips`:cfg.def.circle?`at least ${texInput.min} across, so the rim is a clear circle`:`at least ${texInput.min} per side — it takes three elements to read as a straight edge`,
                overlap:()=>"limited so the elements do not overlap",sparse:()=>"limited: the elements would be too sparse to form a texture",
-               max:()=>"limited to the highest density (16 per row)"};
+               max:()=>cross?`limited to ${crossCount(16)} elements (16 from the centre to each tip)`:"limited to the highest density (16 per row)"};
   // what the app last wrote into a field: a change event that still carries it is not an edit
   const show=(inp,v)=>{inp.value=v;shown.set(inp,inp.value);};
   const edited=inp=>inp.value!==shown.get(inp);
   function showTexture(except){
     const n=target.texture||0;
-    if(texInput&&texInput!==except&&n)show(texInput,n);
+    if(texInput&&texInput!==except&&n)show(texInput,shownN(n));
     const ri=wrap.querySelector('input[data-f="anchorRatio"]');
     if(ri&&ri!==except)show(ri,pctText(target.anchorRatio));
     if(fillInput&&fillInput!==except&&n)show(fillInput,fillPct(cfg.def,target));
@@ -118,8 +124,9 @@ export function buildSpecRows(container, target, cfg){
     [texInput,fillInput,wrap.querySelector('input[data-f="anchorRatio"]')].forEach(i=>{if(i&&cfg.showRatio!==false)i.disabled=!!target.texture&&i===held;});
   }
   function relink(edited,value,inp){
+    if(edited==="density")value=toN(value);
     if(cfg.showRatio===false){                            // a question member: density only, the group holds the size
-      target.texture=Math.max(+texInput.min,clampTexture(value));
+      target.texture=Math.max(minTex,clampTexture(value));
     }else{
       const r=relinkTexture(cfg.def,{n:target.texture,size:target.anchorRatio},ui.texHold,edited,value);
       target.texture=r.n;target.anchorRatio=r.size;
@@ -172,7 +179,7 @@ export function buildSpecRows(container, target, cfg){
       const on=b.dataset.v==="texture";
       b.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
       wrap.querySelector(".texBox").style.display=on?"":"none";
-      setTexture(on?Math.max(+texInput.min,clampTexture(texInput.value)):0);
+      setTexture(on?Math.max(minTex,clampTexture(toN(+texInput.value))):0);
       commit();
     };
   });
@@ -197,7 +204,7 @@ const shown=new WeakMap();   // field → the value the app last wrote into it
 const pctText=r=>{const v=r*100;return v<10?+v.toFixed(1):Math.round(v);};
 const fillPct=(def,t)=>t.texture?Math.round(200*(t.anchorRatio||DEFAULT_RATIO)*(t.texture-1)/textureSpan(def)):Math.round(TEXTURE_FILL*200);
 function subLabel(cfg,tex){
-  return `${escapeXML(cfg.anchor.name)} × ${subCount(cfg.def,tex)}`+(tex?` · texture ${tex}`:"");
+  return `${escapeXML(cfg.anchor.name)} × ${subCount(cfg.def,tex)}`+(tex?(cfg.def.cross?` · ${tex} per arm`:` · texture ${tex}`):"");
 }
 
 /* ================= creation ================= */

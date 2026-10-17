@@ -120,7 +120,7 @@ Every object is fully described by:
 
 | parameter        | meaning                                              |
 |------------------|------------------------------------------------------|
-| `def`            | base shape (n-gon / diamond / star / circle)         |
+| `def`            | base shape (n-gon / diamond / star / circle / plus / x) |
 | `baseRot`        | rotation of the vertex configuration (deg)           |
 | `anchor`         | sub-shape placed at each vertex (internal name — UI says "sub-shape") |
 | `anchorRot`      | sub-shape orientation (deg)                          |
@@ -147,8 +147,17 @@ for in `rotateParams()` (`variants.js`):
 
 Text input grammar: a shape name optionally followed by a rotation
 (`square 45`, `hexagon -30°`). Named shapes (including `up triangle` and `down triangle`, distinct shapes pointing up / standing on a tip, both at 0°; plain `triangle` points up), `7`/`7-gon` (3–24), `6 star`
-(4–12 points), `circle`, `none`. A trailing number is always a rotation, so
+(4–12 points), `circle`, `plus` (also `+`, `cross`), `x` (also `ex`, `×`,
+`times`), `none`. A trailing number is always a rotation, so
 `star 5` is a five-point star turned 5°, not a 5-star.
+
+**Plus and x** are two perpendicular lines through the centre, tip to tip
+the same span as the other shapes; the x is the plus turned 45° in every
+respect (solid, on vertices, texture, both frames), so `x` and `plus 45` are
+the same figure. Solid, they are drawn as bars a quarter of the radius wide
+to either side of the line. *On vertices* they are five elements: the centre,
+where the lines cross, and the four tips. As a *texture* they are a
+succession of elements along the two lines — see *Textures*.
 
 ## Textures
 
@@ -187,6 +196,18 @@ takes three to read as a straight edge), and a circle needs 12 elements on
 its rim. A new texture starts at the lowest density giving at least 15
 elements (square 4 per side, triangle 5). Every trial record carries
 `arrangement` and `density` per member.
+
+A **plus or x** has no inside: its texture is the two lines themselves, one
+element at the centre and the same number out along each of the four arms,
+so the figure has 5, 9, 13, 17, … elements (4n − 3 for a density n of
+elements from the centre to each tip, the centre included). Because only
+those counts exist, the panel shows and takes the **total number of
+elements** for these shapes and uses the nearest the lines allow (ask for 15,
+get 17); the minimum is 5, the maximum 61, and a new one starts at 17.
+Density, size and fill are linked as for the other shapes, with the arm
+(centre to tip) as the side: `size = fill × radius / (density − 1)`. In the
+save file and the records `density` is the per-arm value (17 elements =
+density 5).
 
 ## Question (group) model
 

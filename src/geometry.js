@@ -12,12 +12,15 @@ export const NAMES = {
   pentagon:{n:5}, hexagon:{n:6}, heptagon:{n:7}, septagon:{n:7},
   octagon:{n:8}, nonagon:{n:9}, decagon:{n:10},
   hendecagon:{n:11}, dodecagon:{n:12},
+  plus:{cross:true}, x:{cross:true,offset:45},   // two perpendicular lines through the centre; the x is the plus turned 45°
   circle:{circle:true}, star:{star:5}
 };
-/* other ways of writing the two directed triangles */
+/* other ways of writing the directed triangles, the plus and the x */
 const ALIASES={
   "up triangle":"up-triangle","upward triangle":"up-triangle","triangle up":"up-triangle","upward-triangle":"up-triangle","uptriangle":"up-triangle","▲":"up-triangle","△":"up-triangle",
-  "down triangle":"down-triangle","downward triangle":"down-triangle","triangle down":"down-triangle","downward-triangle":"down-triangle","downtriangle":"down-triangle","▼":"down-triangle","▽":"down-triangle"
+  "down triangle":"down-triangle","downward triangle":"down-triangle","triangle down":"down-triangle","downward-triangle":"down-triangle","downtriangle":"down-triangle","▼":"down-triangle","▽":"down-triangle",
+  "+":"plus","cross":"plus","plus sign":"plus","plus-sign":"plus","✚":"plus","✛":"plus","➕":"plus",
+  "ex":"x","×":"x","✕":"x","✖":"x","times":"x","x cross":"x","x-cross":"x","diagonal cross":"x","saltire":"x"
 };
 export function parseShape(txt){
   let t=txt.trim().toLowerCase().replace(/\s+/g," ");
@@ -64,6 +67,15 @@ export function starPts(n,r){
   }
   return pts;
 }
+/* a plus: two perpendicular bars through the centre, tip to tip 2r, each
+   CROSS_W × r wide to either side of its line when drawn solid; rot turns it
+   (the x is the plus at 45°). Twelve corners, clockwise from the top arm. */
+export const CROSS_W=0.25;
+export function crossPts(r,rot=0){
+  const w=r*CROSS_W, arm=[[-w,-r],[w,-r],[w,-w]], pts=[];
+  for(let k=0;k<4;k++)arm.forEach(p=>pts.push(rotPt(p,k*90)));
+  return rot?pts.map(p=>rotPt(p,rot)):pts;
+}
 export function pathD(pts){return "M"+pts.map(p=>p[0].toFixed(2)+","+p[1].toFixed(2)).join("L")+"Z";}
 export function rotPt(p,deg){
   const a=deg*Math.PI/180;
@@ -72,13 +84,19 @@ export function rotPt(p,deg){
 export function baseVerts(def,r,baseRot){
   if(def.circle) return polyPts(6,r,baseRot);
   if(def.star) return starPts(def.star,r).filter((_,i)=>i%2===0).map(p=>rotPt(p,baseRot));
+  if(def.cross) return [[0,0],...polyPts(4,r,(def.offset||0)+baseRot)];   // the centre, where the lines cross, and the four tips
   return polyPts(def.n,r,(def.offset||0)+baseRot);
 }
 export function vertCount(def){
   if(def.circle)return 6;
   if(def.star)return def.star;
+  if(def.cross)return 5;
   return def.n;
 }
+/* the orientation the elements of a texture co-rotate from in the vertex
+   frame: the lattice's own — for a plus or x that of its lines, so the x
+   is exactly the plus turned 45° */
+const latticeRot=def=>def.cross?(def.offset||0):0;
 
 /* ---- texture: sub-shapes filling the base shape ----
    Laid out for the clarity of the overall shape:
@@ -93,7 +111,11 @@ export function vertCount(def){
       shapes the lattice fills the inside and stops short of the contour
       row, which keeps the outline crisp.
    Density `n` = elements per side (a circle: across its diameter), so the
-   spacing is side length / (n − 1). The whole layout turns with baseRot. */
+   spacing is side length / (n − 1). The whole layout turns with baseRot.
+   A plus or x has no inside: its texture is the two lines themselves, a
+   succession of elements along each, one at the centre where they cross.
+   Density there = elements from the centre to each tip, the centre
+   included, so the figure has 4n − 3 elements (5, 9, 13, 17, …). */
 export const DEFAULT_TEXTURE=4;
 export const clampTexture=n=>Math.max(2,Math.min(16,Math.round(+n)||DEFAULT_TEXTURE));
 function outline(def,r){
@@ -121,6 +143,7 @@ function distToOutline(pts,x,y,r){
 }
 /* the length that density counts elements along, at r = 1: a side, or a circle's diameter */
 export function textureSpan(def){
+  if(def.cross)return 1;   // centre to tip
   const pts=outline(def,1);
   if(!pts)return 2;
   return Math.hypot(pts[1][0]-pts[0][0],pts[1][1]-pts[0][1]);
@@ -129,7 +152,14 @@ export const textureSpacing=(def,n)=>textureSpan(def)/(clampTexture(n)-1);
 const INNER_GAP=0.85;   // lattice points closer than this × spacing to the contour are left to the contour row
 export function texturePoints(def,r,n,baseRot=0){
   n=clampTexture(n);
-  const s=textureSpacing(def,n)*r, pts=outline(def,r), out=[];
+  const s=textureSpacing(def,n)*r, out=[];
+  if(def.cross){
+    // the two lines: the shared centre, then n − 1 elements out to each of the four tips
+    out.push([0,0]);
+    for(let k=0;k<4;k++)for(let j=1;j<n;j++)out.push(rotPt([0,-j*s],(def.offset||0)+k*90));
+    return baseRot?out.map(p=>rotPt(p,baseRot)):out;
+  }
+  const pts=outline(def,r);
   // 1. contour
   if(!pts){
     const m=Math.max(6,Math.round(2*Math.PI*r/s));
@@ -228,8 +258,13 @@ export function relinkTexture(def,{n,size},hold,edited,value){
 export const MIN_PER_SIDE=3, MIN_RIM=12;
 export function minTexture(def){
   if(def.circle){for(let n=3;n<=16;n++)if(Math.round(Math.PI*(n-1))>=MIN_RIM)return n;return 16;}
+  if(def.cross)return 2;   // each line then has three elements: tip, centre, tip — the five-element plus
   return MIN_PER_SIDE;
 }
+/* how many elements a texture of density n has — for a plus or x in closed form */
+export const crossCount=n=>4*clampTexture(n)-3;
+/* the density of a plus or x whose element count comes nearest to `count` */
+export const crossDensity=count=>clampTexture((count+3)/4);
 
 /* the density a new texture starts at: the lowest (from 4, and not below
    the minimum) that gives at least DEFAULT_ELEMENTS elements — clear shape first */
@@ -344,13 +379,16 @@ export function shapePrimitives(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorR
   const hasAnchors=anchor&&!anchor.none;
   if(!hasAnchors){
     if(def.circle)return [{circle:[0,0],r}];
+    if(def.cross)return [{poly:crossPts(r,(def.offset||0)+baseRot)}];
     return [{poly:def.star?starPts(def.star,r).map(p=>rotPt(p,baseRot)):polyPts(def.n,r,(def.offset||0)+baseRot)}];
   }
   const sr=r*anchorRatio;
   const verts=texture?texturePoints(def,r,texture,baseRot):baseVerts(def,r,baseRot);
-  const spts=anchor.circle?null:(anchor.star?starPts(anchor.star,sr):polyPts(anchor.n,sr,anchor.offset||0));
+  const spts=anchor.circle?null:(anchor.star?starPts(anchor.star,sr):anchor.cross?crossPts(sr,anchor.offset||0):polyPts(anchor.n,sr,anchor.offset||0));
+  const coRot=latticeRot(def)+baseRot+anchorRot;   // vertex frame: with the lattice, or the centre of a plus with its lines
   return verts.map(v=>{
-    const rot=texture?(frame==="vertex"?baseRot+anchorRot:anchorRot):anchorOrientation(v,frame,anchorRot);
+    const rot=texture?(frame==="vertex"?coRot:anchorRot)
+                     :(Math.hypot(v[0],v[1])<1e-9?(frame==="vertex"?coRot:anchorRot):anchorOrientation(v,frame,anchorRot));
     return anchor.circle?{circle:v,r:sr,sub:true}:{poly:spts,at:v,rot};
   });
 }

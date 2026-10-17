@@ -11,7 +11,7 @@ import { clampTexture, minTexture, textureRatio, questionLayout, questionStep } 
 export const AI_KEY="stimulus-builder.ai";   // {mode:"supabase"|"direct", apiKey?}
 export const MODEL="claude-opus-5";
 
-const SHAPE_NAMES=["triangle","up-triangle","down-triangle","square","diamond","pentagon","hexagon","heptagon","octagon","nonagon","decagon","circle","star"];
+const SHAPE_NAMES=["triangle","up-triangle","down-triangle","square","diamond","pentagon","hexagon","heptagon","octagon","nonagon","decagon","circle","star","plus","x"];
 
 export const PLAN_SCHEMA={
   type:"object",
@@ -22,12 +22,12 @@ export const PLAN_SCHEMA={
       rationale:{type:"string",description:"one or two sentences on what the set manipulates"}},required:["name","rationale"]},
     shapes:{type:"array",description:"stimulus constructions used by the questions",items:{type:"object",additionalProperties:false,properties:{
       key:{type:"string",description:"identifier referenced by questions, e.g. 'sq-di'"},
-      base:{type:"string",description:"base shape: triangle (= up-triangle, pointing up), down-triangle (standing on a tip), square, diamond, pentagon, hexagon, heptagon, octagon, nonagon, decagon, circle, star, or 'N-gon' / 'N star'"},
+      base:{type:"string",description:"base shape: triangle (= up-triangle, pointing up), down-triangle (standing on a tip), square, diamond, pentagon, hexagon, heptagon, octagon, nonagon, decagon, circle, star, plus (two perpendicular lines through the centre), x (the plus turned 45 degrees), or 'N-gon' / 'N star'"},
       sub:{type:"string",description:"sub-shape at each vertex: same names, or 'none' for a solid shape"},
       frame:{type:"string",enum:["screen","vertex"],description:"screen: sub-shapes keep absolute orientation when the base rotates; vertex: they point outward and co-rotate"},
       subRatio:{type:"number",description:"sub-shape size as a fraction of the base radius, 0.05-0.6 (default 0.18); ignored for textures, whose element size follows the density"},
       arrangement:{type:"string",enum:["vertices","texture"],description:"vertices: one sub-shape on each corner of the base shape; texture: sub-shapes fill the base shape on a square lattice"},
-      density:{type:"integer",description:"texture only: elements per side (across, for a circle), 3-16; 4 for a square is a 4x4 grid, 5 for a triangle is 15 elements. Higher density means more and smaller elements. Use 0 for vertices"}},
+      density:{type:"integer",description:"texture only: elements per side (across, for a circle), 3-16; 4 for a square is a 4x4 grid, 5 for a triangle is 15 elements. For a plus or x: elements from the centre to each tip, 2-16, making 4n-3 elements in all (5 gives 17, 4 gives 13). Higher density means more and smaller elements. Use 0 for vertices"}},
       required:["key","base","sub","frame","subRatio","arrangement","density"]}},
     questions:{type:"array",description:"each question: reference A and two comparisons B, C (or three: B, C, D) that differ from A only in rotations",items:{type:"object",additionalProperties:false,properties:{
       shape:{type:"string",description:"key of the shape construction"},
@@ -51,7 +51,7 @@ Stimuli are configural shapes: a base polygon whose vertices are occupied by sub
 
 A similarity question shows a reference A and two comparisons B and C, asking "Is A more similar to B or to C?" — or three comparisons B, C and D ("Is A more similar to B, C or D?"); give D only when the request asks for three comparisons or three alternatives, and set it to null otherwise. The comparisons must differ from A only in rotations (baseRot and/or subRot). Typical designs: B rotates the whole configuration while C rotates only the sub-shapes (or only the base); B and C use the same magnitude but different components; a magnitude series (15°, 30°, 45°, 60°, 90°); the same relation shown from different reference orientations; the same set in both frames.
 
-Sub-shapes can also form a texture: they fill the base shape on a square lattice aligned with the screen at baseRot 0, and the whole lattice turns with baseRot. The frame keeps its meaning (screen: elements keep their orientation while the lattice turns; vertex: elements co-rotate with the lattice). The texture draws the contour explicitly (elements along every edge, one on each corner) and fills the inside with a lattice matching the shape (triangular for triangles and hexagons, square for squares). Density is elements per side (across, for a circle), a variable of its own; element size shrinks as density grows. The minimum is 3 per side (5 across a circle); 4-6 per side gives a clear shape. Use textures when the request mentions textures, grids, lattices, fields of elements or density.
+Sub-shapes can also form a texture: they fill the base shape on a square lattice aligned with the screen at baseRot 0, and the whole lattice turns with baseRot. The frame keeps its meaning (screen: elements keep their orientation while the lattice turns; vertex: elements co-rotate with the lattice). The texture draws the contour explicitly (elements along every edge, one on each corner) and fills the inside with a lattice matching the shape (triangular for triangles and hexagons, square for squares). Density is elements per side (across, for a circle), a variable of its own; element size shrinks as density grows. The minimum is 3 per side (5 across a circle); 4-6 per side gives a clear shape. Use textures when the request mentions textures, grids, lattices, fields of elements or density. A plus or x has no inside: its texture is a succession of elements along its two lines (density = elements from the centre to each tip, so 4n-3 elements in all: 5 gives 17), and on vertices it is five elements, the centre and the four tips. Use a plus or x when the request asks for lines made of elements, crosses or plus signs.
 
 Available shape names: ${SHAPE_NAMES.join(", ")}, or "N-gon" (3-24) and "N star" (4-12). Rotations are integers in degrees (0-359). Keep sub-shape relative size at 0.18 unless the request implies otherwise. Produce between 3 and 24 questions unless the request asks for a specific number, and choose an informative experiment name. Reuse one shape construction across questions when the design varies only rotations.`;
 
