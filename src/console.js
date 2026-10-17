@@ -40,8 +40,8 @@ export function buildSpecRows(container, target, cfg){
       `<div class="frow" title="degrees per second: 360 is one turn a second, 30 a turn every 12 s"><span>speed</span><input type="number" step="5" min="${SPIN_MIN}" max="${SPIN_MAX}" value="${Math.abs(v)||SPIN_DEFAULT}" data-f="spinSpeed">°/s</div>`+
       (kind==="shape"&&hasAnchors?`<div class="seg" data-f="spinScope" title="what turns with it">`+
         SPIN_SCOPES.map(s=>`<button data-v="${s}" class="${(sp?sp.scope:"whole")===s?"on":""}" title="${SPIN_SCOPE_LABEL[s]}">${s==="whole"?"whole figure":"shape only"}</button>`).join("")+`</div>`:"")+
-      `<div class="frow" title="every object turns on one shared clock, so objects with the same speed turn in step; the offset puts this one that many degrees ahead of the others (0: in step)"><span>offset</span><input type="number" step="15" min="0" max="359" value="${sp?(kind==="sub"?sp.subPhase0:sp.phase0)||0:0}" data-f="spinPhase">°`+
-        `<button type="button" class="spinRestart" title="every turning object goes back to its starting orientation now and they all go on together">restart all</button></div>`+
+      `<div class="frow" title="every object turns on one shared clock, so objects with the same speed turn in step; the offset puts this one that many degrees ahead of the others (0: in step)"><span>offset</span><input type="number" step="15" min="0" max="359" value="${sp?(kind==="sub"?sp.subPhase0:sp.phase0)||0:0}" data-f="spinPhase">°</div>`+
+      `<div class="frow" title="every turning object goes back to its starting orientation now and they all go on together"><span>in step</span><button type="button" class="spinRestart">restart all now</button></div>`+
       `<div class="note spinNote">${spinText(sp,kind)}</div>`+
     `</div><!-- /spinBox -->`;
   };
