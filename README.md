@@ -21,7 +21,11 @@ Canvas navigation: drag empty space to move around, scroll to pan,
 space+drag or the middle button also pan. Click an object to select it,
 **shift-click** further objects to build a multi-selection, or **shift-drag**
 a box; with three (or four) ungrouped objects selected press "make similarity
-question" to group them.
+question" to group them. Whole questions join a selection the same way
+(shift-click a member or the title; a box catches a question whole), so
+several objects and questions can be chosen together: drag any of them to
+move the selection as one, press Delete or *delete all* to remove it all,
+or click one without shift to select just that one.
 
 **pdf** (next to save / export / import) downloads every question on the
 canvas as a vector PDF: six per A4 page, as many pages as needed, all drawn

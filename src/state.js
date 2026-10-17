@@ -13,7 +13,7 @@ export const counters={expN:0};   // highest experiment ordinal ever issued on t
 
 /* selection: exactly one of these is active at a time
    (single object / multiple objects / a question group) */
-export const sel={id:null,ids:[],qId:null,expId:null};
+export const sel={id:null,ids:[],qIds:[],qId:null,expId:null};   // ids/qIds: several objects and whole questions chosen together
 export const view={tx:0,ty:0,z:1};
 
 /* panel toggles that persist across selections */
@@ -26,7 +26,7 @@ export function bumpId(id){uid=Math.max(uid,id+1);}
 export function resetDraft(){
   Object.assign(draft,{shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO,texture:0,contour:false});
 }
-export function clearSelection(){sel.id=null;sel.ids=[];sel.qId=null;sel.expId=null;}
+export function clearSelection(){sel.id=null;sel.ids=[];sel.qIds=[];sel.qId=null;sel.expId=null;}
 export const findExperiment=id=>experiments.find(e=>e.id===id);
 export const findItem=id=>items.find(i=>i.id===id);
 export const findQuestion=id=>questions.find(q=>q.id===id);

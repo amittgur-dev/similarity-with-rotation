@@ -8,7 +8,7 @@ import { $, escapeXML } from "./dom.js";
 import { calib, pxToMm, visualAngleDeg, formatDeg } from "./calibration.js";
 import { commit, commitSoon } from "./history.js";
 import { renderCanvas } from "./canvas.js";
-import { layoutQuestion, renderQStruct, regenerateTitle, memberIds, LABELS, questionGeometry } from "./questions.js";
+import { layoutQuestion, renderQStruct, regenerateTitle, memberIds, LABELS, questionGeometry, removeQuestion } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
 import { syncExpChips, refreshExpBar } from "./run.js";
 
@@ -330,11 +330,13 @@ export function openSelPanel(){
   showPanel("selPanel");
 }
 export function openMultiPanel(){
-  $("multiInfo").textContent=sel.ids.length+" objects selected";
+  const n=sel.ids.length, m=sel.qIds.length, some=(k,w)=>`${k} ${w}${k===1?"":"s"}`;
+  $("multiInfo").textContent=[n?some(n,"object"):"",m?some(m,"question"):""].filter(Boolean).join(" · ")+" selected";
   const free=sel.ids.filter(id=>{const it=findItem(id);return it&&!it.qId;});
-  const n=sel.ids.length, ok=(n===3||n===4)&&free.length===n;
+  const ok=!m&&(n===3||n===4)&&free.length===n;
   $("makeQBtn").disabled=!ok;
   $("errMulti").textContent=
+    m?"drag any of them to move the selection together, or delete all; a new question needs 3 or 4 free objects":
     n!==3&&n!==4?"a question needs 3 objects (4 for three comparisons)":
     free.length!==n?"some objects already belong to a question":"";
   showPanel("multiPanel");
@@ -385,9 +387,10 @@ export function deleteSelected(){
 export function deleteMulti(){
   sel.ids.forEach(id=>{
     const it=findItem(id);
-    if(it&&it.qId)return; // grouped objects are deleted via their question
+    if(it&&it.qId)return; // a member goes with its question, never alone
     removeItem(id);
   });
+  sel.qIds.map(findQuestion).filter(Boolean).forEach(removeQuestion);   // chosen questions go whole
   deselect();commit();
 }
 export function duplicateSelected(){

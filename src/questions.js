@@ -77,7 +77,7 @@ export function regenerateTitle(q){
 
 export function makeQuestion(){
   const selected=sel.ids.map(findItem).filter(Boolean);
-  if((selected.length!==3&&selected.length!==4)||selected.some(it=>it.qId))return;
+  if(sel.qIds.length||(selected.length!==3&&selected.length!==4)||selected.some(it=>it.qId))return;
   const ms=assignABC(selected), [A,B,C,D]=ms, k=ms.length;
   const q={
     id:nextId(),
@@ -108,13 +108,15 @@ export function ungroupQuestion(){
   }
   deselect();commit();
 }
+/* a question leaves the canvas with its members, and every experiment it was in */
+export function removeQuestion(q){
+  memberIds(q).forEach(removeItem);
+  questions.splice(questions.indexOf(q),1);
+  removeQuestionEverywhere(q.id,experiments);
+}
 export function deleteQuestion(){
   const q=findQuestion(sel.qId);
-  if(q){
-    memberIds(q).forEach(removeItem);
-    questions.splice(questions.indexOf(q),1);
-    removeQuestionEverywhere(q.id,experiments);
-  }
+  if(q)removeQuestion(q);
   deselect();commit();
 }
 

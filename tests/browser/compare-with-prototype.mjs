@@ -97,6 +97,10 @@ async function run(url,tag){
   await page.locator("g.item[data-id='6'] path").first().dispatchEvent("dblclick",{bubbles:true});
   await page.fill('#selSpecs input[data-f="baseRot"]',"10");
   await btn("done").click();
+  // move the second question away (by a member, in both versions): the box-select below must not catch it,
+  // since a box now chooses whole questions and "delete all" removes them
+  const m9=await page.locator("g.item[data-id='10'] path").first().boundingBox();   // member B, clear of the console in both versions
+  await dragCanvas(m9.x+m9.width/2,m9.y+m9.height/2,m9.x+m9.width/2+400,m9.y+m9.height/2+450);
   // single-object variants
   await dragTray(1,600,150);
   await page.click('#rvScope button[data-v="shape"]');

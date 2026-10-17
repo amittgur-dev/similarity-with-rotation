@@ -80,7 +80,7 @@ export function renderCanvas(){
     out+=`<text data-qid="${q.id}" x="${q.cx}" y="${ty}" text-anchor="middle" font-family="monospace" font-size="14" fill="#111"`+
          `${faded.has(q.id)?' class="lensOut"':""} style="cursor:pointer;text-decoration:${selQ?"underline":"none"}">${box}${escapeXML(q.title)}`+
          (codes?`<tspan fill="#6b6b6b" font-size="12"> ${codes}</tspan>`:"")+`</text>`;
-    if(selQ||q.id===hoverQ){
+    if(selQ||q.id===hoverQ||sel.qIds.includes(q.id)){
       // frame: the members' extent (shared presentation layout) with the title above and the labels below
       const f=questionFrame(q);
       if(f)out+=`<rect x="${f.x0}" y="${f.y0}" width="${f.x1-f.x0}" height="${f.y1-f.y0}" fill="none" stroke="#4a90d9" stroke-width="${1/view.z}" stroke-dasharray="${5/view.z} ${4/view.z}"/>`;
@@ -134,10 +134,39 @@ let mode=null, dragIt=null, dragQ=null, start={};
 let spaceHeld=false;
 
 function selectQuestion(q,pt,pointerId){
-  sel.qId=q.id;sel.id=null;sel.ids=[];sel.expId=null;
+  sel.qId=q.id;sel.id=null;sel.ids=[];sel.qIds=[];sel.expId=null;
   mode="moveQ";dragQ=q;
   start={dx:pt.x-q.cx,dy:pt.y-q.cy};
   renderCanvas();openQPanel();
+  svg.setPointerCapture(pointerId);
+}
+/* ---- choosing several: free objects and whole questions ----
+   shift-click adds the pressed object or question to the selection, or takes
+   it out again; what was singly selected joins it. */
+function toggleSelection(id,qid){
+  const ids=new Set(sel.ids), qids=new Set(sel.qIds);
+  if(sel.id!=null)ids.add(sel.id);
+  if(sel.qId!=null)qids.add(sel.qId);
+  if(id!=null){if(ids.has(id))ids.delete(id);else ids.add(id);}
+  if(qid!=null){if(qids.has(qid))qids.delete(qid);else qids.add(qid);}
+  sel.id=null;sel.qId=null;sel.ids=[...ids];sel.qIds=[...qids];
+  settleSelection();
+}
+/* a selection of one thing is that thing's own selection */
+function settleSelection(){
+  const n=sel.ids.length, m=sel.qIds.length;
+  if(n===1&&!m){sel.id=sel.ids[0];sel.ids=[];renderCanvas();openSelPanel();}
+  else if(m===1&&!n){sel.qId=sel.qIds[0];sel.qIds=[];renderCanvas();openQPanel();}
+  else if(!n&&!m)deselect();
+  else{renderCanvas();openMultiPanel();}
+}
+/* dragging one of the chosen things moves them all; a press that does not travel picks just that one */
+let multi=null;
+function beginMoveMulti(pt,pointerId,pick){
+  multi={x0:pt.x,y0:pt.y,moved:false,pick,
+         its:sel.ids.map(findItem).filter(Boolean).map(it=>({it,x:it.x,y:it.y})),
+         qs:sel.qIds.map(findQuestion).filter(Boolean).map(q=>({q,cx:q.cx,cy:q.cy}))};
+  mode="moveMulti";
   svg.setPointerCapture(pointerId);
 }
 
@@ -166,7 +195,10 @@ function onPointerDown(e){
   }
   sel.expId=null;   // any other press ends the lens
   if(qid){
-    selectQuestion(findQuestion(parseInt(qid)),pt,e.pointerId);
+    const q=findQuestion(parseInt(qid));
+    if(e.shiftKey){toggleSelection(null,q.id);return;}
+    if(sel.qIds.includes(q.id)){beginMoveMulti(pt,e.pointerId,{q});return;}
+    selectQuestion(q,pt,e.pointerId);
     return;
   }
   if(h&&sel.id!=null){
@@ -179,29 +211,23 @@ function onPointerDown(e){
     const id=parseInt(gEl.dataset.id);
     const it=findItem(id);
     if(it.qId){
-      // member of a question → select & drag the whole group
-      selectQuestion(findQuestion(it.qId),pt,e.pointerId);
+      // member of a question: the whole question — chosen with shift, moved with the selection, or selected and dragged
+      const q=findQuestion(it.qId);
+      if(e.shiftKey){toggleSelection(null,q.id);return;}
+      if(sel.qIds.includes(q.id)){beginMoveMulti(pt,e.pointerId,{q});return;}
+      selectQuestion(q,pt,e.pointerId);
       return;
     }
-    if(e.shiftKey){
-      // shift-click → add to / remove from a multi-selection (no drag)
-      const ids=new Set(sel.ids);
-      if(sel.id!=null)ids.add(sel.id);
-      if(ids.has(id))ids.delete(id);else ids.add(id);
-      sel.id=null;sel.ids=[...ids];sel.qId=null;
-      if(sel.ids.length===1){sel.id=sel.ids[0];sel.ids=[];renderCanvas();openSelPanel();}
-      else if(sel.ids.length===0){deselect();}
-      else{renderCanvas();openMultiPanel();}
-      return;
-    }
-    sel.id=id;sel.ids=[];sel.qId=null;
+    if(e.shiftKey){toggleSelection(id,null);return;}   // shift-click → in or out of the selection (no drag)
+    if(sel.ids.includes(id)){beginMoveMulti(pt,e.pointerId,{id});return;}
+    sel.id=id;sel.ids=[];sel.qIds=[];sel.qId=null;
     dragIt=it;
     mode="move";
     start={dx:pt.x-it.x,dy:pt.y-it.y};
     renderCanvas();openSelPanel();
   }else if(e.shiftKey){
     // shift-drag on empty canvas → rubber band selection
-    sel.id=null;sel.ids=[];sel.qId=null;
+    sel.id=null;sel.ids=[];sel.qIds=[];sel.qId=null;
     mode="rubber";
     rubber={x0:pt.x,y0:pt.y,x1:pt.x,y1:pt.y};
     renderCanvas();
@@ -252,6 +278,14 @@ function onPointerMove(e){
     layoutQuestion(dragQ);
     renderCanvas();return;
   }
+  if(mode==="moveMulti"&&multi){
+    const dx=pt.x-multi.x0, dy=pt.y-multi.y0;
+    if(!multi.moved&&Math.hypot(dx,dy)*view.z<3)return;   // not travelled yet: still a click
+    multi.moved=true;
+    multi.its.forEach(o=>{o.it.x=o.x+dx;o.it.y=o.y+dy;});
+    multi.qs.forEach(o=>{o.q.cx=o.cx+dx;o.q.cy=o.cy+dy;layoutQuestion(o.q);});
+    renderCanvas();return;
+  }
   if(!dragIt)return;
   if(mode==="move"){dragIt.x=pt.x-start.dx;dragIt.y=pt.y-start.dy;}
   else if(mode==="scale"){
@@ -273,18 +307,25 @@ function onPointerUp(){
     const x0=Math.min(rubber.x0,rubber.x1), x1=Math.max(rubber.x0,rubber.x1);
     const y0=Math.min(rubber.y0,rubber.y1), y1=Math.max(rubber.y0,rubber.y1);
     // an object is caught when its box overlaps the band
-    const caught=items.filter(i=>{const b=BASE_R*1.25*i.scale;return i.x+b>=x0&&i.x-b<=x1&&i.y+b>=y0&&i.y-b<=y1;}).map(i=>i.id);
+    const caught=items.filter(i=>{const b=BASE_R*1.25*i.scale;return i.x+b>=x0&&i.x-b<=x1&&i.y+b>=y0&&i.y-b<=y1;});
     rubber=null;
-    if(caught.length===0){deselect();}
-    else if(caught.length===1){
-      const it=findItem(caught[0]);
-      if(it.qId){sel.qId=it.qId;renderCanvas();openQPanel();}
-      else{sel.id=caught[0];renderCanvas();openSelPanel();}
+    // free objects are chosen one by one; a question is chosen whole when any member is caught
+    sel.ids=caught.filter(i=>!i.qId).map(i=>i.id);
+    sel.qIds=[...new Set(caught.filter(i=>i.qId).map(i=>i.qId))];
+    sel.id=null;sel.qId=null;
+    settleSelection();
+  }
+  if(mode==="moveMulti"&&multi){
+    if(multi.moved)commit();
+    else{   // a plain click on one of the chosen: just that one
+      const p=multi.pick;
+      sel.ids=[];sel.qIds=[];
+      if(p.q){sel.qId=p.q.id;sel.id=null;renderCanvas();openQPanel();}
+      else{sel.id=p.id;sel.qId=null;renderCanvas();openSelPanel();}
     }
-    else{sel.ids=caught;renderCanvas();openMultiPanel();}
   }
   if(mode==="move"||mode==="moveQ"||mode==="scale"||mode==="rot")commit();
-  mode=null;dragIt=null;dragQ=null;svg.classList.remove("panning");
+  mode=null;dragIt=null;dragQ=null;multi=null;svg.classList.remove("panning");
 }
 function onDblClick(e){
   const gEl=itemElementAt(e);
@@ -293,7 +334,7 @@ function onDblClick(e){
   const it=findItem(id);
   if(!it||!it.qId)return; // ungrouped objects already open on single click
   const hadExp=sel.expId!=null;
-  sel.id=id;sel.qId=null;sel.ids=[];sel.expId=null;
+  sel.id=id;sel.qId=null;sel.ids=[];sel.qIds=[];sel.expId=null;
   mode=null;dragQ=null;
   renderCanvas();
   openSelPanel();
@@ -326,7 +367,7 @@ function onKeyDown(e){
   const covered=!$("run").hidden||!$("calib").hidden||!$("tour").hidden||document.querySelector(".modal:not([hidden])");
   if(isTyping()||covered)return;
   if(e.code==="Space"){spaceHeld=true;}
-  if(e.key==="Escape"&&(sel.id!=null||sel.ids.length||sel.qId!=null||sel.expId!=null)){deselect();return;}
+  if(e.key==="Escape"&&(sel.id!=null||sel.ids.length||sel.qIds.length||sel.qId!=null||sel.expId!=null)){deselect();return;}
   // arrow keys nudge the selection (shift: ×10); screen pixels, so it feels the same at any zoom
   const arrow={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
   if(arrow){
@@ -342,7 +383,7 @@ function onKeyDown(e){
   const grouped=sel.id!=null&&!!(findItem(sel.id)||{}).qId;
   if(e.key==="Backspace"||e.key==="Delete"){
     if(sel.id!=null){if(!grouped)deleteSelected();}
-    else if(sel.ids.length)deleteMulti();
+    else if(sel.ids.length||sel.qIds.length)deleteMulti();
     else if(sel.qId!=null)deleteQuestion();
   }
   if((e.metaKey||e.ctrlKey)&&e.key==="d"&&sel.id!=null&&!grouped){
