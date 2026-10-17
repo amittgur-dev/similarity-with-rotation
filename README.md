@@ -474,8 +474,9 @@ undo/redo, stimulus export and the pilot runner are in. Next: a participant-faci
 
 - Vary-grid placement can overlap existing objects.
 - Question selection rectangle is approximate at extreme sizes.
-- A stray text selection on the canvas can turn a drag into a native
-  browser drag, which cancels the pointer gesture (rubber band gets stuck
-  until the next click). `user-select: none` on the canvas would fix it.
-- Double-clicking a grouped member relies on the browser's `dblclick`, which
-  is fragile because the canvas re-renders on the first click.
+- (fixed) A stray text selection could turn a drag into a native browser
+  drag, which cancelled the pointer gesture and left the rubber band stuck:
+  the canvas no longer selects text or starts native drags, a shift-press
+  clears any selection, and a cancelled gesture ends cleanly.
+- (fixed) Double-clicks are detected from the presses themselves, since the
+  canvas re-renders on the first click and the browser then reports none.

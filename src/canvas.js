@@ -227,6 +227,9 @@ function editMember(it){
 function onPointerDown(e){
   const t=e.target;
   const h=t.dataset&&t.dataset.h;
+  if(rubber&&mode!=="rubber")rubber=null;   // a band left over from an interrupted drag
+  // the canvas is not text: a press with shift must not extend a text selection into a drag of its own
+  if(e.shiftKey){e.preventDefault();const s=window.getSelection&&window.getSelection();if(s&&s.rangeCount)s.removeAllRanges();}
   const now=performance.now();
   const dbl=!e.shiftKey&&now-lastPress.t<400&&Math.hypot(e.clientX-lastPress.x,e.clientY-lastPress.y)<6;
   lastPress=dbl||e.shiftKey?{t:0,x:0,y:0}:{t:now,x:e.clientX,y:e.clientY};   // a shift-press chooses; it never starts a double-click
@@ -302,6 +305,11 @@ function onPointerDown(e){
     rubber={x0:pt.x,y0:pt.y,x1:pt.x,y1:pt.y};
     renderCanvas();
   }else{
+    if(dbl&&!(t.closest&&t.closest("text"))){   // double-click on empty canvas: write a title or note here
+      e.preventDefault();   // no mouse events follow, so the editor keeps the focus
+      newTextAt(pt.x,pt.y+TEXT_BASELINE);
+      return;
+    }
     // drag on empty canvas → pan the view (and drop any selection)
     mode="pan";start={px,py,tx:view.tx,ty:view.ty};
     svg.classList.add("panning");
@@ -404,20 +412,21 @@ function onPointerUp(){
   if(mode==="move"||mode==="moveQ"||mode==="moveT"||mode==="scale"||mode==="rot")commit();
   mode=null;dragIt=null;dragQ=null;dragT=null;multi=null;svg.classList.remove("panning");
 }
+/* double-clicks are detected from the presses (onPointerDown); this only
+   serves a synthetic dblclick on a question member, as the browser check sends */
 function onDblClick(e){
-  const tt=e.target.closest&&e.target.closest("text[data-tid]");
-  if(tt){const t=findText(parseInt(tt.dataset.tid));if(t){selectText(t.id);editText(t);}return;}
   const gEl=itemElementAt(e);
-  if(!gEl){
-    // empty canvas (not a question title): write a title or note here
-    if(e.target.closest&&e.target.closest("text"))return;
-    const rect=svg.getBoundingClientRect(), pt=toWorld(e.clientX-rect.left,e.clientY-rect.top);
-    newTextAt(pt.x,pt.y+TEXT_BASELINE);
-    return;
-  }
-  const it=findItem(parseInt(gEl.dataset.id));
-  if(!it||!it.qId)return; // ungrouped objects already open on single click
-  editMember(it);   // a browser that does report the double-click, or a synthetic one
+  const it=gEl&&findItem(parseInt(gEl.dataset.id));
+  if(it&&it.qId&&mode==null)editMember(it);
+}
+/* the browser gave up on the gesture (a native drag took over, the window
+   lost the pointer): keep what was moved so far, drop the band */
+function onPointerCancel(){
+  if(!mode&&!rubber)return;
+  const moved=mode==="move"||mode==="moveQ"||mode==="moveT"||mode==="scale"||mode==="rot"||(mode==="moveMulti"&&multi&&multi.moved);
+  rubber=null;mode=null;dragIt=null;dragQ=null;dragT=null;multi=null;svg.classList.remove("panning");
+  if(moved)commit();
+  renderCanvas();
 }
 function onWheel(e){
   e.preventDefault();
@@ -496,7 +505,12 @@ export function initCanvas(){
   svg.addEventListener("pointermove",onPointerMove);
   svg.addEventListener("pointerleave",clearHover);
   svg.addEventListener("pointerup",onPointerUp);
+  svg.addEventListener("pointercancel",onPointerCancel);
+  window.addEventListener("blur",onPointerCancel);
   svg.addEventListener("dblclick",onDblClick);
+  // never a native drag or a text selection from the canvas: either cancels the pointer gesture
+  svg.addEventListener("dragstart",e=>e.preventDefault());
+  svg.addEventListener("selectstart",e=>e.preventDefault());
   svg.addEventListener("wheel",onWheel,{passive:false});
   window.addEventListener("keydown",onKeyDown);
   window.addEventListener("keyup",onKeyUp);
