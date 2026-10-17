@@ -27,21 +27,23 @@ several objects and questions can be chosen together: drag any of them to
 move the selection as one, press Delete or *delete all* to remove it all,
 or click one without shift to select just that one.
 
-**Continuous rotation.** Any object on the canvas can turn on its own:
-the **+** next to *orient* in its panel opens the rotation controls in
-place (the rest of the panel moves down). Choose the direction (↺ counter /
-still / ↻ clockwise), the speed in degrees per second, and what turns:
-**whole** (everything together), **shape** (the configuration only, the
-sub-shapes keep their orientation), **sub-shapes** (in place) or
-**opposite** (the configuration one way, the sub-shapes the other). Each
-object, including each member of a question, has its own setting. The
-stored orientations never change — the design is what the panels show and
-the PDF and images export draw; on the canvas and in runs (pilot and
-participant) the figure turns from that orientation, each trial starting
-afresh. Trial records carry `spin_deg_per_s` (signed, + clockwise) and
-`spin_turns` per member; saved files carry `spin: {dps, scope}` on the
-object. The frame keeps its meaning throughout (`src/spin.js`, pure and
-unit-tested).
+**Continuous rotation.** Any object on the canvas can turn on its own, in
+two independent ways that combine. The **+** next to the shape's *orient*
+opens the shape's rotation in place (the rest of the panel moves down):
+direction (↺ ccw / still / ↻ cw), speed in degrees per second, and what
+turns with it — the **whole figure** (the sub-shapes come along) or the
+**shape only** (the sub-shapes keep their orientation). The **+** next to
+the sub-shape's *orient* opens the sub-shapes' own rotation: direction and
+speed, turning them in place. Set the two against each other for the shape
+one way and the sub-shapes the other. Each object, including each member
+of a question, has its own settings. The stored orientations never
+change — the design is what the panels show and the PDF and images export
+draw; on the canvas and in runs (pilot and participant) the figure turns
+from that orientation, each trial starting afresh. Trial records carry
+`spin_deg_per_s` and `spin_turns` (the shape's, signed, + clockwise) and
+`sub_spin_deg_per_s` per member; saved files carry `spin: {dps, scope,
+sub}` on the object. The frame keeps its meaning throughout
+(`src/spin.js`, pure and unit-tested).
 
 **Titles and notes.** Double-click empty canvas to write a text where you
 clicked (Enter keeps it, shift+Enter adds a line, Escape puts the old text

@@ -26,26 +26,31 @@ export function buildSpecRows(container, target, cfg){
   const shownN=n=>cross?subCount(cfg.def,n,contourOn()):n, toN=v=>cross?densityForCount(cfg.def,v,contourOn()):v;
   let lastN=target.texture||0;   // the density a texture had, for when it is switched off and on again
   // continuous rotation: a canvas object (not the creation draft) can turn on its own — the + next to orient opens it
-  const spinnable=target.id!=null, sp=normalizeSpin(target.spin), spinOpen=ui.spinOpen||!!sp;
-  const SCOPE_WORD={whole:"whole",shape:"shape",sub:"sub-shapes",opposite:"opposite"};
+  const spinnable=target.id!=null, sp=normalizeSpin(target.spin);
+  // the + next to an orient field opens that rotation's box in place: direction, speed, and for the shape what turns with it
+  const spinOpen=kind=>kind==="sub"?(ui.subSpinOpen||!!(sp&&sp.sub)):(ui.spinOpen||!!(sp&&sp.dps));
+  const spinToggle=kind=>`<button type="button" class="spinToggle${(kind==="sub"?sp&&sp.sub:sp&&sp.dps)?" live":""}" data-kind="${kind}" title="continuous rotation: ${kind==="sub"?"the sub-shapes turn in place on their own":"the object turns on its own"}, on the canvas and in runs">${spinOpen(kind)?"−":"+"}</button>`;
+  const spinBox=kind=>{
+    const v=sp?(kind==="sub"?sp.sub:sp.dps):0;
+    return `<div class="spinBox" data-kind="${kind}"${spinOpen(kind)?"":' style="display:none"'}>`+
+      `<div class="seg" data-f="spinDir" title="${kind==="sub"?"the sub-shapes turning in place, as seen on the screen":"turning, as seen on the screen"}">`+
+        `<button data-v="-1" class="${v<0?"on":""}" title="counter-clockwise">↺ ccw</button>`+
+        `<button data-v="0" class="${v?"":"on"}" title="no rotation">still</button>`+
+        `<button data-v="1" class="${v>0?"on":""}" title="clockwise">↻ cw</button></div>`+
+      `<div class="frow" title="degrees per second: 360 is one turn a second, 30 a turn every 12 s"><span>speed</span><input type="number" step="5" min="${SPIN_MIN}" max="${SPIN_MAX}" value="${Math.abs(v)||SPIN_DEFAULT}" data-f="spinSpeed">°/s</div>`+
+      (kind==="shape"&&hasAnchors?`<div class="seg" data-f="spinScope" title="what turns with it">`+
+        SPIN_SCOPES.map(s=>`<button data-v="${s}" class="${(sp?sp.scope:"whole")===s?"on":""}" title="${SPIN_SCOPE_LABEL[s]}">${s==="whole"?"whole figure":"shape only"}</button>`).join("")+`</div>`:"")+
+      `<div class="note spinNote">${spinText(sp,kind)}</div>`+
+    `</div><!-- /spinBox -->`;
+  };
   const row1=document.createElement("div");
   row1.className="spec";
   row1.innerHTML=
     `<div class="pv">${miniSVG(cfg.def,target.baseRot)}</div>`+
     `<div class="fields">`+
       `<div class="frow"><span>${escapeXML(cfg.def.name)}</span></div>`+
-      `<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.baseRot)}" data-f="baseRot">°`+
-        (spinnable?`<button type="button" class="spinToggle${sp?" live":""}" title="continuous rotation: the object turns on its own, on the canvas and in runs">${spinOpen?"−":"+"}</button>`:"")+`</div>`+
-      (spinnable?`<div class="spinBox"${spinOpen?"":' style="display:none"'}>`+
-        `<div class="seg" data-f="spinDir" title="turning, as seen on the screen">`+
-          `<button data-v="-1" class="${sp&&sp.dps<0?"on":""}" title="counter-clockwise">↺ ccw</button>`+
-          `<button data-v="0" class="${sp?"":"on"}" title="no rotation">still</button>`+
-          `<button data-v="1" class="${sp&&sp.dps>0?"on":""}" title="clockwise">↻ cw</button></div>`+
-        `<div class="frow" title="degrees per second: 360 is one turn a second, 30 a turn every 12 s"><span>speed</span><input type="number" step="5" min="${SPIN_MIN}" max="${SPIN_MAX}" value="${sp?Math.abs(sp.dps):SPIN_DEFAULT}" data-f="spinSpeed">°/s</div>`+
-        (hasAnchors?`<div class="seg" data-f="spinScope" title="what turns">`+
-          SPIN_SCOPES.map(v=>`<button data-v="${v}" class="${(sp?sp.scope:"whole")===v?"on":""}" title="${SPIN_SCOPE_LABEL[v]}">${SCOPE_WORD[v]}</button>`).join("")+`</div>`:"")+
-        `<div class="note spinNote">${spinText(sp)}</div>`+
-      `</div><!-- /spinBox -->`:"")+
+      `<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.baseRot)}" data-f="baseRot">°${spinnable?spinToggle("shape"):""}</div>`+
+      (spinnable?spinBox("shape"):"")+
       (cfg.showSize?`<div class="frow"><span>size</span><input type="number" step="5" min="20" max="400" value="${Math.round(target.scale*100)}" data-f="size">%</div>`+
                     `<div class="frow mmRow"><span>on screen</span><span class="mmReadout" data-item="${target.id}"></span></div>`:"")+
       (target.id!=null?`<label class="check mini mmRow"><input type="checkbox" data-f="showMm" ${target.showMm?"checked":""}> show absolute size</label>`:"")+
@@ -60,7 +65,8 @@ export function buildSpecRows(container, target, cfg){
       `<div class="pv">${miniSVG(cfg.anchor,target.anchorRot,true)}</div>`+
       `<div class="fields">`+
         `<div class="frow"><span>${subLabel(cfg,tex,contourOn())}</span></div>`+
-        (orientable?`<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.anchorRot)}" data-f="anchorRot">°</div>`:"")+
+        (orientable?`<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.anchorRot)}" data-f="anchorRot">°${spinnable?spinToggle("sub"):""}</div>`+
+                    (spinnable?spinBox("sub"):""):"")+
         (cfg.showRatio===false?"":`<div class="frow"><span>relative size</span><input type="number" step="1" min="2" max="60" value="${pctText(target.anchorRatio||DEFAULT_RATIO)}" data-f="anchorRatio">%${holdBtn("size",tex)}</div>`)+
         `<div class="seg" data-f="frame" title="frame of the sub-shapes">`+
           `<button data-v="screen" class="${target.frame==="screen"?"on":""}" title="screen frame: sub-shapes keep their absolute orientation when the base rotates">screen</button>`+
@@ -106,29 +112,30 @@ export function buildSpecRows(container, target, cfg){
     });
   });
   // the rotation box: direction, speed, what turns
-  const spinBtn=wrap.querySelector(".spinToggle"), spinBox=wrap.querySelector(".spinBox");
-  if(spinBtn&&spinBox){
-    spinBtn.onclick=()=>{ui.spinOpen=spinBox.style.display==="none";spinBox.style.display=ui.spinOpen?"":"none";spinBtn.textContent=ui.spinOpen?"−":"+";};
-    const speedInput=wrap.querySelector('input[data-f="spinSpeed"]');
+  // the two rotation boxes: the shape's (direction, speed, whole figure / shape only) and the sub-shapes' own (direction, speed)
+  wrap.querySelectorAll(".spinToggle").forEach(btn=>{
+    const kind=btn.dataset.kind, box=wrap.querySelector(`.spinBox[data-kind="${kind}"]`), openKey=kind==="sub"?"subSpinOpen":"spinOpen";
+    btn.onclick=()=>{ui[openKey]=box.style.display==="none";box.style.display=ui[openKey]?"":"none";btn.textContent=ui[openKey]?"−":"+";};
+    const speedInput=box.querySelector('input[data-f="spinSpeed"]');
     const setSpin=patch=>{
-      const cur=normalizeSpin(target.spin)||{dps:0,scope:(target.spin&&target.spin.scope)||"whole"};
-      const dir=patch.dir!==undefined?patch.dir:Math.sign(cur.dps);
-      const speed=clampSpinSpeed(patch.speed!==undefined?patch.speed:(Math.abs(cur.dps)||parseFloat(speedInput.value)||SPIN_DEFAULT));
-      const scope=patch.scope||cur.scope;
-      if(dir===0){if(target.spin)target.spin={dps:0,scope};}   // remembers what would turn
-      else target.spin={dps:dir*speed,scope};
-      const now=normalizeSpin(target.spin);
-      wrap.querySelectorAll('.seg[data-f="spinDir"] button').forEach(b=>b.classList.toggle("on",+b.dataset.v===(now?Math.sign(now.dps):0)));
-      wrap.querySelectorAll('.seg[data-f="spinScope"] button').forEach(b=>b.classList.toggle("on",b.dataset.v===scope));
+      const cur=normalizeSpin(target.spin)||{dps:0,scope:(target.spin&&target.spin.scope)||"whole",sub:0};
+      const was=kind==="sub"?cur.sub:cur.dps;
+      const dir=patch.dir!==undefined?patch.dir:Math.sign(was);
+      const speed=clampSpinSpeed(patch.speed!==undefined?patch.speed:(Math.abs(was)||parseFloat(speedInput.value)||SPIN_DEFAULT));
+      const v=dir*speed;
+      target.spin={dps:kind==="sub"?cur.dps:v,scope:patch.scope||cur.scope,sub:kind==="sub"?v:cur.sub};   // kept even when still: it remembers the choices
+      const now=normalizeSpin(target.spin), mine=now?(kind==="sub"?now.sub:now.dps):0;
+      box.querySelectorAll('.seg[data-f="spinDir"] button').forEach(b=>b.classList.toggle("on",+b.dataset.v===Math.sign(mine)));
+      box.querySelectorAll('.seg[data-f="spinScope"] button').forEach(b=>b.classList.toggle("on",b.dataset.v===target.spin.scope));
       speedInput.value=speed;
-      spinBtn.classList.toggle("live",!!now);
-      wrap.querySelector(".spinNote").textContent=spinText(now);
+      btn.classList.toggle("live",!!mine);
+      box.querySelector(".spinNote").textContent=spinText(now,kind);
       cfg.onChange();commitSoon();
     };
-    wrap.querySelectorAll('.seg[data-f="spinDir"] button').forEach(b=>{b.onclick=()=>setSpin({dir:+b.dataset.v});});
-    wrap.querySelectorAll('.seg[data-f="spinScope"] button').forEach(b=>{b.onclick=()=>setSpin({scope:b.dataset.v});});
+    box.querySelectorAll('.seg[data-f="spinDir"] button').forEach(b=>{b.onclick=()=>setSpin({dir:+b.dataset.v});});
+    box.querySelectorAll('.seg[data-f="spinScope"] button').forEach(b=>{b.onclick=()=>setSpin({scope:b.dataset.v});});
     speedInput.addEventListener("change",()=>{const v=parseFloat(speedInput.value);if(isNaN(v)){speedInput.value=SPIN_DEFAULT;return;}setSpin({speed:v});});
-  }
+  });
   wrap.querySelectorAll('input[data-f="showMm"]').forEach(cb=>{
     cb.addEventListener("change",()=>{target.showMm=cb.checked;cfg.onChange();commit();});
   });

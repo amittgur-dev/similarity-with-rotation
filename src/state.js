@@ -19,7 +19,7 @@ export const sel={id:null,ids:[],qIds:[],tIds:[],qId:null,tId:null,expId:null}; 
 export const view={tx:0,ty:0,z:1};
 
 /* panel toggles that persist across selections */
-export const ui={rvScope:"whole",gvMode:"relation",texHold:"fill",spinOpen:false};   // texHold: which of density / size / fill stays put; spinOpen: the rotation box under orient
+export const ui={rvScope:"whole",gvMode:"relation",texHold:"fill",spinOpen:false,subSpinOpen:false};   // texHold: which of density / size / fill stays put; spinOpen/subSpinOpen: the rotation boxes under the orient fields
 
 let uid=1;
 export function nextId(){return uid++;}

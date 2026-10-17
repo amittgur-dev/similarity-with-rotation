@@ -4,7 +4,7 @@
 import { BASE_R, DEFAULT_RATIO, LABEL_GAP, shapeMarkup, norm } from "./geometry.js";
 import { items, questions, experiments, texts, sel, view, findItem, findQuestion, findExperiment, findText } from "./state.js";
 import { selectText, editText, newTextAt, deleteText } from "./texts.js";
-import { spinAngles, spinPhase } from "./spin.js";
+import { spinAngles, spinPhases } from "./spin.js";
 import { experimentsOf, experimentCode, isMember } from "./experiment.js";
 import { toggleMembership, refreshExpBar } from "./run.js";
 import { $, escapeXML } from "./dom.js";
@@ -152,21 +152,21 @@ let spaceHeld=false;
    loop redraws just those objects */
 const SPIN_T0=performance.now();
 function itemMarkup(it,now=performance.now()){
-  const e=it.trayRef, a=spinAngles(it,spinPhase(it.spin,now-SPIN_T0));
+  const e=it.trayRef, ph=spinPhases(it.spin,now-SPIN_T0), a=spinAngles(it,ph.phase,ph.sub);
   return shapeMarkup(e.def,BASE_R,e.anchor,it.frame,a.baseRot,a.anchorRot,it.anchorRatio||DEFAULT_RATIO,it.texture||0,!!it.contour);
 }
 let spinRaf=0;
 function spinTick(now){
   spinRaf=0;
   items.forEach(it=>{
-    if(!(it.spin&&it.spin.dps))return;
+    if(!(it.spin&&(it.spin.dps||it.spin.sub)))return;
     const el=svg.querySelector(`g.item[data-id="${it.id}"]`);
     if(el)el.innerHTML=itemMarkup(it,now);
   });
   syncSpin();
 }
 function syncSpin(){
-  const any=svg&&items.some(it=>it.spin&&it.spin.dps);
+  const any=svg&&items.some(it=>it.spin&&(it.spin.dps||it.spin.sub));
   if(any&&!spinRaf)spinRaf=requestAnimationFrame(spinTick);
   if(!any&&spinRaf){cancelAnimationFrame(spinRaf);spinRaf=0;}
 }
