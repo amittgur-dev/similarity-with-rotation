@@ -150,7 +150,9 @@ let spaceHeld=false;
    every object is drawn at the phase its spin has reached on one shared
    clock, so a re-render never makes it jump; while anything turns, a frame
    loop redraws just those objects */
-const SPIN_T0=performance.now();
+let SPIN_T0=performance.now();
+/* every turning object returns to its starting orientation at once and goes on together */
+export function restartSpin(){SPIN_T0=performance.now();renderCanvas();}
 function itemMarkup(it,now=performance.now()){
   const e=it.trayRef, ph=spinPhases(it.spin,now-SPIN_T0), a=spinAngles(it,ph.phase,ph.sub);
   return shapeMarkup(e.def,BASE_R,e.anchor,it.frame,a.baseRot,a.anchorRot,it.anchorRatio||DEFAULT_RATIO,it.texture||0,!!it.contour);

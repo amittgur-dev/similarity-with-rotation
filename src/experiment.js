@@ -164,7 +164,7 @@ export function sideOf(t,k){
   const order=orderOf(t), i=order.indexOf(k);
   return order.length===3?["left","middle","right"][i]:(i?"right":"left");
 }
-export const MEMBER_COLS=["shape","sub","arrangement","density","baseRot","subRot","frame","subRatio","scale","spin_deg_per_s","spin_turns","sub_spin_deg_per_s","width_mm","height_mm","width_deg","height_deg"];
+export const MEMBER_COLS=["shape","sub","arrangement","density","baseRot","subRot","frame","subRatio","scale","spin_deg_per_s","spin_turns","spin_offset_deg","sub_spin_deg_per_s","sub_spin_offset_deg","width_mm","height_mm","width_deg","height_deg"];
 export const CSV_COLUMNS=["participant","canvas","experiment_id","experiment_code","experiment_name","trial","repeat","question_index","question_id","question_title","n_comparisons","response","rt_ms","B_side","order",
   ...["A","B","C","D"].flatMap(k=>MEMBER_COLS.map(c=>`${k}_${c}`)),
   "px_per_mm","calibrated","viewing_distance_cm","fixation_ms","timestamp"];
@@ -179,7 +179,8 @@ export function paramColumns(t,sizes={},deg=null){
                        [`${k}_arrangement`]:p.texture?(p.contour?"contour":"texture"):"vertices",[`${k}_density`]:p.texture||"",
                        [`${k}_baseRot`]:p.baseRot,[`${k}_subRot`]:p.anchorRot,
                        [`${k}_frame`]:p.frame,[`${k}_subRatio`]:+p.anchorRatio.toFixed(4),[`${k}_scale`]:+p.scale.toFixed(4),
-                       [`${k}_spin_deg_per_s`]:p.spin&&p.spin.dps?p.spin.dps:"",[`${k}_spin_turns`]:p.spin&&p.spin.dps?p.spin.scope:"",[`${k}_sub_spin_deg_per_s`]:p.spin&&p.spin.sub?p.spin.sub:"",
+                       [`${k}_spin_deg_per_s`]:p.spin&&p.spin.dps?p.spin.dps:"",[`${k}_spin_turns`]:p.spin&&p.spin.dps?p.spin.scope:"",[`${k}_spin_offset_deg`]:p.spin&&p.spin.dps?(p.spin.phase0||0):"",
+                       [`${k}_sub_spin_deg_per_s`]:p.spin&&p.spin.sub?p.spin.sub:"",[`${k}_sub_spin_offset_deg`]:p.spin&&p.spin.sub?(p.spin.subPhase0||0):"",
                        [`${k}_width_mm`]:z.w!=null?+z.w.toFixed(2):"",[`${k}_height_mm`]:z.h!=null?+z.h.toFixed(2):"",
                        [`${k}_width_deg`]:z.w!=null&&deg?+deg(z.w).toFixed(3):"",[`${k}_height_deg`]:z.h!=null&&deg?+deg(z.h).toFixed(3):""});
   }

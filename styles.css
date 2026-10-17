@@ -533,3 +533,6 @@ body.participantRun #runQuit{display:none}
 .spinBox .seg[data-f="spinScope"] button{flex:1 1 45%;white-space:nowrap;padding:5px 2px}
 #textPanel .frow{display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--grey);letter-spacing:0.08em;text-transform:uppercase}
 #textPanel .frow input{width:64px;font-family:var(--mono);font-size:0.9rem;text-align:right;border:none;border-bottom:1px solid var(--faint);outline:none;color:var(--ink)}
+
+.spec .frow button.spinRestart{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.06em;border:1px solid var(--faint);background:#fff;color:var(--grey);padding:1px 5px;margin-left:6px;cursor:pointer;line-height:1.4;white-space:nowrap}
+.spec .frow button.spinRestart:hover{border-color:var(--ink);color:var(--ink)}

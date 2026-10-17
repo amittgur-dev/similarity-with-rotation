@@ -12,6 +12,12 @@ test("spin: phases, normalisation, earlier records", ()=>{
   assert.deepEqual(normalizeSpin({dps:30,scope:"sub"}),{dps:0,scope:"whole",sub:30},"an earlier sub-shapes-only record");
   assert.deepEqual(normalizeSpin({dps:30,scope:"opposite"}),{dps:30,scope:"shape",sub:-30},"an earlier opposite record");
   assert.equal(clampSpinSpeed(-30),30);assert.equal(clampSpinSpeed("x"),30);
+  // offsets on the shared clock: in step by default, ahead by the offset otherwise
+  assert.deepEqual(normalizeSpin({dps:30,scope:"whole",sub:0,phase0:0,subPhase0:0}),{dps:30,scope:"whole",sub:0},"zero offsets are not kept");
+  assert.deepEqual(normalizeSpin({dps:30,sub:-30,phase0:405,subPhase0:-90}),{dps:30,scope:"whole",sub:-30,phase0:45,subPhase0:270});
+  assert.deepEqual(spinPhases({dps:30,phase0:45},1000),{phase:75,sub:0});
+  assert.deepEqual(spinPhases({dps:30,sub:30,subPhase0:90},0),{phase:0,sub:90});
+  assert.deepEqual(spinPhases({dps:30},2000),spinPhases({dps:30,scope:"shape"},2000),"same speed, same clock: in step");
 });
 test("spin: what turns, in both frames — the absolute orientation of the elements tells", ()=>{
   const abs=(p,a)=>p.frame==="vertex"?a.baseRot+a.anchorRot:a.anchorRot;   // an element's absolute orientation up to the vertex's own direction
@@ -27,10 +33,11 @@ test("spin: what turns, in both frames — the absolute orientation of the eleme
   assert.deepEqual(SPIN_SCOPES,["whole","shape"]);
 });
 test("trial records carry both rotations per member", ()=>{
-  for(const c of ["spin_deg_per_s","spin_turns","sub_spin_deg_per_s"])assert.ok(MEMBER_COLS.includes(c),c);
+  for(const c of ["spin_deg_per_s","spin_turns","spin_offset_deg","sub_spin_deg_per_s","sub_spin_offset_deg"])assert.ok(MEMBER_COLS.includes(c),c);
   const p=k=>({defName:"square",subName:"diamond",texture:0,baseRot:0,anchorRot:0,frame:"screen",anchorRatio:0.18,scale:1,
-               spin:k==="B"?{dps:-60,scope:"shape",sub:45}:k==="C"?{dps:0,scope:"whole",sub:-20}:null});
+               spin:k==="B"?{dps:-60,scope:"shape",sub:45,phase0:90}:k==="C"?{dps:0,scope:"whole",sub:-20,subPhase0:30}:null});
   const row=paramColumns({A:p("A"),B:p("B"),C:p("C")},{},()=>0);
   assert.equal(row.A_spin_deg_per_s,"");assert.equal(row.B_spin_deg_per_s,-60);assert.equal(row.B_spin_turns,"shape");assert.equal(row.B_sub_spin_deg_per_s,45);
-  assert.equal(row.C_spin_deg_per_s,"");assert.equal(row.C_spin_turns,"");assert.equal(row.C_sub_spin_deg_per_s,-20);
+  assert.equal(row.B_spin_offset_deg,90);assert.equal(row.B_sub_spin_offset_deg,0);
+  assert.equal(row.C_spin_deg_per_s,"");assert.equal(row.C_spin_turns,"");assert.equal(row.C_sub_spin_deg_per_s,-20);assert.equal(row.C_spin_offset_deg,"");assert.equal(row.C_sub_spin_offset_deg,30);
 });

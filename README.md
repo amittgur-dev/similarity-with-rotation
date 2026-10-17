@@ -39,11 +39,17 @@ one way and the sub-shapes the other. Each object, including each member
 of a question, has its own settings. The stored orientations never
 change — the design is what the panels show and the PDF and images export
 draw; on the canvas and in runs (pilot and participant) the figure turns
-from that orientation, each trial starting afresh. Trial records carry
-`spin_deg_per_s` and `spin_turns` (the shape's, signed, + clockwise) and
-`sub_spin_deg_per_s` per member; saved files carry `spin: {dps, scope,
-sub}` on the object. The frame keeps its meaning throughout
-(`src/spin.js`, pure and unit-tested).
+from that orientation, each trial starting afresh. Every object runs on
+one shared clock, so objects with the same speed turn in step (two squares
+at 30°/s always sit at the same angle from their starting orientations);
+*restart all* in a rotation box puts every turning object back at its
+starting orientation at the same instant, and an object's **offset** puts
+it that many degrees ahead of the others (0: in step). Trial records carry
+`spin_deg_per_s`, `spin_turns` and `spin_offset_deg` (the shape's, signed,
++ clockwise) and `sub_spin_deg_per_s` and `sub_spin_offset_deg` per member;
+saved files carry `spin: {dps, scope, sub, phase0?, subPhase0?}` on the
+object. The frame keeps its meaning throughout (`src/spin.js`, pure and
+unit-tested).
 
 **Titles and notes.** Double-click empty canvas to write a text where you
 clicked (Enter keeps it, shift+Enter adds a line, Escape puts the old text

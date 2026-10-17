@@ -5,13 +5,16 @@
      along) or the shape only (the sub-shapes keep their orientation);
    · the sub-shapes' own rotation: a signed speed turning them in place.
    The stored orientations never change; what is drawn is the design turned
-   by the phases the clock has reached, so the frame keeps its meaning. */
+   by the phases the clock has reached, so the frame keeps its meaning.
+   Every object runs on one shared clock, so objects with the same speed
+   turn in step; an offset (degrees) puts one ahead of the others. */
 
 export const SPIN_SCOPES=["whole","shape"];
 export const SPIN_DEFAULT=30, SPIN_MIN=1, SPIN_MAX=720;
 export const clampSpinSpeed=v=>Math.max(SPIN_MIN,Math.min(SPIN_MAX,Math.round(Math.abs(+v))||SPIN_DEFAULT));
 const signed=v=>v?Math.sign(v)*clampSpinSpeed(v):0;
-/* a valid spin record {dps, scope, sub}, or null when nothing turns.
+const offset=v=>((Math.round(+v)||0)%360+360)%360;
+/* a valid spin record {dps, scope, sub, phase0?, subPhase0?}, or null when nothing turns.
    Earlier records had one speed and a scope of sub (the sub-shapes only)
    or opposite (the shape one way, the sub-shapes the other): mapped. */
 export function normalizeSpin(s){
@@ -21,11 +24,13 @@ export function normalizeSpin(s){
   else if(scope==="opposite"){sub=sub||-dps;scope="shape";}
   if(!SPIN_SCOPES.includes(scope))scope="whole";
   dps=signed(dps);sub=signed(sub);
-  return dps||sub?{dps,scope,sub}:null;
+  if(!dps&&!sub)return null;
+  const phase0=offset(s.phase0), subPhase0=offset(s.subPhase0);
+  return {dps,scope,sub,...(phase0?{phase0}:{}),...(subPhase0?{subPhase0}:{})};
 }
-const turned=(dps,ms)=>dps?((dps*ms/1000)%360+360)%360:0;
-/* the phases (degrees) reached after ms milliseconds: the shape's and the sub-shapes' */
-export const spinPhases=(spin,ms)=>({phase:turned(spin&&spin.dps,ms),sub:turned(spin&&spin.sub,ms)});
+const turned=(dps,ms,from)=>dps?((dps*ms/1000+(from||0))%360+360)%360:0;
+/* the phases (degrees) reached after ms milliseconds on the shared clock: the shape's and the sub-shapes', each from its offset */
+export const spinPhases=(spin,ms)=>({phase:turned(spin&&spin.dps,ms,spin&&spin.phase0),sub:turned(spin&&spin.sub,ms,spin&&spin.subPhase0)});
 /* what to draw: the design orientations turned by the phases, by scope and frame.
    An element's absolute orientation is anchorRot in the screen frame and
    follows the configuration (+ anchorRot) in the vertex frame. */
@@ -46,8 +51,10 @@ export function spinText(spin,kind="shape"){
   const s=normalizeSpin(spin), v=s?(kind==="sub"?s.sub:s.dps):0;
   if(!v)return "still";
   const secs=360/Math.abs(v);
+  const off=kind==="sub"?s.subPhase0:s.phase0;
   return `${v>0?"clockwise":"counter-clockwise"} · ${Math.abs(v)}°/s, a turn every ${secs>=10?Math.round(secs):+secs.toFixed(1)} s`+
-         (kind==="sub"?" · the sub-shapes, in place":s.scope==="shape"?" · the shape only":" · the whole figure");
+         (kind==="sub"?" · the sub-shapes, in place":s.scope==="shape"?" · the shape only":" · the whole figure")+
+         (off?` · ${off}° ahead of the others`:"");
 }
 /* keeps spinning members turning inside an <svg> until the returned function is called:
    members [{selector, p}] where p carries def/anchor/frame/rotations/spin; draw(p, elapsedMs) → markup */

@@ -8,7 +8,7 @@ import { $, escapeXML } from "./dom.js";
 import { calib, pxToMm, visualAngleDeg, formatDeg } from "./calibration.js";
 import { commit, commitSoon } from "./history.js";
 import { SPIN_DEFAULT, SPIN_MIN, SPIN_MAX, SPIN_SCOPES, SPIN_SCOPE_LABEL, clampSpinSpeed, normalizeSpin, spinText } from "./spin.js";
-import { renderCanvas } from "./canvas.js";
+import { renderCanvas, restartSpin } from "./canvas.js";
 import { layoutQuestion, renderQStruct, regenerateTitle, memberIds, LABELS, questionGeometry, removeQuestion } from "./questions.js";
 import { addTrayItem, trayPreviewSVG } from "./tray.js";
 import { syncExpChips, refreshExpBar } from "./run.js";
@@ -40,6 +40,8 @@ export function buildSpecRows(container, target, cfg){
       `<div class="frow" title="degrees per second: 360 is one turn a second, 30 a turn every 12 s"><span>speed</span><input type="number" step="5" min="${SPIN_MIN}" max="${SPIN_MAX}" value="${Math.abs(v)||SPIN_DEFAULT}" data-f="spinSpeed">°/s</div>`+
       (kind==="shape"&&hasAnchors?`<div class="seg" data-f="spinScope" title="what turns with it">`+
         SPIN_SCOPES.map(s=>`<button data-v="${s}" class="${(sp?sp.scope:"whole")===s?"on":""}" title="${SPIN_SCOPE_LABEL[s]}">${s==="whole"?"whole figure":"shape only"}</button>`).join("")+`</div>`:"")+
+      `<div class="frow" title="every object turns on one shared clock, so objects with the same speed turn in step; the offset puts this one that many degrees ahead of the others (0: in step)"><span>offset</span><input type="number" step="15" min="0" max="359" value="${sp?(kind==="sub"?sp.subPhase0:sp.phase0)||0:0}" data-f="spinPhase">°`+
+        `<button type="button" class="spinRestart" title="every turning object goes back to its starting orientation now and they all go on together">restart all</button></div>`+
       `<div class="note spinNote">${spinText(sp,kind)}</div>`+
     `</div><!-- /spinBox -->`;
   };
@@ -99,7 +101,7 @@ export function buildSpecRows(container, target, cfg){
       const f=inp.dataset.f;
       const v=parseFloat(inp.value);
       if(isNaN(v))return;
-      if(f==="texture"||f==="fill"||f==="spinSpeed")return;   // applied on change (see below), so typing "12" does not pass through "1"
+      if(f==="texture"||f==="fill"||f==="spinSpeed"||f==="spinPhase")return;   // applied on change (see below), so typing "12" does not pass through "1"
       if(f==="anchorRatio"&&target.texture&&cfg.showRatio!==false)return;   // linked: applied on change
       if(f==="size"){target.scale=Math.max(0.2,Math.min(4,v/100));}
       else if(f==="anchorRatio"){target.anchorRatio=Math.max(0.02,Math.min(0.6,v/100));}
@@ -116,14 +118,18 @@ export function buildSpecRows(container, target, cfg){
   wrap.querySelectorAll(".spinToggle").forEach(btn=>{
     const kind=btn.dataset.kind, box=wrap.querySelector(`.spinBox[data-kind="${kind}"]`), openKey=kind==="sub"?"subSpinOpen":"spinOpen";
     btn.onclick=()=>{ui[openKey]=box.style.display==="none";box.style.display=ui[openKey]?"":"none";btn.textContent=ui[openKey]?"−":"+";};
-    const speedInput=box.querySelector('input[data-f="spinSpeed"]');
+    const speedInput=box.querySelector('input[data-f="spinSpeed"]'), phaseInput=box.querySelector('input[data-f="spinPhase"]');
     const setSpin=patch=>{
       const cur=normalizeSpin(target.spin)||{dps:0,scope:(target.spin&&target.spin.scope)||"whole",sub:0};
       const was=kind==="sub"?cur.sub:cur.dps;
       const dir=patch.dir!==undefined?patch.dir:Math.sign(was);
       const speed=clampSpinSpeed(patch.speed!==undefined?patch.speed:(Math.abs(was)||parseFloat(speedInput.value)||SPIN_DEFAULT));
       const v=dir*speed;
-      target.spin={dps:kind==="sub"?cur.dps:v,scope:patch.scope||cur.scope,sub:kind==="sub"?v:cur.sub};   // kept even when still: it remembers the choices
+      const off=((Math.round(patch.phase!==undefined?patch.phase:parseFloat(phaseInput.value)||0)%360)+360)%360;
+      const keep=target.spin||{};
+      target.spin={dps:kind==="sub"?cur.dps:v,scope:patch.scope||cur.scope,sub:kind==="sub"?v:cur.sub,   // kept even when still: it remembers the choices
+                   phase0:kind==="sub"?(keep.phase0||0):off,subPhase0:kind==="sub"?off:(keep.subPhase0||0)};
+      phaseInput.value=off;
       const now=normalizeSpin(target.spin), mine=now?(kind==="sub"?now.sub:now.dps):0;
       box.querySelectorAll('.seg[data-f="spinDir"] button').forEach(b=>b.classList.toggle("on",+b.dataset.v===Math.sign(mine)));
       box.querySelectorAll('.seg[data-f="spinScope"] button').forEach(b=>b.classList.toggle("on",b.dataset.v===target.spin.scope));
@@ -135,6 +141,8 @@ export function buildSpecRows(container, target, cfg){
     box.querySelectorAll('.seg[data-f="spinDir"] button').forEach(b=>{b.onclick=()=>setSpin({dir:+b.dataset.v});});
     box.querySelectorAll('.seg[data-f="spinScope"] button').forEach(b=>{b.onclick=()=>setSpin({scope:b.dataset.v});});
     speedInput.addEventListener("change",()=>{const v=parseFloat(speedInput.value);if(isNaN(v)){speedInput.value=SPIN_DEFAULT;return;}setSpin({speed:v});});
+    phaseInput.addEventListener("change",()=>{const v=parseFloat(phaseInput.value);if(isNaN(v)){phaseInput.value=0;return;}setSpin({phase:v});});
+    box.querySelector(".spinRestart").onclick=restartSpin;
   });
   wrap.querySelectorAll('input[data-f="showMm"]').forEach(cb=>{
     cb.addEventListener("change",()=>{target.showMm=cb.checked;cfg.onChange();commit();});
