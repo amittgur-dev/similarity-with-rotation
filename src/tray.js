@@ -8,7 +8,7 @@ import { renderCanvas, toWorld } from "./canvas.js";
 import { openSelPanel } from "./console.js";
 
 export function trayPreviewSVG(entry,size){
-  return `<svg width="${size}" height="${size}" viewBox="-60 -60 120 120">${shapeMarkup(entry.def,42,entry.anchor,entry.frame,entry.baseRot,entry.anchorRot,entry.anchorRatio||DEFAULT_RATIO,entry.texture||0)}</svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="-60 -60 120 120">${shapeMarkup(entry.def,42,entry.anchor,entry.frame,entry.baseRot,entry.anchorRot,entry.anchorRatio||DEFAULT_RATIO,entry.texture||0,!!entry.contour)}</svg>`;
 }
 export function addTrayItem(entry){
   const d=document.createElement("div");
@@ -60,7 +60,7 @@ function dropGhost(e){
     const it={id:nextId(),trayRef:dragEntry,x:w.x,y:w.y,
               scale:1,baseRot:dragEntry.baseRot,anchorRot:dragEntry.anchorRot,frame:dragEntry.frame,
               anchorRatio:dragEntry.anchorRatio||DEFAULT_RATIO,label:null,qId:null,
-              ...(dragEntry.texture?{texture:dragEntry.texture}:{})};
+              ...(dragEntry.texture?{texture:dragEntry.texture,...(dragEntry.contour?{contour:true}:{})}:{})};
     items.push(it);
     sel.id=it.id;sel.ids=[];sel.qId=null;sel.expId=null;
     renderCanvas();openSelPanel();commit();

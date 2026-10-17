@@ -250,7 +250,7 @@ test("presentation layout: equal distances, gaps scaled to the figures, rotation
   assert.ok(questionStep(L1)>L1.bounds.x1-L1.bounds.x0,"the next question starts beyond this one");
 });
 
-import { crossPts, crossCount, crossDensity, CROSS_W, rotPt } from "../src/geometry.js";
+import { crossPts, densityForCount, CROSS_W, rotPt } from "../src/geometry.js";
 test("plus and x: two perpendicular lines; the x is the plus turned 45°", ()=>{
   assert.deepEqual(parseShape("plus"),{cross:true,name:"plus"});
   assert.deepEqual(parseShape("X"),{cross:true,offset:45,name:"x"});
@@ -274,31 +274,66 @@ test("plus and x: two perpendicular lines; the x is the plus turned 45°", ()=>{
   for(const [tx,ty] of baseVerts(x,70,0).slice(1))close(Math.abs(tx),Math.abs(ty));
   // texture: elements along the lines, 4n − 3 of them, the centre shared, the tips at r
   for(const n of [2,3,4,5,8,16]){
-    const t=texturePoints(plus,70,n);
-    assert.equal(t.length,4*n-3,`density ${n}`);assert.equal(crossCount(n),4*n-3);
+    const t=texturePoints(plus,70,n,0,true);
+    assert.equal(t.length,4*n-3,`density ${n}`);assert.equal(subCount(plus,n,true),4*n-3);
     assert.ok(t.every(([px,py])=>Math.abs(px)<1e-9||Math.abs(py)<1e-9),"all on the two lines");
     assert.equal(t.filter(([px,py])=>Math.abs(Math.hypot(px,py)-70)<1e-9).length,4,"four tips");
     close(textureSpacing(plus,n)*70,70/(n-1));
   }
-  assert.ok(texturePoints(x,70,5).every(([px,py])=>Math.abs(Math.abs(px)-Math.abs(py))<1e-9),"the x's elements on the diagonals");
-  assert.equal(texturePoints(x,70,5,20).length,17,"turning keeps the count");
+  assert.ok(texturePoints(x,70,5,0,true).every(([px,py])=>Math.abs(Math.abs(px)-Math.abs(py))<1e-9),"the x's elements on the diagonals");
+  assert.equal(texturePoints(x,70,5,20,true).length,17,"turning keeps the count");
   assert.equal(minTexture(plus),2,"five elements: the centre and the tips");
-  assert.equal(defaultTexture(plus),5,"17 elements by default");
-  assert.equal(subCount(x,0),5);assert.equal(subCount(x,4),13);
+  assert.equal(defaultTexture(plus,true),5,"17 elements by default");
+  assert.equal(subCount(x,0),5);assert.equal(subCount(x,4,true),13);
   // asking for a number of elements gives the nearest the lines allow
-  for(const [want,n] of [[15,5],[12,4],[20,6],[3,2],[100,16],[13,4],[17,5]])assert.equal(crossDensity(want),n,`${want} elements → density ${n} (${crossCount(n)})`);
+  for(const [want,n] of [[15,5],[12,4],[20,6],[3,2],[100,16],[13,4],[17,5]])assert.equal(densityForCount(plus,want,true),n,`${want} elements → density ${n}`);
+  // the full texture fills the bars: rows to either side of each line, nearest to the solid bar's width
+  assert.equal(texturePoints(plus,70,5).length,45,"5 per arm: three rows, 9 × 9 less the four 3 × 3 corners");
+  assert.equal(texturePoints(plus,70,9).length,145,"9 per arm: five rows");
+  assert.equal(texturePoints(plus,70,3).length,9,"3 per arm: a single row still");
+  const full=texturePoints(plus,70,5), lines=texturePoints(plus,70,5,0,true);
+  assert.ok(lines.every(l=>full.some(f=>Math.hypot(f[0]-l[0],f[1]-l[1])<1e-9)),"the full texture contains the contour one");
+  assert.ok(full.every(([px,py])=>Math.min(Math.abs(px),Math.abs(py))<=70*CROSS_W+1e-9),"within the solid bars");
+  const xf=texturePoints(x,70,5), pf45=texturePoints(plus,70,5,45);
+  xf.forEach((p,i)=>{close(p[0],pf45[i][0]);close(p[1],pf45[i][1]);});
+  assert.equal(densityForCount(plus,17,false),3,"17 elements in full: 9 is nearer than 33");
+  assert.equal(defaultTexture(plus,false),4,"33 elements by default when full");
   // frames: in the vertex frame the elements of an x sit at 45°, of a plus at 0°; the centre element follows too
   const sq=parseShape("square"), rots=m=>[...m.matchAll(/rotate\(([-\d.]+)\)/g)].map(r=>+r[1]);
-  assert.ok(rots(shapeMarkup(x,70,sq,"vertex",0,0,0.1,4)).every(r=>r===45));
+  assert.ok(rots(shapeMarkup(x,70,sq,"vertex",0,0,0.1,4,true)).every(r=>r===45));
   assert.ok(rots(shapeMarkup(plus,70,sq,"vertex",0,0,0.1,4)).every(r=>r===0));
   assert.ok(rots(shapeMarkup(x,70,sq,"screen",0,10,0.1,4)).every(r=>r===10),"screen frame: absolute orientation");
   assert.deepEqual(rots(shapeMarkup(x,70,sq,"vertex",0,0,0.18,0)).map(r=>norm(r)),[45,45,135,225,315],"on vertices: the centre with the lines, the tips outward");
-  const a=shapePrimitives(x,70,sq,"vertex",0,0,0.1,4), b=shapePrimitives(plus,70,sq,"vertex",45,0,0.1,4);
+  const a=shapePrimitives(x,70,sq,"vertex",0,0,0.1,4,true), b=shapePrimitives(plus,70,sq,"vertex",45,0,0.1,4,true);
   a.forEach((p,i)=>{close(p.at[0],b[i].at[0]);close(p.at[1],b[i].at[1]);assert.equal(p.rot,b[i].rot);});
   // the texture controls: the contour minimum is two per arm; a plus as the sub-shape of something is fine
   assert.equal(relinkTexture(plus,{n:5,size:textureRatio(plus,5)},"fill","density",1).n,2);
   assert.equal(relinkTexture(plus,{n:5,size:textureRatio(plus,5)},"fill","density",1).limited,"contour");
   assert.equal((shapeMarkup(sq,70,plus,"screen",0,0,0.18,0).match(/<path/g)||[]).length,4,"a square of pluses");
-  const e=figureExtent(plus,sq,0.1,5);
+  const e=figureExtent(plus,sq,0.1,5,true);
   close(e.radius,1.1);close(e.spacing,0.25);
+});
+
+test("contour textures: the outline only, nothing inside", ()=>{
+  const sq=parseShape("square"), tri=parseShape("triangle"), circ=parseShape("circle"), hex=parseShape("hexagon");
+  for(const n of [3,4,5,8])assert.equal(texturePoints(sq,70,n,0,true).length,4*(n-1),`square ${n}: a ring`);
+  const half=70/Math.SQRT2;
+  assert.ok(texturePoints(sq,70,4,0,true).every(([px,py])=>Math.abs(Math.max(Math.abs(px),Math.abs(py))-half)<1e-6),"every element on the square's outline");
+  assert.equal(texturePoints(tri,70,5,0,true).length,12);
+  assert.equal(texturePoints(hex,70,4,0,true).length,18);
+  const ring=texturePoints(circ,70,6,0,true);
+  assert.ok(ring.every(([px,py])=>Math.abs(Math.hypot(px,py)-70)<1e-6),"a circle: its rim");
+  assert.ok(ring.length<texturePoints(circ,70,6).length);
+  const full=texturePoints(sq,70,5), ring5=texturePoints(sq,70,5,0,true);
+  assert.ok(ring5.every(c=>full.some(f=>Math.hypot(f[0]-c[0],f[1]-c[1])<1e-9)),"the contour is the full texture's outline row");
+  assert.equal(texturePoints(sq,70,5,30,true).length,16,"turning keeps the count");
+  assert.equal(defaultTexture(sq,true),5,"a contour square starts at 16 elements");
+  assert.equal(defaultTexture(tri,true),6,"a contour triangle at 15");
+  assert.equal(defaultTexture(sq),4,"the full texture is unchanged");
+  assert.equal(densityForCount(sq,15,true),5);assert.equal(densityForCount(sq,10,true),4);
+  assert.equal(subCount(sq,4,true),12);assert.equal(subCount(sq,4),16);
+  assert.equal((shapeMarkup(sq,70,sq,"screen",0,0,0.12,4,true).match(/<path/g)||[]).length,12);
+  assert.equal(shapeMarkup(sq,70,sq,"screen",0,0,0.12,4,false),shapeMarkup(sq,70,sq,"screen",0,0,0.12,4),"full is the default");
+  const e=figureExtent(sq,sq,0.1,4,true), f=figureExtent(sq,sq,0.1,4);
+  close(e.radius,f.radius);close(e.spacing,f.spacing);
 });

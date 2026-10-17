@@ -16,30 +16,30 @@ export function stimulusRecord(it){
   const anchor=it.trayRef.anchor;
   return {def:it.trayRef.def,anchor,baseRot:norm(it.baseRot),anchorRot:anchor&&!anchor.none?norm(it.anchorRot):0,
           frame:anchor&&!anchor.none?it.frame:"",ratio:anchor&&!anchor.none?+(it.anchorRatio||DEFAULT_RATIO).toFixed(4):0,
-          texture:anchor&&!anchor.none?(it.texture||0):0,scale:+(+it.scale).toFixed(4)};
+          texture:anchor&&!anchor.none?(it.texture||0):0,contour:!!(anchor&&!anchor.none&&it.texture&&it.contour),scale:+(+it.scale).toFixed(4)};
 }
 /* identical figures share one image */
-export const stimulusKey=r=>JSON.stringify([r.def,r.anchor,r.baseRot,r.anchorRot,r.frame,r.ratio,r.texture,r.scale]);
+export const stimulusKey=r=>JSON.stringify([r.def,r.anchor,r.baseRot,r.anchorRot,r.frame,r.ratio,r.texture,!!r.contour,r.scale]);
 const pad3=v=>String(Math.round(v)).padStart(3,"0");
 const safe=s=>String(s).replace(/[^a-z0-9-]+/gi,"-");
 /* a descriptive, sortable file stem: S007_square-diamond_b045_s000_screen_r18_x100 */
 export function stimulusStem(r,i){
   const sub=r.anchor&&!r.anchor.none?r.anchor.name:"solid";
   return `S${String(i).padStart(3,"0")}_${safe(r.def.name)}-${safe(sub)}_b${pad3(r.baseRot)}`+
-         (sub!=="solid"?`_s${pad3(r.anchorRot)}_${r.frame}${r.texture?`_tex${r.texture}`:""}_r${Math.round(r.ratio*100)}`:"")+
+         (sub!=="solid"?`_s${pad3(r.anchorRot)}_${r.frame}${r.texture?`_${r.contour?"contour":"tex"}${r.texture}`:""}_r${Math.round(r.ratio*100)}`:"")+
          `_x${Math.round(r.scale*100)}`;
 }
-const prims=r=>shapePrimitives(r.def,BASE_R,r.anchor,r.frame||"screen",r.baseRot,r.anchorRot,r.ratio||DEFAULT_RATIO,r.texture);
+const prims=r=>shapePrimitives(r.def,BASE_R,r.anchor,r.frame||"screen",r.baseRot,r.anchorRot,r.ratio||DEFAULT_RATIO,r.texture,r.contour);
 /* radius bounding the figure at every orientation, in canvas pixels */
 export function stimulusRadius(r){
-  return figureExtent(r.def,r.anchor,r.ratio||DEFAULT_RATIO,r.texture).radius*BASE_R*r.scale;
+  return figureExtent(r.def,r.anchor,r.ratio||DEFAULT_RATIO,r.texture,r.contour).radius*BASE_R*r.scale;
 }
 /* the image of one stimulus: size × size pixels, k image pixels per canvas pixel */
 export function stimulusImageSVG(r,size,k){
   const h=+(size/2/k).toFixed(6);   // half the image in canvas px (rounded: clean numbers in the file, error < 1e-6 px)
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${-h} ${-h} ${2*h} ${2*h}">`+
          `<rect x="${-h}" y="${-h}" width="${2*h}" height="${2*h}" fill="#fff"/>`+
-         `<g transform="scale(${r.scale})">${shapeMarkup(r.def,BASE_R,r.anchor,r.frame||"screen",r.baseRot,r.anchorRot,r.ratio||DEFAULT_RATIO,r.texture)}</g></svg>`;
+         `<g transform="scale(${r.scale})">${shapeMarkup(r.def,BASE_R,r.anchor,r.frame||"screen",r.baseRot,r.anchorRot,r.ratio||DEFAULT_RATIO,r.texture,r.contour)}</g></svg>`;
 }
 
 /* What will be exported: one entry per stimulus (or per object), the scale,
@@ -75,7 +75,7 @@ export function imageManifest(plan,{pxPerMm=96/25.4}={}){
     const r=e.rec, bb=primitivesBBox(prims(r));
     const sub=r.anchor&&!r.anchor.none?r.anchor.name:"none";
     return {file_png:`${e.stem}.png`,file_svg:plan.svg?`${e.stem}.svg`:"",stimulus:e.stem.slice(0,4),shape:r.def.name,sub,
-            arrangement:sub==="none"?"":(r.texture?"texture":"vertices"),density:r.texture||"",baseRot:r.baseRot,subRot:r.anchorRot,frame:r.frame,
+            arrangement:sub==="none"?"":(r.texture?(r.contour?"contour":"texture"):"vertices"),density:r.texture||"",baseRot:r.baseRot,subRot:r.anchorRot,frame:r.frame,
             subRatio:r.ratio||"",scale:r.scale,image_px:plan.size,image_px_per_canvas_px:+plan.k.toFixed(6),
             figure_width_px:+(bb.w*r.scale*plan.k).toFixed(2),figure_height_px:+(bb.h*r.scale*plan.k).toFixed(2),
             figure_width_mm_on_screen:+(bb.w*r.scale/pxPerMm).toFixed(2),figure_height_mm_on_screen:+(bb.h*r.scale/pxPerMm).toFixed(2),

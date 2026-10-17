@@ -90,7 +90,7 @@ export function renderCanvas(){
     const e=it.trayRef;
     const fade=it.qId!=null&&faded.has(it.qId)?' class="lensOut"':"";
     out+=`<g class="item${fade?" lensOut":""}" data-id="${it.id}" transform="translate(${it.x},${it.y}) scale(${it.scale})">`+
-         shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO,it.texture||0)+`</g>`;
+         shapeMarkup(e.def,BASE_R,e.anchor,it.frame,it.baseRot,it.anchorRot,it.anchorRatio||DEFAULT_RATIO,it.texture||0,!!it.contour)+`</g>`;
     if(it.label){
       const ly=it.y+BASE_R*LABEL_GAP*it.scale+24; // A/B/C sit clear of the sub-shapes
       out+=`<text${fade} x="${it.x}" y="${ly}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${escapeXML(it.label)}</text>`;

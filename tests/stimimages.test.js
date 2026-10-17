@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { planImages, stimulusImageSVG, imageManifest, buildImagesZip, stimulusRecord, stimulusStem, IMAGE_MANIFEST_COLS } from "../src/stimimages.js";
+import { planImages, stimulusImageSVG, imageManifest, buildImagesZip, stimulusRecord, stimulusStem, stimulusKey, IMAGE_MANIFEST_COLS } from "../src/stimimages.js";
 import { parseShape, figureExtent, BASE_R } from "../src/geometry.js";
 
 const SQ=parseShape("square"), DI=parseShape("diamond"), TRI=parseShape("triangle");
@@ -20,6 +20,10 @@ test("one image per distinct stimulus; identical figures share one, with every u
   assert.equal(new Set(p.entries.map(e=>e.stem)).size,4);
   assert.match(p.entries[0].stem,/^S001_square-diamond_b000_s000_screen_r18_x100$/);
   assert.match(stimulusStem(stimulusRecord(items[3]),9),/^S009_triangle-solid_b090_x150$/);
+  const c=stimulusRecord({...items[4],contour:true});
+  assert.match(stimulusStem(c,5),/_contour4_/);assert.equal(c.contour,true);
+  assert.notEqual(stimulusKey(c),stimulusKey(stimulusRecord(items[4])),"contour and full are different stimuli");
+  assert.equal(stimulusRecord({...items[0],contour:true}).contour,false,"no texture, no contour");
 });
 
 test("every image is exactly size × size, at one scale that fits the largest figure at any rotation", ()=>{

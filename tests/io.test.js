@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { serializeCanvas, deserializeCanvas, canvasFileName, SAVE_VERSION } from "../src/io.js";
 import { layoutQuestion, questionFrame, separateQuestions } from "../src/questions.js";
-import { BASE_R, questionLayout } from "../src/geometry.js";
+import { BASE_R, questionLayout, parseShape } from "../src/geometry.js";
 
 const SQ={n:4,offset:45,name:"square"}, DI={n:4,name:"diamond"};
 
@@ -43,7 +43,7 @@ test("v4 experiments round-trip; v3 stars migrate into experiment 1 with a fresh
   const src=sampleCanvas();
   src.experiments=[{id:8,n:1,name:"pilot",questions:[6],settings:{repeats:2,shuffle:false,swapSides:true,fixation:true,fullscreen:false}}];
   const data=serializeCanvas(src);
-  assert.equal(data.version,4);
+  assert.equal(data.version,SAVE_VERSION);
   const back=deserializeCanvas(JSON.parse(JSON.stringify(data)));
   assert.deepEqual(back.experiments,src.experiments);
   assert.equal(back.maxId,8);
@@ -123,6 +123,29 @@ test("opening a canvas moves overlapping questions apart, left to right; the res
   assert.ok(Math.abs(f0.x0-(f1.x1+BASE_R))<1e-9,"cleared by a figure radius of space, no further");
   assert.equal(list[0].x,qs[0].cx,"members follow their question");
   assert.equal(separateQuestions(qs,list),0,"nothing left to move");
+});
+
+test("v5: textures carry contour; a plus or x texture from before is its two lines", ()=>{
+  const src=sampleCanvas();
+  const PL=parseShape("plus");
+  src.tray.push({id:9,def:PL,anchor:DI,baseRot:0,anchorRot:0,frame:"screen",anchorRatio:0.1,texture:5},
+                {id:10,def:SQ,anchor:DI,baseRot:0,anchorRot:0,frame:"screen",anchorRatio:0.1,texture:4,contour:true},
+                {id:11,def:SQ,anchor:DI,baseRot:0,anchorRot:0,frame:"screen",anchorRatio:0.18,contour:true});   // no texture: no contour
+  src.items.push({id:12,trayRef:src.tray[1],x:0,y:0,scale:1,baseRot:0,anchorRot:0,frame:"screen",anchorRatio:0.1,texture:4,contour:true,label:null,qId:null});
+  const data=serializeCanvas(src);
+  const [plus,ring,bare]=data.tray.slice(2);
+  assert.equal(plus.contour,undefined,"a full plus texture saves without the flag");
+  assert.equal(ring.contour,true);assert.equal(bare.contour,undefined,"no texture, no flag");
+  assert.equal(data.items[data.items.length-1].contour,true);
+  const back=deserializeCanvas(JSON.parse(JSON.stringify(data)));
+  assert.equal(back.tray[2].contour,undefined);assert.equal(back.tray[3].contour,true);assert.equal(back.tray[4].contour,undefined);
+  assert.equal(back.items[back.items.length-1].contour,true);
+  // the same file as v4 (no flag anywhere): a plus texture was always its lines, so it becomes contour; the square stays full
+  const v4=JSON.parse(JSON.stringify(data));v4.version=4;delete v4.tray[3].contour;delete v4.items[v4.items.length-1].contour;
+  const m=deserializeCanvas(v4);
+  assert.equal(m.tray[2].contour,true,"v4 plus texture → contour");
+  assert.equal(m.tray[3].contour,undefined,"v4 square texture → full");
+  assert.equal(m.items[m.items.length-1].contour,undefined);
 });
 
 test("canvasFileName", ()=>{

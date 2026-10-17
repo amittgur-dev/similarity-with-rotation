@@ -3,10 +3,10 @@
 
 import { DEFAULT_RATIO } from "./geometry.js";
 
-export const draft={shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO,texture:0};
+export const draft={shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO,texture:0,contour:false};
 export const tray=[];        // {id, def, anchor, baseRot, anchorRot, frame, anchorRatio}
 export const items=[];       // {id, trayRef, x,y, scale, baseRot, anchorRot, frame, anchorRatio, texture, label, qId}
-                             // texture: sub-shapes per row when they tile the shape, 0 = on the vertices
+                             // texture: sub-shapes per row when they tile the shape, 0 = on the vertices; contour: the outline only
 export const questions=[];   // {id, title, a,b,c, cx,cy, s, anchorRatio}
 export const experiments=[]; // {id, n, name, questions:[qId…], settings:{repeats,shuffle,swapSides,fixation,fullscreen}}
 export const counters={expN:0};   // highest experiment ordinal ever issued on this canvas (codes are never reused)
@@ -24,7 +24,7 @@ export function nextId(){return uid++;}
 export function bumpId(id){uid=Math.max(uid,id+1);}
 
 export function resetDraft(){
-  Object.assign(draft,{shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO,texture:0});
+  Object.assign(draft,{shape:null,anchor:{none:true},baseRot:0,anchorRot:0,frame:"screen",anchorRatio:DEFAULT_RATIO,texture:0,contour:false});
 }
 export function clearSelection(){sel.id=null;sel.ids=[];sel.qId=null;sel.expId=null;}
 export const findExperiment=id=>experiments.find(e=>e.id===id);

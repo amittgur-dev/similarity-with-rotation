@@ -87,7 +87,7 @@ export function questionTitle(n,A,B,C,D=null){
   const sig=it=>{
     const d=it.trayRef.def.name;
     const s=it.trayRef.anchor&&!it.trayRef.anchor.none?"/"+it.trayRef.anchor.name:"";
-    return d+s+(s&&it.texture?` texture ${it.texture}`:"");
+    return d+s+(s&&it.texture?` ${it.contour?"contour":"texture"} ${it.texture}`:"");
   };
   const f=it=>`(${norm(it.baseRot)},${norm(it.anchorRot)})`;
   const ms=[["A",A],["B",B],["C",C],...(D?[["D",D]]:[])];

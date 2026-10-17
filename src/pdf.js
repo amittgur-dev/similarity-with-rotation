@@ -88,7 +88,7 @@ export function questionOps(t,map,k){
   for(const m of ["A",...comparisons(t)]){
     const p=t[m], [px,py]=g.positions[m], s=p.scale;
     const place=q=>map([px+s*q[0],py+s*q[1]]);
-    for(const pr of shapePrimitives(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio,p.texture||0)){
+    for(const pr of shapePrimitives(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio,p.texture||0,!!p.contour)){
       if(pr.circle){const [X,Y]=place(pr.circle);ops+=circleOps(X,Y,pr.r*s*k);}
       else ops+=polyOps(pr.poly.map(q=>{const r=pr.at?rotPt(q,pr.rot):q;return place(pr.at?[r[0]+pr.at[0],r[1]+pr.at[1]]:r);}));
     }

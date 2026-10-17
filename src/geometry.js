@@ -112,10 +112,14 @@ const latticeRot=def=>def.cross?(def.offset||0):0;
       row, which keeps the outline crisp.
    Density `n` = elements per side (a circle: across its diameter), so the
    spacing is side length / (n − 1). The whole layout turns with baseRot.
-   A plus or x has no inside: its texture is the two lines themselves, a
+   `contour` keeps only step 1: a dotted outline, the line of elements along
+   every edge (a circle: around its rim) with nothing inside.
+   A plus or x: its contour texture is the two lines themselves, a
    succession of elements along each, one at the centre where they cross.
    Density there = elements from the centre to each tip, the centre
-   included, so the figure has 4n − 3 elements (5, 9, 13, 17, …). */
+   included, so the figure has 4n − 3 elements (5, 9, 13, 17, …). Its full
+   texture fills the bars: the same square lattice, as many rows to either
+   side of each line as come nearest to the solid bar's width. */
 export const DEFAULT_TEXTURE=4;
 export const clampTexture=n=>Math.max(2,Math.min(16,Math.round(+n)||DEFAULT_TEXTURE));
 function outline(def,r){
@@ -150,13 +154,15 @@ export function textureSpan(def){
 }
 export const textureSpacing=(def,n)=>textureSpan(def)/(clampTexture(n)-1);
 const INNER_GAP=0.85;   // lattice points closer than this × spacing to the contour are left to the contour row
-export function texturePoints(def,r,n,baseRot=0){
+export function texturePoints(def,r,n,baseRot=0,contour=false){
   n=clampTexture(n);
   const s=textureSpacing(def,n)*r, out=[];
   if(def.cross){
-    // the two lines: the shared centre, then n − 1 elements out to each of the four tips
-    out.push([0,0]);
-    for(let k=0;k<4;k++)for(let j=1;j<n;j++)out.push(rotPt([0,-j*s],(def.offset||0)+k*90));
+    // the lattice of the lines: the centre, then n − 1 steps out to each tip; the full
+    // texture adds m rows to either side of each line, nearest to the solid bar's width
+    const m=contour?0:Math.round(CROSS_W*(n-1)-1e-9);
+    for(let i=-(n-1);i<=n-1;i++)for(let j=-(n-1);j<=n-1;j++)
+      if(Math.abs(i)<=m||Math.abs(j)<=m)out.push(rotPt([i*s,j*s],(def.offset||0)));
     return baseRot?out.map(p=>rotPt(p,baseRot)):out;
   }
   const pts=outline(def,r);
@@ -170,6 +176,7 @@ export function texturePoints(def,r,n,baseRot=0){
       for(let j=0;j<k;j++)out.push([p[0]+(q[0]-p[0])*j/k,p[1]+(q[1]-p[1])*j/k]);
     });
   }
+  if(contour)return baseRot?out.map(p=>rotPt(p,baseRot)):out;
   // 2. inside: lattice aligned with the edge nearest the horizontal, anchored on its corner
   let theta=0, origin=[0,0];
   if(pts&&!def.star){
@@ -261,22 +268,27 @@ export function minTexture(def){
   if(def.cross)return 2;   // each line then has three elements: tip, centre, tip — the five-element plus
   return MIN_PER_SIDE;
 }
-/* how many elements a texture of density n has — for a plus or x in closed form */
-export const crossCount=n=>4*clampTexture(n)-3;
-/* the density of a plus or x whose element count comes nearest to `count` */
-export const crossDensity=count=>clampTexture((count+3)/4);
+/* the density whose element count comes nearest to `count` (a tie goes up) */
+export function densityForCount(def,count,contour=false){
+  let best=minTexture(def), d=Infinity;
+  for(let n=minTexture(def);n<=16;n++){
+    const e=Math.abs(texturePoints(def,1,n,0,contour).length-count);
+    if(e<=d){best=n;d=e;}
+  }
+  return best;
+}
 
 /* the density a new texture starts at: the lowest (from 4, and not below
    the minimum) that gives at least DEFAULT_ELEMENTS elements — clear shape first */
 export const DEFAULT_ELEMENTS=15;
-export function defaultTexture(def){
-  for(let n=Math.max(minTexture(def),DEFAULT_TEXTURE);n<=16;n++)if(texturePoints(def,1,n).length>=DEFAULT_ELEMENTS)return n;
+export function defaultTexture(def,contour=false){
+  for(let n=Math.max(minTexture(def),DEFAULT_TEXTURE);n<=16;n++)if(texturePoints(def,1,n,0,contour).length>=DEFAULT_ELEMENTS)return n;
   return 16;
 }
 
 /* how many sub-shapes a construction has */
-export function subCount(def,texture=0){
-  return texture?texturePoints(def,BASE_R,texture).length:vertCount(def);
+export function subCount(def,texture=0,contour=false){
+  return texture?texturePoints(def,BASE_R,texture,0,contour).length:vertCount(def);
 }
 
 /* ================= presenting a question =================
@@ -305,13 +317,13 @@ export const GAP_FIGURE=1, GAP_GROUPING=1.5;
 const extentCache=new Map();
 /* a figure's extent at r = 1: radius bounds every orientation; spacing is
    the largest distance from an element to its nearest neighbour */
-export function figureExtent(def,anchor,ratio=DEFAULT_RATIO,texture=0){
-  const key=JSON.stringify([def,anchor,+ratio||DEFAULT_RATIO,texture||0]);
+export function figureExtent(def,anchor,ratio=DEFAULT_RATIO,texture=0,contour=false){
+  const key=JSON.stringify([def,anchor,+ratio||DEFAULT_RATIO,texture||0,!!contour]);
   if(extentCache.has(key))return extentCache.get(key);
   let out;
   if(!anchor||anchor.none)out={radius:1,spacing:0};
   else{
-    const pts=texture?texturePoints(def,1,texture):baseVerts(def,1,0);
+    const pts=texture?texturePoints(def,1,texture,0,contour):baseVerts(def,1,0);
     const radius=Math.max(...pts.map(p=>Math.hypot(p[0],p[1])))+(+ratio||DEFAULT_RATIO);
     let spacing=0;
     for(let i=0;i<pts.length;i++){
@@ -324,11 +336,11 @@ export function figureExtent(def,anchor,ratio=DEFAULT_RATIO,texture=0){
   extentCache.set(key,out);
   return out;
 }
-/* members: [{def, anchor, ratio, texture}] with A first, then 2 or 3
+/* members: [{def, anchor, ratio, texture, contour}] with A first, then 2 or 3
    comparisons; s: the question's scale. Positions are relative to the
    question centre (canvas pixels). */
 export function questionLayout(members,s=1){
-  const ext=members.map(m=>figureExtent(m.def,m.anchor,m.ratio,m.texture));
+  const ext=members.map(m=>figureExtent(m.def,m.anchor,m.ratio,m.texture,m.contour));
   const radius=Math.max(...ext.map(e=>e.radius))*BASE_R*s;
   const spacing=Math.max(...ext.map(e=>e.spacing))*BASE_R*s;
   const gap=Math.max(GAP_FIGURE*2*radius,GAP_GROUPING*spacing);
@@ -368,14 +380,15 @@ export function anchorOrientation(v,frame,anchorRot){
 /* Stimuli render strictly black on white: solid fill without sub-shapes,
    and with sub-shapes the configuration IS the sub-shapes (no outlines).
    texture (sub-shapes per row, 0 = on the vertices) fills the shape with
-   a lattice of sub-shapes instead. The frame keeps its meaning: screen,
+   a lattice of sub-shapes instead, or with `contour` draws its outline
+   only. The frame keeps its meaning: screen,
    the elements hold their absolute orientation while the lattice turns;
    vertex, they co-rotate with it (orientation baseRot + anchorRot). */
 /* The drawing of one object as primitives, shared by the SVG renderer and
    the PDF export so the two cannot differ:
    {circle:[cx,cy], r} | {poly:[[x,y]…]} with an optional placement
    {at:[x,y], rot} (the polygon is drawn rotated by rot, then moved to at). */
-export function shapePrimitives(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorRatio=DEFAULT_RATIO,texture=0){
+export function shapePrimitives(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorRatio=DEFAULT_RATIO,texture=0,contour=false){
   const hasAnchors=anchor&&!anchor.none;
   if(!hasAnchors){
     if(def.circle)return [{circle:[0,0],r}];
@@ -383,7 +396,7 @@ export function shapePrimitives(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorR
     return [{poly:def.star?starPts(def.star,r).map(p=>rotPt(p,baseRot)):polyPts(def.n,r,(def.offset||0)+baseRot)}];
   }
   const sr=r*anchorRatio;
-  const verts=texture?texturePoints(def,r,texture,baseRot):baseVerts(def,r,baseRot);
+  const verts=texture?texturePoints(def,r,texture,baseRot,contour):baseVerts(def,r,baseRot);
   const spts=anchor.circle?null:(anchor.star?starPts(anchor.star,sr):anchor.cross?crossPts(sr,anchor.offset||0):polyPts(anchor.n,sr,anchor.offset||0));
   const coRot=latticeRot(def)+baseRot+anchorRot;   // vertex frame: with the lattice, or the centre of a plus with its lines
   return verts.map(v=>{
@@ -392,8 +405,8 @@ export function shapePrimitives(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorR
     return anchor.circle?{circle:v,r:sr,sub:true}:{poly:spts,at:v,rot};
   });
 }
-export function shapeMarkup(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorRatio=DEFAULT_RATIO,texture=0){
-  return shapePrimitives(def,r,anchor,frame,baseRot,anchorRot,anchorRatio,texture).map(p=>{
+export function shapeMarkup(def,r,anchor,frame,baseRot=0,anchorRot=0,anchorRatio=DEFAULT_RATIO,texture=0,contour=false){
+  return shapePrimitives(def,r,anchor,frame,baseRot,anchorRot,anchorRatio,texture,contour).map(p=>{
     if(p.circle)return p.sub?`<circle cx="${p.circle[0].toFixed(2)}" cy="${p.circle[1].toFixed(2)}" r="${p.r}" fill="#111"/>`
                             :`<circle cx="0" cy="0" r="${p.r}" fill="#111"/>`;
     return p.at?`<path d="${pathD(p.poly)}" fill="#111" transform="translate(${p.at[0].toFixed(2)},${p.at[1].toFixed(2)}) rotate(${p.rot.toFixed(1)})"/>`

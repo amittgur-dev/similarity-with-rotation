@@ -21,7 +21,7 @@ export function members(q,list=items){return memberIds(q).map(id=>list.find(i=>i
    one scale and one sub-shape relative size for all members, labels
    A/B/C(/D). Re-applied on every layout pass, so the group always wins. */
 export function memberSpec(m){
-  return {def:m.trayRef.def,anchor:m.trayRef.anchor,ratio:m.anchorRatio||DEFAULT_RATIO,texture:m.texture||0};
+  return {def:m.trayRef.def,anchor:m.trayRef.anchor,ratio:m.anchorRatio||DEFAULT_RATIO,texture:m.texture||0,contour:!!m.contour};
 }
 export function questionGeometry(q,list=items){
   const ms=members(q,list);

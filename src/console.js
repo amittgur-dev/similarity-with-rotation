@@ -1,7 +1,7 @@
 /* Right-hand console: the creation panel, the three selection panels and
    the single-object operations they expose. */
 
-import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, defaultTexture, clampTexture, textureRatio, relinkTexture, textureSpan, crossCount, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
+import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, defaultTexture, clampTexture, textureRatio, relinkTexture, textureSpan, densityForCount, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
 import { rotateParams, parseVary } from "./variants.js";
 import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem } from "./state.js";
 import { $, escapeXML } from "./dom.js";
@@ -20,9 +20,10 @@ export function miniSVG(def,rot,isAnchor){
 export function buildSpecRows(container, target, cfg){
   const wrap=document.createElement("div");
   const hasAnchors=cfg.anchor&&!cfg.anchor.none;
-  const cross=!!cfg.def.cross, minTex=minTexture(cfg.def);
+  const cross=!!cfg.def.cross, minTex=minTexture(cfg.def), contourOn=()=>!!target.contour;
   // a plus or x shows and takes its number of elements; what is stored is the density, elements from the centre to each tip
-  const shownN=n=>cross?crossCount(n):n, toN=v=>cross?(v+3)/4:v;
+  const shownN=n=>cross?subCount(cfg.def,n,contourOn()):n, toN=v=>cross?densityForCount(cfg.def,v,contourOn()):v;
+  let lastN=target.texture||0;   // the density a texture had, for when it is switched off and on again
   const row1=document.createElement("div");
   row1.className="spec";
   row1.innerHTML=
@@ -43,7 +44,7 @@ export function buildSpecRows(container, target, cfg){
     row2.innerHTML=
       `<div class="pv">${miniSVG(cfg.anchor,target.anchorRot,true)}</div>`+
       `<div class="fields">`+
-        `<div class="frow"><span>${subLabel(cfg,tex)}</span></div>`+
+        `<div class="frow"><span>${subLabel(cfg,tex,contourOn())}</span></div>`+
         (orientable?`<div class="frow"><span>orient</span><input type="number" step="1" value="${norm(target.anchorRot)}" data-f="anchorRot">°</div>`:"")+
         (cfg.showRatio===false?"":`<div class="frow"><span>relative size</span><input type="number" step="1" min="2" max="60" value="${pctText(target.anchorRatio||DEFAULT_RATIO)}" data-f="anchorRatio">%${holdBtn("size",tex)}</div>`)+
         `<div class="seg" data-f="frame" title="frame of the sub-shapes">`+
@@ -52,14 +53,15 @@ export function buildSpecRows(container, target, cfg){
         `</div>`+
         `<div class="seg" data-f="arrange" title="where the sub-shapes go">`+
           `<button data-v="vertices" class="${tex?"":"on"}" title="${cross?"the centre and the four tips":"on the corners of the base shape"}">on vertices</button>`+
-          `<button data-v="texture" class="${tex?"on":""}" title="${cross?"a succession of elements along the two lines; choose how many":"filling the base shape as a texture; the density sets how many and how large"}">texture</button>`+
+          `<button data-v="contour" class="${tex&&target.contour?"on":""}" title="${cross?"a succession of elements along the two lines, nothing more; choose how many":"the outline only: a dotted line of elements along every edge, nothing inside"}">contour</button>`+
+          `<button data-v="full" class="${tex&&!target.contour?"on":""}" title="${cross?"the two bars filled with elements, rows to either side of each line; choose how many":"elements fill the whole shape: the contour and a lattice inside; the density sets how many and how large"}">full</button>`+
         `</div>`+
         `<div class="texBox"${tex?"":' style="display:none"'}>`+
           (cross
-          ?`<div class="frow" title="how many elements make the ${escapeXML(cfg.def.name)}: one at the centre and the same number along each of the four arms, so 5, 9, 13, 17, … — type a number and the nearest is used">`+
-            `<span>elements · total</span><input type="number" step="4" min="${crossCount(minTex)}" max="${crossCount(16)}" value="${crossCount(tex||defaultTexture(cfg.def))}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`
+          ?`<div class="frow" title="how many elements make the ${escapeXML(cfg.def.name)}: the same number from the centre out to each tip, so only some counts exist — type a number and the nearest is used">`+
+            `<span>elements · total</span><input type="number" step="1" min="${subCount(cfg.def,minTex,contourOn())}" max="${subCount(cfg.def,16,contourOn())}" value="${subCount(cfg.def,tex||defaultTexture(cfg.def,contourOn()),contourOn())}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`
           :`<div class="frow" title="${cfg.def.circle?"elements across the circle":"elements along each side"}; at least ${minTex} so the elements carry the contour of the ${escapeXML(cfg.def.name)}">`+
-            `<span>density · ${cfg.def.circle?"across":"per side"}</span><input type="number" step="1" min="${minTex}" max="16" value="${tex||defaultTexture(cfg.def)}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`)+
+            `<span>density · ${cfg.def.circle?"across":"per side"}</span><input type="number" step="1" min="${minTex}" max="16" value="${tex||defaultTexture(cfg.def,contourOn())}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`)+
           (cfg.showRatio===false?"":
           `<div class="frow" title="element size relative to the spacing between elements: 100% and they touch">`+
             `<span>fill</span><input type="number" step="5" min="${Math.round(FILL_MIN*200)}" max="${Math.round(FILL_MAX*200)}" value="${fillPct(cfg.def,target)}" data-f="fill">%${holdBtn("fill",tex)}</div>`+
@@ -93,7 +95,7 @@ export function buildSpecRows(container, target, cfg){
   const fillInput=wrap.querySelector('input[data-f="fill"]');
   const LIMIT={contour:()=>cross?`at least ${texInput.min} elements — the centre and the four tips`:cfg.def.circle?`at least ${texInput.min} across, so the rim is a clear circle`:`at least ${texInput.min} per side — it takes three elements to read as a straight edge`,
                overlap:()=>"limited so the elements do not overlap",sparse:()=>"limited: the elements would be too sparse to form a texture",
-               max:()=>cross?`limited to ${crossCount(16)} elements (16 from the centre to each tip)`:"limited to the highest density (16 per row)"};
+               max:()=>cross?`limited to ${subCount(cfg.def,16,contourOn())} elements (16 from the centre to each tip)`:"limited to the highest density (16 per row)"};
   // what the app last wrote into a field: a change event that still carries it is not an edit
   const show=(inp,v)=>{inp.value=v;shown.set(inp,inp.value);};
   const edited=inp=>inp.value!==shown.get(inp);
@@ -104,7 +106,7 @@ export function buildSpecRows(container, target, cfg){
     if(ri&&ri!==except)show(ri,pctText(target.anchorRatio));
     if(fillInput&&fillInput!==except&&n)show(fillInput,fillPct(cfg.def,target));
     const lbl=wrap.querySelectorAll(".spec")[1].querySelector(".frow span");
-    if(lbl)lbl.innerHTML=subLabel(cfg,n);
+    if(lbl)lbl.innerHTML=subLabel(cfg,n,contourOn());
     syncHolds();
   }
   function syncHolds(){
@@ -124,7 +126,11 @@ export function buildSpecRows(container, target, cfg){
     [texInput,fillInput,wrap.querySelector('input[data-f="anchorRatio"]')].forEach(i=>{if(i&&cfg.showRatio!==false)i.disabled=!!target.texture&&i===held;});
   }
   function relink(edited,value,inp){
-    if(edited==="density")value=toN(value);
+    if(edited==="density"&&cross){
+      // the spinner steps the count by one: take it as the next count the lines allow; anything else is the nearest
+      const old=target.texture?shownN(target.texture):null;
+      value=old!=null&&value===old+1?target.texture+1:old!=null&&value===old-1?target.texture-1:toN(value);
+    }
     if(cfg.showRatio===false){                            // a question member: density only, the group holds the size
       target.texture=Math.max(minTex,clampTexture(value));
     }else{
@@ -139,7 +145,7 @@ export function buildSpecRows(container, target, cfg){
     commitSoon();
   }
   function setTexture(n){
-    target.texture=n;
+    target.texture=n;if(n)lastN=n;
     if(cfg.showRatio!==false){
       target.anchorRatio=n?textureRatio(cfg.def,n):DEFAULT_RATIO;
       const ri=wrap.querySelector('input[data-f="anchorRatio"]');
@@ -176,10 +182,13 @@ export function buildSpecRows(container, target, cfg){
   [texInput,fillInput,sizeInput].forEach(i=>{if(i)shown.set(i,i.value);});
   wrap.querySelectorAll('.seg[data-f="arrange"] button').forEach(b=>{
     b.onclick=()=>{
-      const on=b.dataset.v==="texture";
+      const v=b.dataset.v, on=v!=="vertices";
       b.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
       wrap.querySelector(".texBox").style.display=on?"":"none";
-      setTexture(on?Math.max(minTex,clampTexture(toN(+texInput.value))):0);
+      if(v==="contour")target.contour=true;else delete target.contour;
+      if(cross&&texInput){texInput.min=subCount(cfg.def,minTex,contourOn());texInput.max=subCount(cfg.def,16,contourOn());}
+      // contour and full share the density; a texture switched back on returns at the density it had
+      setTexture(on?(target.texture||lastN||defaultTexture(cfg.def,contourOn())):0);
       commit();
     };
   });
@@ -203,8 +212,8 @@ const shown=new WeakMap();   // field → the value the app last wrote into it
 /* sizes below 10% keep one decimal, so what is shown is what is used */
 const pctText=r=>{const v=r*100;return v<10?+v.toFixed(1):Math.round(v);};
 const fillPct=(def,t)=>t.texture?Math.round(200*(t.anchorRatio||DEFAULT_RATIO)*(t.texture-1)/textureSpan(def)):Math.round(TEXTURE_FILL*200);
-function subLabel(cfg,tex){
-  return `${escapeXML(cfg.anchor.name)} × ${subCount(cfg.def,tex)}`+(tex?(cfg.def.cross?` · ${tex} per arm`:` · texture ${tex}`):"");
+function subLabel(cfg,tex,contour=false){
+  return `${escapeXML(cfg.anchor.name)} × ${subCount(cfg.def,tex,contour)}`+(tex?(cfg.def.cross?` · ${tex} per arm`:` · ${contour?"contour":"texture"} ${tex}`):"");
 }
 
 /* ================= creation ================= */
@@ -248,7 +257,7 @@ export function createShape(){
   if(!draft.shape)return;
   const entry={id:nextId(),def:draft.shape,anchor:draft.anchor,
                baseRot:draft.baseRot,anchorRot:draft.anchorRot,frame:draft.frame,anchorRatio:draft.anchorRatio,
-               ...(draft.texture&&!draft.anchor.none?{texture:draft.texture}:{})};
+               ...(draft.texture&&!draft.anchor.none?{texture:draft.texture,...(draft.contour?{contour:true}:{})}:{})};
   tray.push(entry);
   // where the flight starts: the preview in the creation spec row
   const srcPv=document.querySelector("#shapeSpec .pv");

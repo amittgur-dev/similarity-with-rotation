@@ -70,7 +70,7 @@ export function paramRecord(it){
     subName:it.trayRef.anchor&&!it.trayRef.anchor.none?it.trayRef.anchor.name:"none",
     baseRot:it.baseRot, anchorRot:it.anchorRot, frame:it.frame,
     anchorRatio:it.anchorRatio||DEFAULT_RATIO, scale:it.scale,
-    texture:it.texture||0
+    texture:it.texture||0, contour:!!(it.texture&&it.contour)
   };
 }
 
@@ -123,7 +123,7 @@ export function publishedDefinition(exp,questions,findItem,{canvas="",instructio
    geometry.questionLayout, the same as on the canvas */
 export function trialGeometry(t){
   const s=t.s, labels=["A",...comparisons(t)];
-  const L=questionLayout(labels.map(k=>({def:t[k].def,anchor:t[k].anchor,ratio:t[k].anchorRatio,texture:t[k].texture||0})),s);
+  const L=questionLayout(labels.map(k=>({def:t[k].def,anchor:t[k].anchor,ratio:t[k].anchorRatio,texture:t[k].texture||0,contour:!!t[k].contour})),s);
   const labelY=BASE_R*LABEL_GAP*s+24, pad=L.radius+BASE_R*0.2*s;
   const positions={};labels.forEach((k,i)=>{positions[k]=L.positions[i];});
   const xs=L.positions.map(p=>p[0]), ys=L.positions.map(p=>p[1]);
@@ -139,7 +139,7 @@ export function stimulusMarkup(t){
     const slot=k==="A"?"A":slots[order.indexOf(k)];   // the k-th place from the left holds order[k]
     const [x,y]=g.positions[slot];
     out+=`<g data-m="${k}" transform="translate(${x},${y}) scale(${p.scale})">`+
-         shapeMarkup(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio,p.texture||0)+`</g>`+
+         shapeMarkup(p.def,BASE_R,p.anchor,p.frame,p.baseRot,p.anchorRot,p.anchorRatio,p.texture||0,!!p.contour)+`</g>`+
          `<text x="${x}" y="${y+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${k}</text>`;
   }
   return out;
@@ -170,7 +170,7 @@ export function paramColumns(t,sizes={},deg=null){
     const p=t[k], z=sizes[k]||{};
     if(!p){MEMBER_COLS.forEach(c=>{row[`${k}_${c}`]="";});continue;}   // two-comparison question: no D
     Object.assign(row,{[`${k}_shape`]:p.defName,[`${k}_sub`]:p.subName,
-                       [`${k}_arrangement`]:p.texture?"texture":"vertices",[`${k}_density`]:p.texture||"",
+                       [`${k}_arrangement`]:p.texture?(p.contour?"contour":"texture"):"vertices",[`${k}_density`]:p.texture||"",
                        [`${k}_baseRot`]:p.baseRot,[`${k}_subRot`]:p.anchorRot,
                        [`${k}_frame`]:p.frame,[`${k}_subRatio`]:+p.anchorRatio.toFixed(4),[`${k}_scale`]:+p.scale.toFixed(4),
                        [`${k}_width_mm`]:z.w!=null?+z.w.toFixed(2):"",[`${k}_height_mm`]:z.h!=null?+z.h.toFixed(2):"",

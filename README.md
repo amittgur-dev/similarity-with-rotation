@@ -161,9 +161,15 @@ succession of elements along the two lines — see *Textures*.
 
 ## Textures
 
-Sub-shapes can sit on the vertices of the base shape (the default) or fill
-it as a **texture**: in the sub-shape row choose *on vertices* / *texture*.
-The layout is led by the clarity of the overall shape:
+Sub-shapes can sit on the vertices of the base shape (the default) or form
+a **texture**: in the sub-shape row choose *on vertices* / *contour* /
+*full*. A **contour** texture is the outline only, a dotted line of elements
+along every edge (a circle: around its rim; a plus or x: along its two
+lines), with nothing inside. A **full** texture fills the whole shape: that
+contour plus a lattice inside (a plus or x: its bars). The two share the
+density, so switching keeps the spacing and the element size; only the
+count changes. The layout of a full texture is led by the clarity of the
+overall shape:
 
 1. the contour is drawn explicitly: elements evenly spaced along every edge
    with one on each corner (a circle: evenly around its rim), so each edge
@@ -197,17 +203,20 @@ its rim. A new texture starts at the lowest density giving at least 15
 elements (square 4 per side, triangle 5). Every trial record carries
 `arrangement` and `density` per member.
 
-A **plus or x** has no inside: its texture is the two lines themselves, one
-element at the centre and the same number out along each of the four arms,
-so the figure has 5, 9, 13, 17, … elements (4n − 3 for a density n of
-elements from the centre to each tip, the centre included). Because only
-those counts exist, the panel shows and takes the **total number of
-elements** for these shapes and uses the nearest the lines allow (ask for 15,
-get 17); the minimum is 5, the maximum 61, and a new one starts at 17.
+A **plus or x** as a *contour* texture is its two lines, one element at the
+centre and the same number out along each of the four arms, so the figure
+has 5, 9, 13, 17, … elements (4n − 3 for a density n of elements from the
+centre to each tip, the centre included). As a *full* texture the same
+square lattice fills the bars: as many rows to either side of each line as
+come nearest to the solid bar's width (density 5: three rows, 45 elements;
+9: five rows, 145). Because only some counts exist, the panel shows and
+takes the **total number of elements** for these shapes and uses the nearest
+the lines allow (ask for 15 on the contour, get 17); the spinner steps to
+the next count. A new contour plus starts at 17 elements, a full one at 33.
 Density, size and fill are linked as for the other shapes, with the arm
 (centre to tip) as the side: `size = fill × radius / (density − 1)`. In the
-save file and the records `density` is the per-arm value (17 elements =
-density 5).
+save file and the records `density` is the per-arm value (17 elements on
+the contour = density 5).
 
 ## Question (group) model
 
@@ -388,9 +397,13 @@ per-browser and per-site, so it does not follow you to another machine.
 are the canonical, shareable format — the `canvases/` directory is the
 intended home for canvases kept in git.
 
-JSON `{version, name, view, tray[], items[], questions[]}` (version 3) is
-produced by `serializeCanvas()`; `deserializeCanvas()` migrates older files
-(`sub*` keys → `anchor*`, v2 `trials` → `questions`). Saved canvases are
+JSON `{version, name, view, tray[], items[], questions[], experiments[]}`
+(version 5) is produced by `serializeCanvas()`; `deserializeCanvas()`
+migrates older files (`sub*` keys → `anchor*`, v2 `trials` → `questions`, v3
+stars → experiment 1, and v4 plus/x textures → `contour`, since before v5 a
+plus or x texture was always its two lines). A texture's `contour: true`
+marks the outline-only kind; records and manifests report `arrangement` as
+`vertices`, `contour` or `texture` (full). Saved canvases are
 research artifacts — keep the migrations working (they are unit-tested).
 
 Opening a canvas re-applies the current presentation layout. Questions whose

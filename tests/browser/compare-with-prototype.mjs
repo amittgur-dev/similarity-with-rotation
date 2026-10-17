@@ -176,7 +176,7 @@ const cmp=(label,x,y)=>{
   fs.writeFileSync(`${OUT}/diff-${label}-a.txt`,x);fs.writeFileSync(`${OUT}/diff-${label}-b.txt`,y);
 };
 // v4 files carry an experiments block; with none defined the content equals a v3 file
-const normSave=s=>{try{const d=JSON.parse(s);if(d.version===4&&Array.isArray(d.experiments)&&!d.experiments.length){delete d.experiments;d.version=3;}return JSON.stringify(d,null,2);}catch{return s;}};
+const normSave=s=>{try{const d=JSON.parse(s);if(d.version>=4&&Array.isArray(d.experiments)&&!d.experiments.length){delete d.experiments;d.version=3;}return JSON.stringify(d,null,2);}catch{return s;}};
 cmp("save.json",normSave(a.json),normSave(b.json));
 // button handler attributes and the creation-panel help note legitimately differ
 // A/B/C labels deliberately sit lower than in the prototype: drop their y before comparing
