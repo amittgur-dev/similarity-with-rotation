@@ -55,7 +55,7 @@
     </div>
   </div>
   <div id="libBar">
-    <select id="libSelect" title="canvases saved in this browser"></select>
+    <select id="libSelect" title="canvases saved in this browser (sign in under ⚙ settings → online & AI to share them)"></select>
     <button data-action="newCanvas" title="start a blank canvas">new</button>
     <button data-action="removeCanvas" id="removeCanvasBtn" title="remove the selected canvas from this browser">remove</button>
   </div>
@@ -298,7 +298,7 @@
   <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
     <div class="modalHead"><span class="kicker">Online &amp; AI</span><button class="x" id="connectClose" title="close">×</button></div>
     <h2 id="connectTitle">Your Supabase project</h2>
-    <p class="modalText">Participants' responses are stored in your own Supabase project, and the AI function can run there too. One-time setup: run <code>server/supabase/schema.sql</code> in the SQL editor and add yourself as a user — the steps are in <code>server/supabase/README.md</code>.</p>
+    <p class="modalText">Participants' responses are stored in your own Supabase project, the canvas library is shared there with everyone who signs in, and the AI function can run there too. One-time setup: run <code>server/supabase/schema.sql</code> in the SQL editor and add yourself as a user — the steps are in <code>server/supabase/README.md</code>.</p>
     <label class="field"><span>project URL</span><input type="text" id="sbUrl" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off" spellcheck="false"></label>
     <label class="field"><span>anon public key</span><input type="text" id="sbKey" placeholder="eyJ… or sb_publishable_…" autocomplete="off" spellcheck="false"></label>
     <div class="fieldRow">

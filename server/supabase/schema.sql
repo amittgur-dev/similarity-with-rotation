@@ -84,3 +84,17 @@ grant select on public.published_experiments to anon;
 grant insert on public.sessions, public.trials to anon;
 grant all on public.published_experiments, public.sessions, public.trials to authenticated;
 grant usage, select on sequence public.trials_id_seq to anon, authenticated;
+
+-- ---------- the shared canvas library ----------
+-- Every signed-in experimenter sees and may change every canvas: the library
+-- is one for the whole team, whatever computer they sign in from.
+create table if not exists public.canvases (
+  name text primary key,
+  data jsonb not null,                                  -- the same JSON as an exported canvas file
+  updated_at timestamptz not null default now(),
+  updated_by text not null default ''
+);
+alter table public.canvases enable row level security;
+drop policy if exists "signed-in users share the library" on public.canvases;
+create policy "signed-in users share the library" on public.canvases
+  for all to authenticated using (true) with check (true);

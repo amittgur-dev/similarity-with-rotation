@@ -425,11 +425,16 @@ so renaming an experiment never breaks an analysis join.
 
 ## Saving: library and files
 
-**save** stores the canvas under its name in this browser's library
-(localStorage). The dropdown at the top-left of the canvas lists saved
-canvases, most recent first; picking one opens it. **new** starts a blank
-canvas, **remove** deletes the selected library entry. The library is
-per-browser and per-site, so it does not follow you to another machine.
+**save** stores the canvas under its name in the library. Signed in to the
+Supabase project (⚙ settings → online & AI), the library is the **shared
+library** in that project: everyone who signs in, from any computer, sees
+and can change the same canvases (`canvases` table; `src/online.js`). Not
+signed in, it is this browser's own library (localStorage). The dropdown
+at the top-left of the canvas lists the canvases, most recent first;
+picking one opens it. **new** starts a blank canvas, **remove** deletes the
+selected entry (from the shared library, for everyone). The first time a
+signed-in user lists the shared library, canvases that only this browser
+has are uploaded to it; a copy of what you save is also kept locally.
 
 **export** downloads the same JSON as a file, **import** loads one. Files
 are the canonical, shareable format — the `canvases/` directory is the

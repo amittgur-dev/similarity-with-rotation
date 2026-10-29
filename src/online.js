@@ -78,6 +78,11 @@ export function makeClient({url,anonKey,fetch=globalThis.fetch,getToken=()=>null
     createSession:(rec)=>call("/rest/v1/sessions",{method:"POST",body:rec,headers:{Prefer:"return=minimal"},auth:false}).then(()=>rec),
     postTrial:(session_id,trial,row)=>call("/rest/v1/trials",{method:"POST",body:{session_id,trial,row},headers:{Prefer:"return=minimal"},auth:false}),
     completeSession:(sid)=>call("/rest/v1/rpc/complete_session",{method:"POST",body:{sid},auth:false}),
+    /* ---- the shared canvas library (experimenters) ---- */
+    listCanvases:()=>call("/rest/v1/canvases?select=name,updated_at,updated_by&order=updated_at.desc"),
+    fetchCanvas:async name=>{const r=await call(`/rest/v1/canvases?name=eq.${encodeURIComponent(name)}&select=data&limit=1`);return Array.isArray(r)&&r[0]?r[0].data:null;},
+    saveCanvas:(name,data,updated_by="")=>call("/rest/v1/canvases",{method:"POST",body:{name,data,updated_at:new Date().toISOString(),updated_by},headers:{Prefer:"resolution=merge-duplicates,return=minimal"}}),
+    deleteCanvas:name=>call(`/rest/v1/canvases?name=eq.${encodeURIComponent(name)}`,{method:"DELETE",headers:{Prefer:"return=minimal"}}),
     /* ---- results (experimenter) ---- */
     fetchSessions:(experiment_id)=>call(`/rest/v1/sessions?experiment_id=eq.${encodeURIComponent(experiment_id)}&select=id,created_at,participant,calibration,completed,completed_at,trials(trial,row)&order=created_at.asc`),
   };

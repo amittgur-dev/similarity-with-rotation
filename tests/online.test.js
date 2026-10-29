@@ -47,4 +47,11 @@ test("REST client: headers, auth, errors, embedded results", async ()=>{
   // a session is inserted with a caller-made id and nothing is read back (participants have no select right)
   const sess=await c.createSession({id:"u-1",experiment_id:"q1"});assert.equal(sess.id,"u-1");
   const last=calls[calls.length-1];assert.equal(last.init.headers.Prefer,"return=minimal");assert.equal(last.init.headers.Authorization,"Bearer anon");
+  // the shared library: upsert by name, fetch one, delete; always as the signed-in experimenter
+  await c.saveCanvas("Exp 1",{version:5},"e@x");
+  let k=calls[calls.length-1];assert.equal(k.url,"https://p.supabase.co/rest/v1/canvases");assert.equal(k.init.method,"POST");
+  assert.equal(k.init.headers.Prefer,"resolution=merge-duplicates,return=minimal");assert.equal(k.init.headers.Authorization,"Bearer jwt");
+  assert.equal(JSON.parse(k.init.body).name,"Exp 1");assert.equal(JSON.parse(k.init.body).updated_by,"e@x");
+  await c.deleteCanvas("Exp 1");k=calls[calls.length-1];assert.equal(k.init.method,"DELETE");assert.ok(k.url.includes("canvases?name=eq.Exp%201"));
+  await c.listCanvases();k=calls[calls.length-1];assert.ok(k.url.includes("/rest/v1/canvases?select=name,updated_at,updated_by"));
 });

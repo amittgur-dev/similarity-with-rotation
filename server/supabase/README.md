@@ -11,7 +11,9 @@ the Anthropic API key never reaches the browser.
 1. **Database.** In your Supabase project open *Database → SQL editor*, paste
    `schema.sql` and run it. It creates `published_experiments`, `sessions`,
    `trials`, the row-level-security policies (participants can only insert;
-   only you can read) and the `complete_session` function.
+   only you can read), the `complete_session` function, and `canvases`, the
+   library shared by everyone who signs in. (Already set up? Run the file
+   again: it only adds what is missing.)
 2. **Your experimenter login.** *Authentication → Users → Add user* with your
    email and a password (turn off "Confirm email" or confirm it). Under
    *Authentication → Providers → Email* disable public sign-ups.

@@ -31,7 +31,18 @@ function setAuth(r){
     expires_at:r.expires_at||Math.floor(Date.now()/1000)+(r.expires_in||3600),email:(r.user&&r.user.email)||auth.email});
   write(AUTH_KEY,auth);
 }
-function clearAuth(){Object.assign(auth,{access_token:"",refresh_token:"",expires_at:0,email:""});write(AUTH_KEY,auth);}
+function clearAuth(){Object.assign(auth,{access_token:"",refresh_token:"",expires_at:0,email:""});write(AUTH_KEY,auth);authChanged();}
+/* whoever needs to know when someone signs in or out (the canvas library) */
+const authListeners=[];
+export function onAuthChange(fn){authListeners.push(fn);}
+function authChanged(){authListeners.forEach(fn=>{try{fn(signedIn());}catch{}});}
+export const authEmail=()=>auth.email||"";
+/* the shared library's client, with a valid token; null when not connected or not signed in */
+export async function libraryClient(){
+  if(!connected()||!signedIn())return null;
+  await ensureToken();
+  return client();
+}
 /* a valid experimenter token, refreshed when within a minute of expiry */
 export async function ensureToken(){
   if(!connected())throw new Error("connect your Supabase project first (⚙ settings → online & AI)");
@@ -65,7 +76,7 @@ async function signIn(){
   if(!email||!pass){$("sbStatus").textContent="email and password";return;}
   $("sbStatus").textContent="signing in…";$("sbSignIn").disabled=true;
   try{
-    setAuth(await client().signIn(email,pass));
+    setAuth(await client().signIn(email,pass));authChanged();
     $("sbPass").value="";
     toast(`signed in as ${auth.email}`);
     syncConnectForm();

@@ -18,7 +18,7 @@ import { questionTrial, experimentsOf, experimentCode } from "./experiment.js";
 import { questionSheetPdf } from "./pdf.js";
 import { initImages, openImages } from "./imagesdlg.js";
 import { initTexts, deleteText } from "./texts.js";
-import { initCloud, openConnections, startParticipant } from "./cloud.js";
+import { initCloud, openConnections, startParticipant, libraryClient, onAuthChange, authEmail } from "./cloud.js";
 import { initAssist, openDescribe } from "./assist.js";
 import { prolificParams } from "./online.js";
 
@@ -119,14 +119,42 @@ function restoreWorking(){
   }catch{return false;}
 }
 
-/* ---- library (this browser) ---- */
-function refreshLibrary(selected){
+/* ---- library: shared in the Supabase project by everyone who signs in; this browser's otherwise ----
+   The local library stays as the fallback (and a copy of what was saved here). The first time a
+   signed-in user lists the shared library, canvases only this browser has are uploaded. */
+const UPLOADED_KEY="stimulus-builder.uploaded";
+let shared=false;   // the dropdown currently shows the shared library
+async function sharedClient(){
+  try{return await libraryClient();}
+  catch(err){toast("shared library: "+err.message,4000);return null;}
+}
+async function uploadLocal(c,rows){
+  try{if(storage&&storage.getItem(UPLOADED_KEY))return rows;}catch{}
+  const have=new Set(rows.map(r=>r.name));
+  const mine=listCanvases(storage).filter(l=>!have.has(l.name));
+  for(const l of mine){
+    const data=loadFromLibrary(storage,l.name);
+    if(data){await c.saveCanvas(l.name,data,authEmail());rows.unshift({name:l.name,updated_at:l.savedAt});}
+  }
+  try{storage&&storage.setItem(UPLOADED_KEY,"1");}catch{}
+  if(mine.length)toast(`${mine.length} canvas${mine.length===1?"":"es"} from this browser added to the shared library`,5000);
+  return rows;
+}
+async function refreshLibrary(selected){
   const sel=$("libSelect");
-  const list=listCanvases(storage);
+  let list=listCanvases(storage), cloud=false;
+  const c=await sharedClient();
+  if(c){
+    try{
+      const rows=await uploadLocal(c,await c.listCanvases());
+      list=rows.map(r=>({name:r.name,savedAt:r.updated_at||""}));cloud=true;
+    }catch(err){toast("shared library: "+err.message,4000);}
+  }
+  shared=cloud;
   sel.innerHTML="";
   const head=document.createElement("option");
   head.value="";
-  head.textContent=list.length?"canvases ▾":"no saved canvases";
+  head.textContent=list.length?(cloud?"shared canvases ▾":"canvases ▾"):(cloud?"no shared canvases":"no saved canvases");
   sel.appendChild(head);
   list.forEach(c=>{
     const o=document.createElement("option");
@@ -134,31 +162,42 @@ function refreshLibrary(selected){
     sel.appendChild(o);
   });
   sel.value=list.some(c=>c.name===selected)?selected:"";
+  sel.title=cloud?"canvases shared by everyone who signs in to this project":"canvases saved in this browser (sign in under ⚙ settings → online & AI to share them)";
   $("removeCanvasBtn").disabled=!sel.value;
+  $("removeCanvasBtn").title=cloud?"remove the selected canvas from the shared library, for everyone":"remove the selected canvas from this browser";
+  $("saveBtn").title=cloud?"save to the shared library (⌘/ctrl S)":"save to this browser's canvas library (⌘/ctrl S)";
 }
-function saveCanvas(){
+async function saveCanvas(){
   const name=$("canvasName").value.trim();
   if(!name){
     $("canvasName").placeholder="name the canvas first";
     $("canvasName").focus();
     return;
   }
-  if(!storage){
+  const data=currentData(name);
+  const c=await sharedClient();
+  if(c){
+    try{await c.saveCanvas(name,data,authEmail());}
+    catch(err){toast("could not save to the shared library: "+err.message,5000);return;}
+  }else if(!storage){
     alert("This browser blocks local storage, so the library is unavailable. Use export to keep a file.");
     return;
   }
-  saveToLibrary(storage,name,currentData(name));
+  if(storage)saveToLibrary(storage,name,data);
   refreshLibrary(name);
   setDirty(false);writeWorking();
   const b=$("saveBtn");
   b.textContent="saved";b.classList.add("saved");
   setTimeout(()=>{b.textContent="save";b.classList.remove("saved");},1200);
 }
-function openFromLibrary(){
+async function openFromLibrary(){
   const name=$("libSelect").value;
   if(!name)return;
   if(!discardOk()){refreshLibrary("");return;}
-  const data=loadFromLibrary(storage,name);
+  let data=null;
+  const c=shared?await sharedClient():null;
+  if(c){try{data=await c.fetchCanvas(name);}catch(err){toast("shared library: "+err.message,4000);}}
+  if(!data)data=loadFromLibrary(storage,name);
   if(!data){refreshLibrary("");return;}
   try{
     applyLoaded(deserializeCanvas(data));
@@ -167,10 +206,12 @@ function openFromLibrary(){
     alert("Could not open canvas: "+err.message);
   }
 }
-function removeCanvas(){
+async function removeCanvas(){
   const name=$("libSelect").value;
   if(!name)return;
-  if(!confirm(`Remove “${name}” from this browser's library? (The canvas stays on screen.)`))return;
+  const c=shared?await sharedClient():null;
+  if(!confirm(c?`Remove “${name}” from the shared library, for everyone? (The canvas stays on screen.)`:`Remove “${name}” from this browser's library? (The canvas stays on screen.)`))return;
+  if(c){try{await c.deleteCanvas(name);}catch(err){toast("could not remove: "+err.message,5000);return;}}
   removeFromLibrary(storage,name);
   refreshLibrary("");
 }
@@ -315,6 +356,7 @@ refreshLibrary("");
 loadCalibration(storage);
 initHistory({snap:stateSnapshot,restore:restoreSnapshot,onChange:e=>{if(!e.baseline)setDirty(true);writeWorking();}});
 initCloud({storage,toast});
+onAuthChange(()=>refreshLibrary(""));   // signing in or out switches between the shared and this browser's library
 initAssist({toast});
 initImages({storage,toast});
 const params=prolificParams(location.search);
