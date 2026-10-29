@@ -262,9 +262,14 @@ converted).
 A question has a reference A and **two or three comparisons**: select three
 objects for B and C, or four for B, C and D ("Is A more similar to B, C or
 D?"). With three comparisons they sit on an arc under A (B left, C below,
-D right; see *Presentation spacing*); in a run their left-to-right order is a random permutation when
-"swap comparison sides" is on, recorded per trial as `order` (e.g. `DBC`)
-and `B_side` (left / middle / right), with `n_comparisons` and `D_*` member
+D right; see *Presentation spacing*). In a run the places on the screen
+keep their letters — B is always left, C right (with three: B, C, D left
+to right), and the keys and buttons match — while the designed comparisons
+are dealt to the places at random when "swap comparison sides" is on, so a
+side preference can never follow a letter. The record's `response` is the
+**designed** comparison chosen (B, C or D as on the canvas), `pressed` the
+place answered, `order` the designed members left to right (e.g. `DBC`)
+and `B_side` where the designed B was (left / middle / right), with `n_comparisons` and `D_*` member
 columns. Everything else below applies to both kinds.
 
 

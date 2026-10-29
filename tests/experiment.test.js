@@ -76,12 +76,18 @@ test("repeats and side counterbalancing", ()=>{
   assert.ok(t.every(x=>x.swapped===true),"rng 0.2 < 0.5 → swapped");
   const plain=buildTrials(EXP,questions,find,{shuffle:false,swapSides:true,rng:()=>0.9})[0];
   assert.equal(plain.swapped,false);
-  // swapped: B is drawn at C's slot (right), label follows the object
+  // swapped: the designed B is drawn at the right place, whose label stays C — places keep their letters
   const m=stimulusMarkup({...t[0],swapped:true});
   const g=trialGeometry(t[0]);
   assert.ok(m.includes(`<g data-m="B" transform="translate(${g.positions.C[0]},${g.positions.C[1]})`));
-  assert.ok(m.includes(`<text x="${g.positions.C[0]}" y="${g.positions.C[1]+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">B</text>`));
+  assert.ok(m.includes(`<text x="${g.positions.C[0]}" y="${g.positions.C[1]+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">C</text>`));
+  assert.ok(!m.includes(`>B</text>`)||m.includes(`<text x="${g.positions.B[0]}" y="${g.positions.B[1]+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">B</text>`),"B labels the left place");
   assert.equal(resultRow({...t[0]},{participant:"p",response:"C",rt:1,pxPerMm:5,calibrated:true,timestamp:""}).B_side,"right");
+  // the answer names a place; the record names the designed member shown there
+  assert.equal(pressedToMember({...t[0],swapped:true},"C"),"B");assert.equal(pressedToMember({...t[0],swapped:true},"B"),"C");
+  assert.equal(pressedToMember({...t[0],swapped:false,order:["B","C"]},"B"),"B");
+  const rr=resultRow({...t[0],swapped:true},{participant:"p",response:pressedToMember({...t[0],swapped:true},"C"),pressed:"C",rt:1,pxPerMm:5,calibrated:true,timestamp:""});
+  assert.equal(rr.response,"B");assert.equal(rr.pressed,"C");assert.ok(CSV_COLUMNS.indexOf("pressed")===CSV_COLUMNS.indexOf("response")+1);
   // settings on the experiment drive the defaults
   const e2={...newExperiment(21,2,"main",[10,12]),settings:{repeats:2,shuffle:false,swapSides:false,fixation:false,fullscreen:false}};
   assert.equal(buildTrials(e2,questions,find).length,4);
@@ -135,7 +141,7 @@ test("loadExperiments: v4 block validated, v3 stars become experiment 1, nothing
   assert.ok(!("online" in pub[1]));
 });
 
-import { promptFor, sideOf, MEMBER_COLS } from "../src/experiment.js";
+import { promptFor, sideOf, MEMBER_COLS, pressedToMember } from "../src/experiment.js";
 
 test("three comparisons: a random left-to-right order, prompt, geometry and records", ()=>{
   const its=[mk(31,0,0),mk(32,45,0),mk(33,0,45),mk(34,45,45)];
@@ -157,6 +163,8 @@ test("three comparisons: a random left-to-right order, prompt, geometry and reco
   const m=stimulusMarkup({...four,order:["D","B","C"]});
   const x=k=>+m.match(new RegExp(`data-m="${k}" transform="translate\\(([-\\d.]+)`))[1];
   assert.ok(x("D")<x("B")&&x("B")<x("C"),"drawn in the given order");
+  for(const k of ["B","C","D"])assert.ok(m.includes(`<text x="${P[k][0]}" y="${P[k][1]+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${k}</text>`),`the ${k} place keeps its letter`);
+  assert.equal(pressedToMember({...four,order:["D","B","C"]},"B"),"D");assert.equal(pressedToMember({...four,order:["D","B","C"]},"D"),"C");
   assert.equal(sideOf({...four,order:["D","B","C"]},"B"),"middle");
   assert.equal(sideOf({B:1,C:1,swapped:true},"B"),"right","two comparisons unchanged");
   // records: D columns filled for four-object questions, empty otherwise

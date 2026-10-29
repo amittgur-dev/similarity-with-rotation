@@ -145,8 +145,11 @@ export function stimulusMarkup(t){
     const p=t[k];
     const slot=k==="A"?"A":slots[order.indexOf(k)];   // the k-th place from the left holds order[k]
     const [x,y]=g.positions[slot];
+    // the label is the place's own (B left, C right; with three: B, C, D left to right): the places
+    // keep their letters and the designed comparisons are dealt to them, so a side bias cannot
+    // follow a letter; `pressedToMember` maps the answer back to the designed member
     out+=`<g data-m="${k}" transform="translate(${x},${y}) scale(${p.scale})">`+memberMarkup(p)+`</g>`+
-         `<text x="${x}" y="${y+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${k}</text>`;
+         `<text x="${x}" y="${y+g.labelY}" text-anchor="middle" font-family="monospace" font-size="17" font-weight="700" fill="#111">${slot}</text>`;
   }
   return out;
 }
@@ -160,12 +163,17 @@ export function orderOf(t){
   return t.swapped?["C","B"]:["B","C"];
 }
 /* where a comparison was drawn: left / right, or left / middle / right */
+/* the designed member shown at the place the participant answered with (B = left, …) */
+export function pressedToMember(t,pressed){
+  const slots=comparisons(t), i=slots.indexOf(pressed);
+  return i<0?pressed:orderOf(t)[i];
+}
 export function sideOf(t,k){
   const order=orderOf(t), i=order.indexOf(k);
   return order.length===3?["left","middle","right"][i]:(i?"right":"left");
 }
 export const MEMBER_COLS=["shape","sub","arrangement","density","baseRot","subRot","frame","subRatio","scale","spin_deg_per_s","spin_turns","spin_offset_deg","sub_spin_deg_per_s","sub_spin_offset_deg","width_mm","height_mm","width_deg","height_deg"];
-export const CSV_COLUMNS=["participant","canvas","experiment_id","experiment_code","experiment_name","trial","repeat","question_index","question_id","question_title","n_comparisons","response","rt_ms","B_side","order",
+export const CSV_COLUMNS=["participant","canvas","experiment_id","experiment_code","experiment_name","trial","repeat","question_index","question_id","question_title","n_comparisons","response","pressed","rt_ms","B_side","order",
   ...["A","B","C","D"].flatMap(k=>MEMBER_COLS.map(c=>`${k}_${c}`)),
   "px_per_mm","calibrated","viewing_distance_cm","fixation_ms","timestamp"];
 
@@ -186,9 +194,10 @@ export function paramColumns(t,sizes={},deg=null){
   }
   return row;
 }
-export function resultRow(t,{participant,canvas,exp,response,rt,pxPerMm,calibrated,timestamp,sizes,deg,distanceCm,fixationMs}){
+/* response: the designed member chosen (B, C or D as on the canvas); pressed: the place answered (B left, C, D right) */
+export function resultRow(t,{participant,canvas,exp,response,pressed,rt,pxPerMm,calibrated,timestamp,sizes,deg,distanceCm,fixationMs}){
   return {participant,canvas:canvas??"",experiment_id:exp?exp.id:"",experiment_code:exp?experimentCode(exp):"",experiment_name:exp?exp.name:"",
-          trial:t.trial,repeat:t.repeat||1,question_index:t.questionIndex??"",question_id:t.qId,question_title:t.title,response,rt_ms:Math.round(rt),
+          trial:t.trial,repeat:t.repeat||1,question_index:t.questionIndex??"",question_id:t.qId,question_title:t.title,response,pressed:pressed??response,rt_ms:Math.round(rt),
           n_comparisons:t.D?3:2,
           B_side:sideOf(t,"B"),order:(orderOf(t)).join(""),
           ...paramColumns(t,sizes,deg),

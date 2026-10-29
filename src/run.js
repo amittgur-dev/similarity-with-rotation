@@ -9,7 +9,7 @@ import { $ } from "./dom.js";
 import { questions, experiments, sel, counters, findItem, findQuestion, findExperiment, nextId, clearSelection } from "./state.js";
 import { calib, pxToMm, visualAngleDeg } from "./calibration.js";
 import { PROMPT, promptFor, comparisons, experimentQuestions, experimentCode, newExperiment, nextOrdinal, isMember, setMembership,
-         buildTrials, trialGeometry, stimulusMarkup, memberMarkup, resultRow, toCSV, summarize, normalizeSettings } from "./experiment.js";
+         buildTrials, trialGeometry, stimulusMarkup, memberMarkup, pressedToMember, resultRow, toCSV, summarize, normalizeSettings } from "./experiment.js";
 import { animateMembers } from "./spin.js";
 import { exportStimuli } from "./stimexport.js";
 import { buildXlsx } from "./xlsx.js";
@@ -243,7 +243,8 @@ function respond(r){
   accepting=false;
   const rt=performance.now()-shownAt;
   const t=trials[idx];
-  const row=resultRow(t,{participant,canvas:runCfg.canvas||"",exp:runExp,response:r,rt,pxPerMm:calib.pxPerMm,calibrated:calib.calibrated,
+  // the key names a place on the screen; the record names the designed comparison shown there
+  const row=resultRow(t,{participant,canvas:runCfg.canvas||"",exp:runExp,response:pressedToMember(t,r),pressed:r,rt,pxPerMm:calib.pxPerMm,calibrated:calib.calibrated,
                          timestamp:new Date().toISOString(),sizes:t.sizes,deg:mm=>visualAngleDeg(mm),
                          distanceCm:calib.distanceCm,fixationMs:opts.fixation?FIX_MS:0});
   rows.push(row);
