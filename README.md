@@ -412,7 +412,7 @@ so renaming an experiment never breaks an analysis join.
 - The experiment panel: code and editable name, a summary line, the list
   of all questions with a checkbox each (hovering a row frames that question
   on the canvas, clicking its title opens it), run settings saved with the
-  experiment (repeats, shuffle, swap B/C sides, fixation cross, full
+  experiment (repeats, shuffle, swap B/C sides, fixation dot, full
   screen), participant id, **pilot this experiment**, the last run's results
   as .csv or .xlsx (results sheet + per-question summary), **export stimuli
   (zip)** (SVG + PNG per question with manifest.csv and manifest.xlsx), and
