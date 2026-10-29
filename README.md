@@ -241,20 +241,21 @@ its rim. A new texture starts at the lowest density giving at least 15
 elements (square 4 per side, triangle 5). Every trial record carries
 `arrangement` and `density` per member.
 
-A **plus or x** as a *contour* texture is its two lines, one element at the
-centre and the same number out along each of the four arms, so the figure
-has 5, 9, 13, 17, … elements (4n − 3 for a density n of elements from the
-centre to each tip, the centre included). As a *full* texture the same
-square lattice fills the bars: as many rows to either side of each line as
-come nearest to the solid bar's width (density 5: three rows, 45 elements;
-9: five rows, 145). Because only some counts exist, the panel shows and
-takes the **total number of elements** for these shapes and uses the nearest
-the lines allow (ask for 15 on the contour, get 17); the spinner steps to
-the next count. A new contour plus starts at 17 elements, a full one at 33.
-Density, size and fill are linked as for the other shapes, with the arm
-(centre to tip) as the side: `size = fill × radius / (density − 1)`. In the
-save file and the records `density` is the per-arm value (17 elements on
-the contour = density 5).
+A **plus or x** as a *contour* texture is its two lines, and its density
+is simply the **number of elements**, any from 5 to 61: the two lines share
+them, each symmetric about the centre and tip to tip the same length, so
+they may differ in count and spacing (15 = a line of 7 crossing a line of
+9; the vertical line takes the extra two). With an odd number both lines
+hold the centre element; with an even number the centre stays empty. As a
+*full* texture the lines' lattice fills the bars: the rows of each line's
+positions that come nearest to the solid bar's width (17 elements: three
+rows, 45; 33: five rows, 145), so there only some counts exist and the
+panel uses the nearest; the spinner steps to the next one. A new contour
+plus starts at 15 elements. Density, size and fill are linked as for the
+other shapes, with the denser line's spacing: `size = fill × spacing`. In
+the save file and the records `density` is this element count (files from
+before version 6 stored elements from the centre to each tip; they are
+converted).
 
 ## Question (group) model
 

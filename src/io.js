@@ -7,11 +7,11 @@
      · v2 `trials` → `questions` (center/scale derived from member positions)
      · v3 `inExp` stars → one experiment "experiment 1" */
 
-import { DEFAULT_RATIO, clampTexture } from "./geometry.js";
+import { DEFAULT_RATIO, clampTextureFor } from "./geometry.js";
 import { normalizeSpin } from "./spin.js";
 import { loadExperiments, normalizeSettings } from "./experiment.js";
 
-export const SAVE_VERSION=5;   // 5: textures carry `contour` (the outline only); a plus/x texture saved before is its lines
+export const SAVE_VERSION=6;   // 5: textures carry `contour` (the outline only); a plus/x texture saved before is its lines. 6: a plus/x density is its element count (before: elements from the centre to each tip)
 
 export function serializeCanvas({name,view,tray,items,questions,experiments=[],texts=[],nextExperimentN=0}){
   return {
@@ -37,7 +37,8 @@ export function deserializeCanvas(data){
   if(!data||!data.tray||!data.items)throw new Error("not a canvas file");
   let maxId=0;
   // a texture's contour flag; before v5 a plus or x texture was always its two lines
-  const tex=(t,def)=>t.texture?{texture:clampTexture(t.texture),...(t.contour||((data.version||0)<5&&def&&def.cross)?{contour:true}:{})}:{};
+  const v=data.version||0;
+  const tex=(t,def)=>t.texture?{texture:clampTextureFor(def,v<6&&def&&def.cross?4*t.texture-3:t.texture),...(t.contour||(v<5&&def&&def.cross)?{contour:true}:{})}:{};
   const tray=data.tray.map(t=>{
     maxId=Math.max(maxId,t.id);
     return {id:t.id,def:t.def,anchor:t.anchor||t.sub,baseRot:t.baseRot||0,

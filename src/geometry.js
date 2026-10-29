@@ -115,13 +115,28 @@ const latticeRot=def=>def.cross?(def.offset||0):0;
    `contour` keeps only step 1: a dotted outline, the line of elements along
    every edge (a circle: around its rim) with nothing inside.
    A plus or x: its contour texture is the two lines themselves, a
-   succession of elements along each, one at the centre where they cross.
-   Density there = elements from the centre to each tip, the centre
-   included, so the figure has 4n − 3 elements (5, 9, 13, 17, …). Its full
-   texture fills the bars: the same square lattice, as many rows to either
-   side of each line as come nearest to the solid bar's width. */
+   succession of elements along each. Density there = the number of
+   elements, any from 5 up: the two lines share them (crossLines), each
+   line symmetric about the centre and tip to tip the same length, so the
+   lines can differ in count and spacing (15 = a line of 7 crossing a line
+   of 9). Its full texture fills the bars: the lines' lattice, as many rows
+   to either side of each line as come nearest to the solid bar's width. */
 export const DEFAULT_TEXTURE=4;
 export const clampTexture=n=>Math.max(2,Math.min(16,Math.round(+n)||DEFAULT_TEXTURE));
+export const CROSS_MIN=5, CROSS_MAX=61;
+/* the density range of a shape: per side for polygons, elements on the lines for a plus or x */
+export const maxTexture=def=>def&&def.cross?CROSS_MAX:16;
+export const clampTextureFor=(def,n)=>def&&def.cross?Math.max(CROSS_MIN,Math.min(CROSS_MAX,Math.round(+n)||CROSS_MIN)):clampTexture(n);
+/* how N elements fall on the two lines of a plus or x: [horizontal, vertical].
+   Odd N: both lines odd, sharing the centre; even N: both even, no element
+   at the centre. The vertical line takes the extra two when they differ. */
+export function crossLines(N){
+  N=clampTextureFor({cross:true},N);
+  const half=N%2?(N+1)/2:N/2;
+  return (N%2?half%2:!(half%2))?[half,half]:[half-1,half+1];
+}
+/* the positions along a line of k elements, tip to tip (r = 1) */
+const linePos=k=>Array.from({length:k},(_,i)=>k===1?0:-1+2*i/(k-1));
 function outline(def,r){
   if(def.circle)return null;
   return def.star?starPts(def.star,r):polyPts(def.n,r,def.offset||0);
@@ -147,22 +162,26 @@ function distToOutline(pts,x,y,r){
 }
 /* the length that density counts elements along, at r = 1: a side, or a circle's diameter */
 export function textureSpan(def){
-  if(def.cross)return 1;   // centre to tip
+  if(def.cross)return 2;   // tip to tip
   const pts=outline(def,1);
   if(!pts)return 2;
   return Math.hypot(pts[1][0]-pts[0][0],pts[1][1]-pts[0][1]);
 }
-export const textureSpacing=(def,n)=>textureSpan(def)/(clampTexture(n)-1);
+/* the spacing between neighbouring elements at r = 1; for a plus or x that of its denser line */
+export const textureSpacing=(def,n)=>def.cross?2/(Math.max(...crossLines(n))-1):textureSpan(def)/(clampTexture(n)-1);
 const INNER_GAP=0.85;   // lattice points closer than this × spacing to the contour are left to the contour row
 export function texturePoints(def,r,n,baseRot=0,contour=false){
-  n=clampTexture(n);
+  n=clampTextureFor(def,n);
   const s=textureSpacing(def,n)*r, out=[];
   if(def.cross){
-    // the lattice of the lines: the centre, then n − 1 steps out to each tip; the full
-    // texture adds m rows to either side of each line, nearest to the solid bar's width
-    const m=contour?0:Math.round(CROSS_W*(n-1)-1e-9);
-    for(let i=-(n-1);i<=n-1;i++)for(let j=-(n-1);j<=n-1;j++)
-      if(Math.abs(i)<=m||Math.abs(j)<=m)out.push(rotPt([i*s,j*s],(def.offset||0)));
+    // the two lines, h across and v down, each tip to tip; the full texture adds the rows of
+    // the other line's positions that fall within the solid bar (to the nearest row)
+    const [h,v]=crossLines(n), xs=linePos(h).map(x=>x*r), ys=linePos(v).map(y=>y*r), w=CROSS_W*r;
+    const near=(ps,step)=>contour?[0]:ps.filter(q=>Math.abs(q)<w+step/2-1e-9);
+    const rows=near(ys,2*r/(v-1)), cols=near(xs,2*r/(h-1)), seen=new Set();
+    const add=(x,y)=>{const k=x.toFixed(6)+","+y.toFixed(6);if(!seen.has(k)){seen.add(k);out.push(rotPt([x,y],(def.offset||0)));}};
+    xs.forEach(x=>rows.forEach(y=>add(x,y)));
+    ys.forEach(y=>cols.forEach(x=>add(x,y)));
     return baseRot?out.map(p=>rotPt(p,baseRot)):out;
   }
   const pts=outline(def,r);
@@ -214,10 +233,15 @@ export function textureRatio(def,n,fill=TEXTURE_FILL){
   return +(Math.max(0.02,Math.min(0.6,fill*textureSpacing(def,n)))).toFixed(4);
 }
 export function relinkTexture(def,{n,size},hold,edited,value){
-  const L=textureSpan(def), nMin=minTexture(def), nMax=16;
+  const nMin=minTexture(def), nMax=maxTexture(def), sp=k=>textureSpacing(def,k);
   const clampN=v=>Math.max(nMin,Math.min(nMax,Math.round(v)));
-  const fillOf=(sz,k)=>sz*(k-1)/L;          // radius / spacing
-  const nFor=(f,sz)=>f*L/sz+1;              // density giving fill f at size sz
+  const fillOf=(sz,k)=>sz/sp(k);          // radius / spacing
+  /* the density whose spacing comes nearest to the one wanted for fill f at size sz; beyond the ends it says so */
+  const nFor=(f,sz)=>{
+    const want=sz/f;let best=nMin,d=Infinity;
+    for(let k=nMin;k<=nMax;k++){const e=Math.abs(sp(k)-want);if(e<d){d=e;best=k;}}
+    return {n:best,limited:want>sp(nMin)*(1+1e-9)?"contour":want<sp(nMax)*(1-1e-9)?"max":""};
+  };
   let limited="";
   let fill=fillOf(size,n);
   if(edited==="density"){
@@ -225,34 +249,29 @@ export function relinkTexture(def,{n,size},hold,edited,value){
     n=clampN(want);
     if(want<nMin)limited="contour";
     if(hold==="size"){
-      const cap=Math.floor(nFor(FILL_MAX,size)), floor=Math.ceil(nFor(FILL_MIN,size));
-      if(n>cap){n=Math.max(nMin,cap);limited="overlap";}
-      if(n<floor){n=Math.min(nMax,floor);limited="sparse";}
-      if(fillOf(size,n)>FILL_MAX){size=FILL_MAX*L/(n-1);limited="overlap";}
-    }else size=fill*L/(n-1);                                  // hold fill: more elements, smaller ones
+      let cap=nMax;while(cap>nMin&&fillOf(size,cap)>FILL_MAX)cap--;          // the densest the elements still fit
+      let floor=nMin;while(floor<nMax&&fillOf(size,floor)<FILL_MIN)floor++; // the sparsest that still reads as a texture
+      if(n>cap){n=cap;limited="overlap";}
+      if(n<floor){n=floor;limited="sparse";}
+      if(fillOf(size,n)>FILL_MAX){size=FILL_MAX*sp(n);limited="overlap";}
+    }else size=fill*sp(n);                                    // hold fill: more elements, smaller ones
   }else if(edited==="size"){
     size=value;
     if(hold==="density"){
-      const hi=FILL_MAX*L/(n-1), lo=FILL_MIN*L/(n-1);
+      const hi=FILL_MAX*sp(n), lo=FILL_MIN*sp(n);
       if(size>hi){size=hi;limited="overlap";}
       if(size<lo){size=lo;limited="sparse";}
     }else{                                                    // hold fill: larger elements, fewer of them
-      const want=nFor(fill,size);
-      n=clampN(want);
-      if(want<nMin-0.5)limited="contour";
-      if(want>nMax+0.5)limited="max";
-      size=Math.min(size,FILL_MAX*L/(n-1));
+      const r=nFor(fill,size);n=r.n;limited=r.limited;
+      size=Math.min(size,FILL_MAX*sp(n));
     }
   }else if(edited==="fill"){
     fill=Math.max(FILL_MIN,Math.min(FILL_MAX,value));
     if(value>FILL_MAX)limited="overlap";
     if(value<FILL_MIN)limited="sparse";
-    if(hold==="density")size=fill*L/(n-1);
+    if(hold==="density")size=fill*sp(n);
     else{                                                     // hold size: tighter fill packs more elements in
-      const want=nFor(fill,size);
-      n=clampN(want);
-      if(want<nMin-0.5)limited="contour";
-      if(want>nMax+0.5)limited="max";
+      const r=nFor(fill,size);n=r.n;limited=r.limited;
     }
   }
   size=+Math.max(0.02,Math.min(0.6,size)).toFixed(4);
@@ -265,13 +284,13 @@ export function relinkTexture(def,{n,size},hold,edited,value){
 export const MIN_PER_SIDE=3, MIN_RIM=12;
 export function minTexture(def){
   if(def.circle){for(let n=3;n<=16;n++)if(Math.round(Math.PI*(n-1))>=MIN_RIM)return n;return 16;}
-  if(def.cross)return 2;   // each line then has three elements: tip, centre, tip — the five-element plus
+  if(def.cross)return CROSS_MIN;   // the centre and the four tips
   return MIN_PER_SIDE;
 }
 /* the density whose element count comes nearest to `count` (a tie goes up) */
 export function densityForCount(def,count,contour=false){
   let best=minTexture(def), d=Infinity;
-  for(let n=minTexture(def);n<=16;n++){
+  for(let n=minTexture(def);n<=maxTexture(def);n++){
     const e=Math.abs(texturePoints(def,1,n,0,contour).length-count);
     if(e<=d){best=n;d=e;}
   }
@@ -282,8 +301,8 @@ export function densityForCount(def,count,contour=false){
    the minimum) that gives at least DEFAULT_ELEMENTS elements — clear shape first */
 export const DEFAULT_ELEMENTS=15;
 export function defaultTexture(def,contour=false){
-  for(let n=Math.max(minTexture(def),DEFAULT_TEXTURE);n<=16;n++)if(texturePoints(def,1,n,0,contour).length>=DEFAULT_ELEMENTS)return n;
-  return 16;
+  for(let n=Math.max(minTexture(def),DEFAULT_TEXTURE);n<=maxTexture(def);n++)if(texturePoints(def,1,n,0,contour).length>=DEFAULT_ELEMENTS)return n;
+  return maxTexture(def);
 }
 
 /* how many sub-shapes a construction has */

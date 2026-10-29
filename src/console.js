@@ -1,7 +1,7 @@
 /* Right-hand console: the creation panel, the three selection panels and
    the single-object operations they expose. */
 
-import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, defaultTexture, clampTexture, textureRatio, relinkTexture, textureSpan, densityForCount, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
+import { BASE_R, DEFAULT_RATIO, parseShapeWithRot, shapeMarkup, norm, subCount, minTexture, defaultTexture, clampTexture, textureRatio, relinkTexture, textureSpacing, densityForCount, clampTextureFor, crossLines, maxTexture, TEXTURE_FILL, FILL_MIN, FILL_MAX } from "./geometry.js";
 import { rotateParams, parseVary } from "./variants.js";
 import { draft, tray, items, sel, ui, view, nextId, resetDraft, clearSelection, findItem, findQuestion, removeItem, removeText } from "./state.js";
 import { $, escapeXML } from "./dom.js";
@@ -84,8 +84,8 @@ export function buildSpecRows(container, target, cfg){
             `<button data-v="full" class="${target.contour?"":"on"}" title="${cross?"full texture: the two bars filled with elements, rows to either side of each line":"full texture: elements fill the whole shape — the contour and a lattice inside"}">full</button>`+
           `</div>`+
           (cross
-          ?`<div class="frow" title="how many elements make the ${escapeXML(cfg.def.name)}: the same number from the centre out to each tip, so only some counts exist — type a number and the nearest is used">`+
-            `<span>elements · total</span><input type="number" step="1" min="${subCount(cfg.def,minTex,contourOn())}" max="${subCount(cfg.def,16,contourOn())}" value="${subCount(cfg.def,tex||defaultTexture(cfg.def,contourOn()),contourOn())}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`
+          ?`<div class="frow" title="how many elements make the ${escapeXML(cfg.def.name)}: any number from 5 — the two lines share them, each tip to tip the same length, so with an odd number both lines hold the centre and with an even one the centre stays empty; a full texture fills the bars with the lines' lattice, so only some counts exist there and the nearest is used">`+
+            `<span>elements · total</span><input type="number" step="1" min="${subCount(cfg.def,minTex,contourOn())}" max="${subCount(cfg.def,maxTexture(cfg.def),contourOn())}" value="${subCount(cfg.def,tex||defaultTexture(cfg.def,contourOn()),contourOn())}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`
           :`<div class="frow" title="${cfg.def.circle?"elements across the circle":"elements along each side"}; at least ${minTex} so the elements carry the contour of the ${escapeXML(cfg.def.name)}">`+
             `<span>density · ${cfg.def.circle?"across":"per side"}</span><input type="number" step="1" min="${minTex}" max="16" value="${tex||defaultTexture(cfg.def,contourOn())}" data-f="texture">${cfg.showRatio===false?"":holdBtn("density",tex)}</div>`)+
           (cfg.showRatio===false?"":
@@ -152,7 +152,7 @@ export function buildSpecRows(container, target, cfg){
   const fillInput=wrap.querySelector('input[data-f="fill"]');
   const LIMIT={contour:()=>cross?`at least ${texInput.min} elements — the centre and the four tips`:cfg.def.circle?`at least ${texInput.min} across, so the rim is a clear circle`:`at least ${texInput.min} per side — it takes three elements to read as a straight edge`,
                overlap:()=>"limited so the elements do not overlap",sparse:()=>"limited: the elements would be too sparse to form a texture",
-               max:()=>cross?`limited to ${subCount(cfg.def,16,contourOn())} elements (16 from the centre to each tip)`:"limited to the highest density (16 per row)"};
+               max:()=>cross?`limited to ${subCount(cfg.def,maxTexture(cfg.def),contourOn())} elements`:"limited to the highest density (16 per row)"};
   // what the app last wrote into a field: a change event that still carries it is not an edit
   const show=(inp,v)=>{inp.value=v;shown.set(inp,inp.value);};
   const edited=inp=>inp.value!==shown.get(inp);
@@ -189,7 +189,7 @@ export function buildSpecRows(container, target, cfg){
       value=old!=null&&value===old+1?target.texture+1:old!=null&&value===old-1?target.texture-1:toN(value);
     }
     if(cfg.showRatio===false){                            // a question member: density only, the group holds the size
-      target.texture=Math.max(minTex,clampTexture(value));
+      target.texture=Math.max(minTex,clampTextureFor(cfg.def,value));
     }else{
       const r=relinkTexture(cfg.def,{n:target.texture,size:target.anchorRatio},ui.texHold,edited,value);
       target.texture=r.n;target.anchorRatio=r.size;
@@ -280,9 +280,9 @@ function holdBtn(k,tex){
 const shown=new WeakMap();   // field → the value the app last wrote into it
 /* sizes below 10% keep one decimal, so what is shown is what is used */
 const pctText=r=>{const v=r*100;return v<10?+v.toFixed(1):Math.round(v);};
-const fillPct=(def,t)=>t.texture?Math.round(200*(t.anchorRatio||DEFAULT_RATIO)*(t.texture-1)/textureSpan(def)):Math.round(TEXTURE_FILL*200);
+const fillPct=(def,t)=>t.texture?Math.round(200*(t.anchorRatio||DEFAULT_RATIO)/textureSpacing(def,t.texture)):Math.round(TEXTURE_FILL*200);
 function subLabel(cfg,tex,contour=false){
-  return `${escapeXML(cfg.anchor.name)} × ${subCount(cfg.def,tex,contour)}`+(tex?(cfg.def.cross?` · ${tex} per arm`:` · ${contour?"contour":"texture"} ${tex}`):"");
+  return `${escapeXML(cfg.anchor.name)} × ${subCount(cfg.def,tex,contour)}`+(tex?(cfg.def.cross?` · lines ${crossLines(tex).join(" + ")}`:` · ${contour?"contour":"texture"} ${tex}`):"");
 }
 
 /* ================= creation ================= */
